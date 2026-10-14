@@ -605,6 +605,13 @@ export async function getConfigCatalogWithGeo(
       } catch {
         mintInfoResult = null
       }
+      // SQ-APP-4 parity (app resolveQuoteAssetForLaunch, dbc-launch-client.ts):
+      // a failed or decimal-less read cannot prove the mint is unscaled — fail
+      // closed rather than silently converting a display-units first buy with
+      // multiplier 1 on a mint that may carry ScaledUiAmount.
+      if (mintInfoResult == null || mintInfoResult.decimals == null) {
+        decodeError ??= `Unable to resolve mint info for quote mint ${quoteMint}`
+      }
     }
 
     const shape = decoded ? decodeLaunchFeeShape(decoded) : null

@@ -282,6 +282,53 @@ describe('GET /api/configs catalog', () => {
     assert.equal(stockEntry.geo.byCategory.meme?.reason, 'stock.create')
   })
 
+  it('fails closed when a non-SPL quote mint read cannot prove the mint is unscaled', async () => {
+    const liveConfig = await decodePoolConfigFixture(LIVE_CONFIG_ACCOUNT)
+    const fixture = mobileConfigFixture()
+    const stockMint = 'FakeStockMint11111111111111111111111111111'
+    const stockConfig = { ...liveConfig, quoteMint: stockMint }
+    const stockMobileConfig = {
+      ...fixture,
+      launchConfigOptions: {
+        meme: [{ configKey: LIVE_CONFIG_KEY, optionId: 'aaplx', quoteMint: stockMint }],
+      },
+      quoteAssets: [
+        { mint: stockMint, symbol: 'AAPLx', decimals: 6, tokenProgram: 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb' },
+      ],
+      version: 'v-mintfail',
+    }
+    // A throwing mint read → decodeError (app: `resolveQuoteAssetForLaunch`
+    // throws "Unable to resolve mint info" rather than launching with
+    // multiplier 1 on a mint that may carry ScaledUiAmount).
+    const throwing = await getConfigCatalog('203.0.113.10', {
+      fetchMobileConfig: async () => stockMobileConfig,
+      fetchPoolConfig: async () => stockConfig,
+      fetchMintInfo: async () => {
+        throw new Error('RPC down')
+      },
+      donationClaimAuthorities: [DONATION_CLAIM_AUTHORITY],
+    })
+    const entry = throwing.configs[0]
+    assert.equal(entry.isStock, true)
+    assert.match(entry.decodeError ?? '', /Unable to resolve mint info/)
+    assert.equal(entry.quote.scaledUiAmountMultiplier, null)
+
+    resetConfigCatalogCachesForTests()
+
+    // A read that returns no decimals fails closed the same way.
+    const undecodable = await getConfigCatalog('203.0.113.10', {
+      fetchMobileConfig: async () => stockMobileConfig,
+      fetchPoolConfig: async () => stockConfig,
+      fetchMintInfo: async () => ({
+        decimals: null,
+        tokenProgram: 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
+        scaledUiAmount: null,
+      }),
+      donationClaimAuthorities: [DONATION_CLAIM_AUTHORITY],
+    })
+    assert.match(undecodable.configs[0].decodeError ?? '', /Unable to resolve mint info/)
+  })
+
   it('degrades gracefully when a served config cannot be decoded', async () => {
     const { configs } = await getConfigCatalog('203.0.113.10', {
       fetchMobileConfig: async () => mobileConfigFixture(),
