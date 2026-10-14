@@ -1,10 +1,11 @@
 # Acceptance coin proposal — ticket 09
 
 Proposed real coin for the real-coin acceptance run of every skill action
-(`scripts/acceptance.mjs`). **Blocked on owner approval in chat** — the script
-refuses `--send` until an approval file matching this exact name + symbol
-exists, and until ticket 08's deployment is live. No transaction has been or
-will be sent before that.
+(`scripts/acceptance.mjs`). **Blocked on owner approval** — the script refuses
+`--send` until an approval file carries the `planHash` of the full resolved run
+plan (below), and unless the base URL is `https://skill.seekuplift.com`
+(ticket 08's deployment; `ACCEPTANCE_ALLOW_LOCAL_SEND=yes` is the only
+override). No transaction has been or will be sent before that.
 
 Values below were read from the **live catalog** (`GET /api/configs` on
 2026-10-14, backend `http://localhost:3033` serving the production
@@ -24,30 +25,50 @@ hardcoded per config.
 | `quote` | SKR (`SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3`), 6 decimals, SPL Token, no ScaledUiAmount multiplier | Payer needs SKR for the first buy and the buy step. |
 | `fees` | label `99% → 1.25% (anti-sniper ~10 min), then 0.25% after graduation`; curve `decay`: opening 9900 bps → floor 125 bps over 20×75 slots (`decaySecondsEstimate` ≈ 600 s); `creatorSharePct` 16; `allFeesToCause` false | The creator-fee default the skill mandates for memecoins. Trades wait out the ~600 s window (+60 s margin) so they pay the floor fee, not the opening fee. |
 | `supportsFirstBuy` / `supportsCause` | `true` / `true` | First buy bundled; donation required only while shipping causes are offered. |
-| `donation` | `{ "mode": "cause", "cause": "<first shipping slug from causesOffered>" }` when required, else omitted | Resolved at run time: the script POSTs without a donation first; on `400 donation_required` it re-posts with the first offered slug. On the dry-run backend no shipping cause was offered, so the launch was accepted with no donation. |
+| `donation` | `{ "mode": "cause", "cause": "<causesOffered[0]>" }` when causes are offered, else none | Resolved **before approval** and printed in the plan (and hashed): the dry-run POSTs without a donation and takes the first offered slug on `400 donation_required` (pin one with `ACCEPTANCE_DONATION_CAUSE`). `--send` never re-picks; if the offered causes change, the plan hash changes and needs re-approval. On the earlier dry-run backend no shipping cause was offered (donation none). **The owner must confirm the cause printed in the plan.** |
 | `firstBuyAmount` | `100` SKR (display units — the config's `quote.firstBuyDefault`; service converts to atoms) | ≈ the suggested creator position. |
 | buy amount | `10` SKR = `10000000` quote atoms (`ACCEPTANCE_BUY_AMOUNT`) | Small; inside the migration threshold by far. |
 | sell amount | 50% of the purchased base balance (`ACCEPTANCE_SELL_BPS=5000`) | "Part of the balance" per the ticket. |
 | `slippageBps` | `100` | 1% — small trade on a fresh curve. |
-| payer | funded owner keypair from `ACCEPTANCE_KEYPAIR` | Needs ~0.02 SOL for fees/rent plus the SKR spend (~110 SKR total: 100 first buy + 10 buy). |
+| payer | funded owner keypair from `ACCEPTANCE_KEYPAIR` (part of the plan) | Pre-checked before anything is sent; the script refuses if short. Needs the config's pool-creation fee + 0.03 SOL margin for rent/fees, and ~111.1 SKR (100 first buy + 10 buy, +1% margin). |
 
 ## Run plan (once owner approves + service is deployed)
 
-```bash
-# 1. record the approval (the gate)
-cat > acceptance-approval.json <<'EOF'
-{ "approved": true, "name": "Skill Acceptance Coin", "symbol": "SKACC",
-  "approvedBy": "<owner>", "approvedAt": "<iso>", "note": "approved in chat" }
-EOF
+The approval binds the **whole plan**, not just name+symbol: base URL, config
+key, name, symbol, description, image sha256, first-buy and buy amounts, sell
+rule, slippage, donation cause, quote mint and payer pubkey. Changing any of
+them (including via `ACCEPTANCE_*` env overrides) changes the plan hash and
+voids the approval.
 
-# 2. run for real against the deployed service
+```bash
+# 1. get the plan + hash (no sends). Use the real payer keypair and the
+#    deployed URL so the hash is the one --send will compute.
+ACCEPTANCE_KEYPAIR=<payer.json> \
+  node scripts/acceptance.mjs --dry-run --base-url https://skill.seekuplift.com
+#    -> prints the full plan JSON and "PLAN HASH: <sha256>"
+
+# 2. owner reviews the printed plan (incl. donation cause), then write the approval
+cat > acceptance-approval.json <<'JSON'
+{ "approved": true, "planHash": "<hash from step 1>",
+  "approvedBy": "<owner>", "approvedAt": "<iso>" }
+JSON
+
+# 3. run for real against the deployed service
 ACCEPTANCE_KEYPAIR=<payer.json> \
   node scripts/acceptance.mjs --send --base-url https://skill.seekuplift.com
+
+# if a run stops partway (mint/pool/signatures are saved to the report as they
+# land; failures print recovery steps), continue without relaunching:
+ACCEPTANCE_KEYPAIR=<payer.json> \
+  node scripts/acceptance.mjs --send --resume acceptance-report-<ts>.json
 ```
 
+A second coin is never launched for the same plan hash: a prior report that
+records a launched mint makes `--send` refuse and point at `--resume`.
+
 Steps: docs → configs (meme default = creator-fee config) → launch + first
-buy (sign/send/confirm) → find the coin via search AND list → wait out the
-anti-sniper window → buy → sell half → verify balances moved as quoted within
+buy (sign/send/confirm) → find the coin via search (mint, symbol, name) AND list →
+wait until the fee curve has reached its floor → buy → sell half → verify balances moved as quoted within
 slippage. Every signature is printed and written to
 `acceptance-report-*.json`. The script stops at the first miss.
 

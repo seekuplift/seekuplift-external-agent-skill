@@ -41,7 +41,7 @@ tx building on the same SDK path as the app.
 
 ### Hosting (default; see open decision 1)
 
-Colocate on prod hosts A+B: service on `127.0.0.1:3001`, new Caddy site `skill.seekuplift.com`
+Colocate on prod hosts A+B: service on `127.0.0.1:3010` (3001 is Grafana on host A), user `skill`, Caddy site `/etc/caddy/conf.d/skill.caddy` for `skill.seekuplift.com`
 (Cloudflare-proxied, same LB). The service calls the backend at `127.0.0.1:3000` with
 `X-Forwarded-For: <client IP from Caddy>`. Result: geo verdicts and upload rate limits apply per
 calling agent, not to the service's own IP. Replaces the Vercel path in `DEPLOY.md`.
