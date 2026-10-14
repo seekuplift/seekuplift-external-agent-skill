@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { buildDbcSwapTx } from '@/lib/dbc'
+import { buildDbcSwapTx } from '@/lib/dbc-trade'
 
 export const runtime = 'nodejs'
 

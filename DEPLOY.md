@@ -15,8 +15,9 @@ npm run dev                   # http://localhost:3001
 |---|---|---|
 | `FILEBASE_API_KEY` | Yes | Filebase IPFS Bearer token (same as mobile app's `EXPO_PUBLIC_FILEBASE_API_KEY`) |
 | `IPFS_GATEWAY_URL` | No | IPFS gateway base URL. Default: `https://ipfs.filebase.io/ipfs` |
-| `BACKEND_URL` | No | backend-rs-sql base URL for pool listing. Default: `http://localhost:3000` |
+| `BACKEND_URL` | No | backend-rs-sql base URL for the mobile-config source and pool listing. Default: `http://localhost:3000`. In the colocated deployment the service calls it over loopback and forwards each caller's IP as `X-Forwarded-For` (the backend trusts XFF only from `127.0.0.1`), so geo verdicts and the 10/hour upload limit apply per calling agent. |
 | `SOLANA_RPC_URL` | No | Solana mainnet RPC endpoint. Default: `https://api.mainnet-beta.solana.com` |
+| `DONATION_CLAIM_AUTHORITIES` | No | Comma-separated donation claim authorities (config `feeClaimer` values that make a launch config cause-capable). Must mirror the app's `config/production-manifest.json` → `targets.production.donationClaimAuthorities` (`EXPO_PUBLIC_DONATION_CLAIM_AUTHORITY`); update it whenever the app's value changes or new configs ship. Unset/empty → no config is cause-capable. |
 
 For production, use a private RPC (Helius, QuickNode, Triton) to avoid rate limits on `POST /api/launch` and `/api/trade/*` — those make multiple RPC calls per request.
 

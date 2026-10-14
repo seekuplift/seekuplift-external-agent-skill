@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { fetchDbcSwapQuote, fetchDbcPoolInfo } from '@/lib/dbc'
+import { fetchDbcSwapQuote, fetchDbcPoolInfo } from '@/lib/dbc-trade'
 
 export const runtime = 'nodejs'
 

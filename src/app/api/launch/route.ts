@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { buildLaunchTx } from '@/lib/dbc'
+import { buildLaunchTx } from '@/lib/dbc-launch'
 import { uploadImageFromUrl, uploadMetadataJson } from '@/lib/ipfs'
 
 export const runtime = 'nodejs'
