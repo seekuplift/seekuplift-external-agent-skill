@@ -33,6 +33,7 @@ All responses are `cache-control: no-store`. Geo verdicts are per-caller — do 
 Each `GET /api/configs` entry is one launch option. Pick by:
 
 - **Memecoins**: use the entry marked `defaultFor: ["meme"]`. It is a creator-fee config (`fees.creatorSharePct > 0`) — never an all-fees-to-cause config. Switch to an `fees.allFeesToCause: true` config **only when the user explicitly asks** for every fee to go to the cause.
+  - **No usable default?** If no config has `defaultFor: ["meme"]`, or it is geo-unavailable for the caller (`geo.byCategory.meme.allowed: false`), pick another meme-capable config with `fees.creatorSharePct > 0` (and `decodeError: null`, geo-allowed). **Never fall back to an `allFeesToCause` config** unless the user explicitly asked for all fees to go to the cause. If no such config exists, tell the user instead of launching.
 - **Category**: the config must list your launch's `category` in `categories`. Pass it verbatim as `/api/launch`'s `category`.
 - **`supportsCause`**: donation routing is available — a meme launch on such a config must include a `donation` pick while causes are offered.
 - **`supportsFirstBuy`**: a creator first buy may be bundled into the launch transaction.
@@ -257,6 +258,7 @@ Builds the unsigned swap transaction.
 }
 ```
 
+- `minimumAmountOut` of `"0"` **disables slippage protection** — agents should not send it. Pass the quote's value or omit the field.
 - `minimumAmountOut` is taken **verbatim**. Omit it and the service quotes internally at `slippageBps` (default 50) — a one-call agent still gets the app's floor math, and the response's `quote` carries what was used.
 
 **Response**:

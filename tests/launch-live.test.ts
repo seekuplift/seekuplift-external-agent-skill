@@ -10,15 +10,16 @@
  * a parseable legacy `Transaction`, mint signature present, payer slot
  * still empty.
  *
- * The payer is a throwaway (unfunded) key, so simulation itself reports a
- * funds error — that is expected; the check is that the build path works
- * end-to-end against mainnet and produces the right shape.
+ * The payer is `LAUNCH_LIVE_PAYER` — a mainnet pubkey holding SOL (and, for
+ * a first buy / non-SOL quote, enough quote token). Simulation runs with
+ * sigVerify off + replaceRecentBlockhash and must succeed (err == null), so
+ * the instructions actually execute. Skipped (never passed) when unset.
  *
- * Run with: `LAUNCH_LIVE=1 node --test tests/launch-live.test.ts`
+ * Run with: `LAUNCH_LIVE=1 LAUNCH_LIVE_PAYER=<pubkey> node --test tests/launch-live.test.ts`
  */
 import { strict as assert } from 'node:assert'
 import { describe, it } from 'node:test'
-import { ComputeBudgetProgram, Keypair, Transaction } from '@solana/web3.js'
+import { ComputeBudgetProgram, Transaction, VersionedTransaction } from '@solana/web3.js'
 import { buildLaunchTx } from '../src/lib/dbc-launch.ts'
 import { getConnection } from '../src/lib/dbc-shared.ts'
 import { LIVE_CONFIG_KEY } from './helpers.ts'
@@ -26,13 +27,19 @@ import { LIVE_CONFIG_KEY } from './helpers.ts'
 const SKR_MINT = 'SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3'
 
 const LIVE = process.env.LAUNCH_LIVE === '1'
+const PAYER = process.env.LAUNCH_LIVE_PAYER
+const SKIP: string | false = !LIVE
+  ? 'set LAUNCH_LIVE=1 to run'
+  : !PAYER
+    ? 'set LAUNCH_LIVE_PAYER to a funded mainnet pubkey (SOL, plus quote token for a first buy)'
+    : false
 
 describe('buildLaunchTx against mainnet (LAUNCH_LIVE=1)', () => {
   it(
     'builds + simulates a createPool tx on the live config',
-    { skip: LIVE ? false : 'set LAUNCH_LIVE=1 to run', timeout: 90_000 },
+    { skip: SKIP, timeout: 90_000 },
     async () => {
-    const payer = Keypair.generate().publicKey.toBase58()
+    const payer = PAYER!
     const result = await buildLaunchTx({
       name: 'Agent Live Check',
       symbol: 'ALV',
@@ -59,27 +66,14 @@ describe('buildLaunchTx against mainnet (LAUNCH_LIVE=1)', () => {
     assert.ok(mintSig?.signature, 'mint keypair signature missing')
     assert.equal(payerSig?.signature ?? null, null, 'payer slot must stay unsigned')
     assert.ok(result.poolAddress, 'pool address derived')
-    // The tx MUST fail at fee-payer resolution — the throwaway payer is
-    // unfunded. Anything else is a real build bug: an InstructionError means
-    // the DBC program rejected the instruction itself, which is exactly the
-    // failure class this check exists to catch.
-    const sim = await getConnection().simulateTransaction(tx)
+    // Funded payer + sigVerify off: the instructions must actually execute.
+    const sim = await getConnection().simulateTransaction(
+      new VersionedTransaction(tx.compileMessage()),
+      { sigVerify: false, replaceRecentBlockhash: true, commitment: 'confirmed' },
+    )
     const errJson = JSON.stringify(sim.value.err)
-    console.log(
-      '   [live] simulated unitsConsumed=%s err=%s (unfunded payer expected)',
-      sim.value.unitsConsumed,
-      errJson,
-    )
-    assert.ok(sim.value.err != null, 'expected a funds failure for the unfunded payer')
-    assert.ok(
-      !(typeof sim.value.err === 'object' && 'InstructionError' in sim.value.err),
-      `instruction-level failure indicates a bad build: ${errJson}`,
-    )
-    assert.match(
-      errJson,
-      /AccountNotFound|[Ii]nsufficient|lamport/i,
-      `unexpected simulation error for an unfunded payer: ${errJson}`,
-    )
+    console.log('   [live] simulated unitsConsumed=%s err=%s', sim.value.unitsConsumed, errJson)
+    assert.equal(sim.value.err, null, `simulation failed (logs: ${sim.value.logs?.slice(-6).join(' | ')}): ${errJson}`)
     },
   )
 })

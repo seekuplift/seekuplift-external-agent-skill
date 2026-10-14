@@ -8,26 +8,25 @@
  * Discovers a pool still on the curve under the live production SKR config
  * (61UBwyZf…), quotes + builds a buy and a sell on it, then simulates both.
  * A swap only simulates cleanly when the unsigned `owner`'s input ATA holds
- * the input token, so each side tries the pool's known wallet candidates
- * (`creator`, `feeClaimer`, `leftoverReceiver`) and asserts `err == null`
- * for the first funded one. Indexed RPC calls (`getTokenLargestAccounts`,
- * `getProgramAccounts`) are rate-limited on public endpoints, which is why
- * discovery uses per-address `getTokenAccountBalance` reads instead. When no
- * candidate holds the input the check degrades to "simulation responded" —
- * the same funds-error-tolerant contract the launch live test uses — and
- * says so in the output.
+ * the input token. The owner is `TRADE_LIVE_OWNER` (a funded mainnet pubkey)
+ * when set, otherwise the pool's known wallet candidates (`creator`,
+ * `feeClaimer`, `leftoverReceiver`) are probed with per-address
+ * `getTokenAccountBalance` reads. Simulation uses sigVerify off +
+ * replaceRecentBlockhash and must return err == null. A side with no funded
+ * owner is SKIPPED with a reason — never passed vacuously.
  *
  * Run with: `TRADE_LIVE=1 node --test tests/trade-live.test.ts`
  */
 import { strict as assert } from 'node:assert'
 import { describe, it } from 'node:test'
-import { PublicKey, Transaction } from '@solana/web3.js'
+import { PublicKey, Transaction, VersionedTransaction } from '@solana/web3.js'
 import { getAssociatedTokenAddressSync } from '@solana/spl-token'
 import { getConnection, getDbcClient } from '../src/lib/dbc-shared.ts'
 import { fetchDbcPoolRead, buildDbcSwapTx } from '../src/lib/dbc-trade.ts'
 import { LIVE_CONFIG_KEY } from './helpers.ts'
 
 const LIVE = process.env.TRADE_LIVE === '1'
+const ENV_OWNER = process.env.TRADE_LIVE_OWNER
 const SPL_TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
 const TOKEN_2022_PROGRAM_ID = new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb')
 
@@ -66,8 +65,9 @@ describe('trade quote + tx simulation against mainnet (TRADE_LIVE=1)', () => {
   it(
     'quotes and simulates a buy and a sell on a live curve pool',
     { skip: LIVE ? false : 'set TRADE_LIVE=1 to run', timeout: 300_000 },
-    async () => {
+    async (t) => {
       const connection = getConnection()
+      const unfunded: string[] = []
       const client = getDbcClient()
 
       // Discover a pool still on the curve under the live production config.
@@ -98,6 +98,7 @@ describe('trade quote + tx simulation against mainnet (TRADE_LIVE=1)', () => {
         (config.feeClaimer as { toString(): string } | undefined)?.toString(),
         (config.leftoverReceiver as { toString(): string } | undefined)?.toString(),
       ].filter((v): v is string => typeof v === 'string' && v.length > 0)
+      if (ENV_OWNER) candidates.unshift(ENV_OWNER)
 
       // The base mint's token program comes from the pool's tokenType; the
       // quote mint's from its account owner.
@@ -122,12 +123,15 @@ describe('trade quote + tx simulation against mainnet (TRADE_LIVE=1)', () => {
         console.log(
           `[trade-live] ${params.side} ${params.amountIn} atoms → ~${quote.amountOut} out (min ${quote.minimumAmountOut})`,
         )
-        const funded = await fundedInputOwners({
-          candidates,
+        const discovered = await fundedInputOwners({
+          candidates: candidates.filter((c) => c !== ENV_OWNER),
           inputMint: params.inputMint,
           inputTokenProgram: params.inputTokenProgram,
           amountIn: params.amountIn,
         })
+        // TRADE_LIVE_OWNER is asserted funded by the operator (also covers
+        // native-SOL inputs that have no token ATA).
+        const funded = ENV_OWNER ? [{ owner: ENV_OWNER }, ...discovered] : discovered
         console.log(
           `[trade-live] ${params.side}: ${funded.length} funded candidate(s)`,
         )
@@ -141,7 +145,10 @@ describe('trade quote + tx simulation against mainnet (TRADE_LIVE=1)', () => {
             minimumAmountOut: quote.minimumAmountOut,
           })
           const tx = Transaction.from(Buffer.from(transaction, 'base64'))
-          const result = await connection.simulateTransaction(tx)
+          const result = await connection.simulateTransaction(
+            new VersionedTransaction(tx.compileMessage()),
+            { sigVerify: false, replaceRecentBlockhash: true, commitment: 'confirmed' },
+          )
           lastErr = result.value.err
           if (result.value.err == null) {
             console.log(`[trade-live] ${params.side} simulated clean as ${owner}`)
@@ -153,22 +160,7 @@ describe('trade quote + tx simulation against mainnet (TRADE_LIVE=1)', () => {
             `${params.side} simulation failed for all funded owners; last=${JSON.stringify(lastErr)}`,
           )
         }
-        // No funded candidate — same contract as the launch live test: the
-        // tx builds and the simulation round-trips (a funds error is expected
-        // for an owner that holds no input tokens).
-        const { transaction } = await buildDbcSwapTx({
-          poolAddress: info.poolAddress,
-          ownerAddress: candidates[0],
-          swapBaseForQuote: params.side === 'sell',
-          amountIn: params.amountIn,
-          minimumAmountOut: quote.minimumAmountOut,
-        })
-        const tx = Transaction.from(Buffer.from(transaction, 'base64'))
-        const result = await connection.simulateTransaction(tx)
-        console.log(
-          `[trade-live] ${params.side}: no funded owner — simulation responded with err=${JSON.stringify(result.value.err)} (expected funds-class error)`,
-        )
-        assert.ok('err' in result.value)
+        unfunded.push(params.side)
       }
 
       // Small buy: a lamport-scale slice of the quote mint.
@@ -188,6 +180,11 @@ describe('trade quote + tx simulation against mainnet (TRADE_LIVE=1)', () => {
         inputTokenProgram: baseTokenProgram,
         amountIn: sellIn,
       })
+      if (unfunded.length > 0) {
+        t.skip(
+          `no funded owner for ${unfunded.join('+')}; set TRADE_LIVE_OWNER to a mainnet pubkey holding the input token`,
+        )
+      }
     },
   )
 })

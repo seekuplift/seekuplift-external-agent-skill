@@ -24,7 +24,7 @@
         "migrationQuoteThreshold", "isStock", "defaultFor",
         "geo.{allowed,reason,region,byCategory}", "decodeError"
       ],
-      "choosing": "Memecoins: the entry marked defaultFor:[\"meme\"] (creator-fee config); an allFeesToCause config only when the user explicitly asks. Match category to the launch. Always explain the entry's full fee schedule — including any anti-sniper opening fee (curve.kind=decay: openingBps decaying to floorBps over decaySecondsEstimate) — to the user before launching or trading; Meteora takes 20% of every trading fee first. Read figures from the catalog, never from the docs."
+      "choosing": "Memecoins: the entry marked defaultFor:[\"meme\"] (creator-fee config); an allFeesToCause config only when the user explicitly asks. If no config has defaultFor:[\"meme\"] or it is geo-unavailable for the caller, pick another meme option with creatorSharePct > 0; never fall back to an allFeesToCause config unless the user explicitly asked for all fees to the cause; if none exists, tell the user. Match category to the launch. Always explain the entry's full fee schedule — including any anti-sniper opening fee (curve.kind=decay: openingBps decaying to floorBps over decaySecondsEstimate) — to the user before launching or trading; Meteora takes 20% of every trading fee first. Read figures from the catalog, never from the docs."
     },
     {
       "id": "launch_token",
@@ -118,6 +118,7 @@
     "amountOut/minimumAmountOut are NET of any Token-2022 base-mint transfer fee (baseTransferFeeAtomics reports it).",
     "Buys are partial-fill: a threshold-crossing buy consumes only enough quote to graduate the curve and refunds the rest (consumedInput/amountLeft).",
     "Display figures on /api/pools (price, marketCap, volume24h) are display-grade — never money-path inputs.",
+    "minimumAmountOut \"0\" disables slippage protection — agents should not send it; pass the quote's value or omit it.",
     "All responses are cache-control: no-store; geo verdicts are per-caller."
   ]
 }
