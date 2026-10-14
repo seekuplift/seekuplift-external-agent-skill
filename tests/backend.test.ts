@@ -21,9 +21,12 @@ describe('clientIpFromHeaders', () => {
   it('takes the FIRST x-forwarded-for hop (Caddy rewrites the chain to the client IP)', () => {
     assert.equal(clientIpFromHeaders(hdrs({ 'x-forwarded-for': '203.0.113.7, 10.0.0.1' })), '203.0.113.7')
   })
-  it('falls back to x-real-ip and returns null on garbage', () => {
-    assert.equal(clientIpFromHeaders(hdrs({ 'x-real-ip': '2001:db8::1' })), '2001:db8::1')
+  it('returns null on non-IP garbage and ignores x-real-ip', () => {
+    assert.equal(clientIpFromHeaders(hdrs({ 'x-forwarded-for': '2001:db8::1' })), '2001:db8::1')
     assert.equal(clientIpFromHeaders(hdrs({ 'x-forwarded-for': 'not-an-ip' })), null)
+    assert.equal(clientIpFromHeaders(hdrs({ 'x-forwarded-for': '1:2:3' })), null)
+    assert.equal(clientIpFromHeaders(hdrs({ 'x-forwarded-for': '999.1.1.1' })), null)
+    assert.equal(clientIpFromHeaders(hdrs({ 'x-real-ip': '203.0.113.7' })), null)
     assert.equal(clientIpFromHeaders(hdrs({})), null)
   })
   it('accepts plain Records too', () => {

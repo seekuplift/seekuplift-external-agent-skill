@@ -5,6 +5,7 @@
  * trusts `X-Forwarded-For` from a loopback peer — so geo verdicts and the
  * 10/hour upload budget apply to the calling agent, not to the service host.
  */
+import { isIP } from 'node:net'
 import { BACKEND_URL } from './config.ts'
 
 /**
@@ -22,14 +23,9 @@ export function clientIpFromHeaders(
       ? (headers as Pick<Headers, 'get'>).get('x-forwarded-for')
       : (headers as Record<string, string | string[] | undefined>)['x-forwarded-for']
   const first = (Array.isArray(raw) ? raw[0] : raw)?.split(',')[0]?.trim() ?? ''
-  // IPv4 or IPv6 literal — anything else is not forwarded.
-  if (/^[0-9a-fA-F.:]{3,45}$/.test(first)) return first
-  const realIp =
-    typeof (headers as Pick<Headers, 'get'>).get === 'function'
-      ? (headers as Pick<Headers, 'get'>).get('x-real-ip')
-      : (headers as Record<string, string | string[] | undefined>)['x-real-ip']
-  const real = (Array.isArray(realIp) ? realIp[0] : realIp)?.trim() ?? ''
-  return /^[0-9a-fA-F.:]{3,45}$/.test(real) ? real : null
+  // Valid IPv4/IPv6 literal only. No x-real-ip fallback: Caddy strips it and
+  // the backend ignores it.
+  return isIP(first) !== 0 ? first : null
 }
 
 const DEFAULT_TIMEOUT_MS = 10_000

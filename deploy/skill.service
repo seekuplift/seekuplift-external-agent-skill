@@ -13,19 +13,19 @@ After=network-online.target meteora-backend.service
 Wants=network-online.target
 
 [Service]
-User=meteora
-Group=meteora
-WorkingDirectory=/opt/meteora/agent
+User=skill
+Group=skill
+WorkingDirectory=/opt/skill
 Environment=NODE_ENV=production
-EnvironmentFile=/opt/meteora/agent/.env
+EnvironmentFile=/opt/skill/.env
 # Loopback-only bind — `next start` defaults to 0.0.0.0, which would expose the
 # service on the public interface and let callers bypass Caddy's XFF rewrite
 # (a self-supplied first XFF hop would be forwarded to the backend as the
 # caller's IP). `-H` has no env equivalent in `next start`; keep it explicit.
-ExecStart=/usr/bin/env node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3001
+ExecStart=/usr/bin/env node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3010
 # "Started" = answering HTTP; any JSON on the static skill.json file proves the
 # server is up without touching the backend.
-ExecStartPost=/bin/sh -c 'for i in $(seq 1 60); do curl -fsS -o /dev/null http://127.0.0.1:3001/skill.json && exit 0; sleep 1; done; exit 1'
+ExecStartPost=/bin/sh -c 'for i in $(seq 1 60); do curl -fsS -o /dev/null http://127.0.0.1:3010/skill.json && exit 0; sleep 1; done; exit 1'
 TimeoutStartSec=90
 Restart=always
 RestartSec=3
@@ -35,7 +35,14 @@ LimitNOFILE=65536
 # needs no kernel, device, or home access.
 NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths=/opt/meteora/agent/.next
+ReadWritePaths=/opt/skill/.next
+# Dedicated `skill` user, no access to the backend's tree/secrets; belt and
+# braces on top of file modes (`-` = ignore if the path is absent). Everything
+# the meteora user owns lives under /opt/meteora (backend, obs stack, backups).
+InaccessiblePaths=-/opt/meteora -/etc/meteora
+# Idle ~150-250 MB; 768M leaves headroom for bursts without letting a leak
+# starve the backend on the same host.
+MemoryMax=768M
 ProtectHome=true
 PrivateTmp=true
 PrivateDevices=true

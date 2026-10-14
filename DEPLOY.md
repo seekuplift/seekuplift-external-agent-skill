@@ -27,21 +27,24 @@ The service runs on the same prod hosts as backend-rs-sql, behind a third
 Caddy site on the same Cloudflare load balancer:
 
 ```
-Cloudflare LB → skill.seekuplift.com → Caddy :443 → 127.0.0.1:3001 (this service)
+Cloudflare LB → skill.seekuplift.com → Caddy :443 → 127.0.0.1:3010 (this service)
                                                     → 127.0.0.1:3000 (backend-rs-sql)
 ```
 
-Host addresses, SSH user (`ops`), deploy key (`~/.ssh/uplift_deploy`), the
-`meteora` service user and the `/opt/meteora/` layout all follow the backend's
-conventions — see `backend-rs-sql/ops/deploy/README.md` for host A/B IPs.
+Host addresses, SSH user (`ops`) and deploy key (`~/.ssh/uplift_deploy`) follow
+the backend's conventions — see `backend-rs-sql/ops/deploy/README.md` for host
+A/B IPs. The service itself runs as its own `skill` system user from
+`/opt/skill` (created by `install-skill.sh`), with no access to `/opt/meteora`
+(backend `.env`, obs stack). Port 3010 is loopback-only (Grafana owns 3001 on
+host A).
 Deploy artifacts live in `deploy/` in this repo:
 
 | File | Use |
 |---|---|
-| `deploy/Caddyfile.skill` | `skill.seekuplift.com` site block — merge into `/etc/caddy/Caddyfile` (owned by `backend-rs-sql/ops/deploy/Caddyfile`). Replaces inbound `X-Forwarded-For` with `CF-Connecting-IP` so `clientIpFromHeaders`' first-hop read is the real caller IP. |
-| `deploy/skill.service` | systemd unit — `next start` bound to `127.0.0.1:3001`, env file, restart policy, hardening. Loopback-only is load-bearing: a public bind would let callers bypass Caddy's XFF rewrite and spoof their IP to the backend. |
-| `deploy/skill.env.template` | Template for `/opt/meteora/agent/.env` (0600, owner `meteora`). |
-| `deploy/install-skill.sh` | Install/upgrade one host: `git archive HEAD` snapshot → build on host → `.env` + unit → restart → health check. |
+| `deploy/Caddyfile.skill` | `skill.seekuplift.com` site block — installed by `install-skill.sh` as `/etc/caddy/conf.d/skill.caddy`, imported by the backend's Caddyfile (which owns `/etc/caddy/Caddyfile`). Replaces inbound `X-Forwarded-For` with `CF-Connecting-IP` so `clientIpFromHeaders`' first-hop read is the real caller IP. |
+| `deploy/skill.service` | systemd unit — `next start` bound to `127.0.0.1:3010`, runs as user `skill`, env file, `MemoryMax=768M`, restart policy, hardening, `/opt/meteora` hidden. Loopback-only is load-bearing: a public bind would let callers bypass Caddy's XFF rewrite and spoof their IP to the backend. |
+| `deploy/skill.env.template` | Template for `/opt/skill/.env` (0600, owner `skill`). |
+| `deploy/install-skill.sh` | Install/upgrade one host: `git archive HEAD` snapshot → memory-checked, memory-capped build on host → `.env` + unit + Caddy site → restart → health check. Keeps the previous release as `/opt/skill.prev`. |
 
 **Human gate:** the steps below run on production hosts and touch Cloudflare.
 They are recorded here exactly; the actual deploy and DNS change are
@@ -58,9 +61,10 @@ sudo apt-get install -y nodejs
 node --version   # v20.x
 ```
 
-(`next build` on the host needs roughly 1–2 GB RAM; if a host is too small,
-build on a same-arch machine and ship `.next/` + `node_modules/` instead —
-not currently needed on A+B.)
+`install-skill.sh` builds on the host inside `systemd-run --scope -p
+MemoryMax=1500M` (an OOM kills the build, not the backend) and refuses to start
+if `free -m` shows < 1800 MB available. If a host cannot spare that, see
+"Building off-host" below.
 
 ### One-time: Cloudflare DNS + origin certificate
 
@@ -72,31 +76,28 @@ not currently needed on A+B.)
    the operator machine as `~/.config/seekuplift/skill-origin.pem` /
    `skill-origin.key` (0600). SSL mode stays Full (strict).
 
-### One-time per host: merge the Caddy site
+### One-time per host: origin certificate
 
-`/etc/caddy/Caddyfile` is owned by `backend-rs-sql/ops/deploy/Caddyfile` —
-append this repo's block on each host (keep a copy of the merged file so the
-next backend `install-host.sh` run doesn't silently drop the site; ideally
-merge the block into that repo's Caddyfile too):
+The skill's Caddy site is **not** appended to `/etc/caddy/Caddyfile` (the
+backend's `install-host.sh` overwrites that file on every deploy). Instead the
+backend Caddyfile has `import /etc/caddy/conf.d/*.caddy`, and `install-skill.sh`
+installs `deploy/Caddyfile.skill` as `/etc/caddy/conf.d/skill.caddy`
+(full-config `caddy validate` first, then atomic move + reload; unchanged
+content is left alone). **Deploy the backend Caddyfile (with the import line,
+`ops/deploy/install-host.sh` or `install-updates-site.sh`) to the host first**;
+`install-skill.sh` refuses otherwise. The backend install never touches
+`/etc/caddy/skill-origin.*` or `conf.d/`.
 
 ```bash
-scp -i ~/.ssh/uplift_deploy deploy/Caddyfile.skill ops@<HOST>:/tmp/
 scp -i ~/.ssh/uplift_deploy ~/.config/seekuplift/skill-origin.pem \
     ~/.config/seekuplift/skill-origin.key ops@<HOST>:/tmp/
 ssh -i ~/.ssh/uplift_deploy ops@<HOST> sudo bash <<'REMOTE'
 set -euo pipefail
 install -o root -g caddy -m 0640 /tmp/skill-origin.pem /etc/caddy/skill-origin.pem
 install -o root -g caddy -m 0640 /tmp/skill-origin.key /etc/caddy/skill-origin.key
-printf '\n' >> /etc/caddy/Caddyfile
-cat /tmp/Caddyfile.skill >> /etc/caddy/Caddyfile
-caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-systemctl reload caddy
-rm -f /tmp/skill-origin.pem /tmp/skill-origin.key /tmp/Caddyfile.skill
+rm -f /tmp/skill-origin.pem /tmp/skill-origin.key
 REMOTE
 ```
-
-Idempotency: only append the block once — if `/etc/caddy/Caddyfile` already
-contains `skill.seekuplift.com`, replace that block instead of appending.
 
 ### Per deploy: env file + install (B first, then A)
 
@@ -125,7 +126,7 @@ a recorded tree.
 
 ```bash
 ssh -i ~/.ssh/uplift_deploy ops@<HOST> 'systemctl status skill --no-pager; \
-  curl -s http://127.0.0.1:3001/skill.json | head'
+  curl -s http://127.0.0.1:3010/skill.json | head; ss -ltnp | grep 3010'
 curl -s https://skill.seekuplift.com/skill.json        # via Cloudflare
 curl -s https://skill.seekuplift.com/api/configs | head
 ```
@@ -151,8 +152,23 @@ deploy/install-skill.sh <HOST_B> /tmp/skill.env
 deploy/install-skill.sh <HOST_A> /tmp/skill.env
 ```
 
-Rollback: redeploy the previous SHA (`git archive` runs on `HEAD`, so check it
-out first). The service is stateless — no data migration.
+Rollback (previous release is kept as `/opt/skill.prev`):
+
+```bash
+ssh -i ~/.ssh/uplift_deploy ops@<HOST> 'sudo sh -c "mv /opt/skill /opt/skill.bad && mv /opt/skill.prev /opt/skill && systemctl restart skill"'
+```
+
+Or redeploy an older SHA (`git archive` runs on `HEAD`, so check it out first).
+The service is stateless — no data migration.
+
+### Building off-host
+
+If a host lacks the RAM headroom for `next build`, build on a same-arch
+(linux x64) machine with the same Node major: `npm ci && npm run build && npm
+prune --omit=dev`, tar the tree (including `.next/` and `node_modules/`, plus a
+`.env`), and unpack it into `/opt/skill.new` owned by `skill:skill` on the host,
+then follow the swap/restart steps in `install-skill.sh` by hand (the script
+currently always builds on the host).
 
 ### Status
 
@@ -232,8 +248,8 @@ docker run -p 3001:3001 \
 
 - [ ] Private Solana RPC set (`SOLANA_RPC_URL`) — public endpoint rate-limits aggressively
 - [ ] `BACKEND_URL=http://127.0.0.1:3000` on each host — launch image/metadata uploads proxy through backend-rs-sql (it owns the Filebase credentials); launch fails without it
-- [ ] `skill.service` binds `127.0.0.1:3001` only (`ss -ltnp | grep 3001` shows no public bind)
-- [ ] `skill.seekuplift.com` site merged into `/etc/caddy/Caddyfile` with its own Origin CA cert; `X-Forwarded-For` replaced with `CF-Connecting-IP` (never appended)
+- [ ] `skill.service` runs as user `skill` and binds `127.0.0.1:3010` only (`ss -ltnp | grep 3010` shows no public bind)
+- [ ] `skill.seekuplift.com` site installed at `/etc/caddy/conf.d/skill.caddy` (backend Caddyfile with the `conf.d` import deployed first) with its own Origin CA cert; `X-Forwarded-For` replaced with `CF-Connecting-IP` (never appended)
 - [ ] Cloudflare DNS: proxied CNAME `skill` → `app-api.seekuplift.com`; SSL mode Full (strict)
 - [ ] `DONATION_CLAIM_AUTHORITIES` matches the app's production manifest — re-check on every config shipment
 - [ ] Verify `/skill.md` and `/skill.json` are publicly reachable via `https://skill.seekuplift.com` (agent discovery)
