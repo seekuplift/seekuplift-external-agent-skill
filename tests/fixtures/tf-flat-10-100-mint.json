@@ -1,0 +1,59 @@
+{
+  "data": {
+    "parsed": {
+      "info": {
+        "decimals": 6,
+        "extensions": [
+          {
+            "extension": "metadataPointer",
+            "state": {
+              "authority": "DP6VvW9rtDH5whFXu7CC6XGaqX8npEg1N61a4PFmJWbo",
+              "metadataAddress": "5V85F1eDH6XCtoKXSrPav13wTNhuGrudPnvVSGeukYGj"
+            }
+          },
+          {
+            "extension": "transferFeeConfig",
+            "state": {
+              "newerTransferFee": {
+                "epoch": 0,
+                "maximumFee": 18446744073709552000,
+                "transferFeeBasisPoints": 100
+              },
+              "olderTransferFee": {
+                "epoch": 0,
+                "maximumFee": 18446744073709552000,
+                "transferFeeBasisPoints": 100
+              },
+              "transferFeeConfigAuthority": null,
+              "withdrawWithheldAuthority": "43NEj2T1WLChWiUfVngnYRcDCpaQ3wxgJZveK1SmziDC",
+              "withheldAmount": 0
+            }
+          },
+          {
+            "extension": "tokenMetadata",
+            "state": {
+              "additionalMetadata": [],
+              "mint": "5V85F1eDH6XCtoKXSrPav13wTNhuGrudPnvVSGeukYGj",
+              "name": "TF 100bps",
+              "symbol": "TF100",
+              "updateAuthority": "DP6VvW9rtDH5whFXu7CC6XGaqX8npEg1N61a4PFmJWbo",
+              "uri": "https://ipfs.io/ipfs/bafy-tf-dc-1"
+            }
+          }
+        ],
+        "freezeAuthority": null,
+        "isInitialized": true,
+        "mintAuthority": null,
+        "supply": "1000000000000000"
+      },
+      "type": "mint"
+    },
+    "program": "spl-token-2022",
+    "space": 477
+  },
+  "executable": false,
+  "lamports": 4210800,
+  "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+  "rentEpoch": 18446744073709552000,
+  "space": 477
+}

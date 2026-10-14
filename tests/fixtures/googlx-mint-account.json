@@ -1,0 +1,76 @@
+{
+  "note": "SQ-APP-4: real mainnet Token-2022 mint account for GOOGLx (Alphabet xStock), mint XsCPL9dNWBMvFtTmwcCA5v3xWPSMEBCszbQdiLLq6aN. parsedData is the getParsedAccountInfo `value.data` object (mirrors backend-rs-sql/tests/fixtures/dbc/googlx-mint-account.rpc.json); rawAccountBase64 is the getAccountInfo base64 bytes captured at slot 451674707. The two forms decode to the same scaledUiAmountConfig: multiplier 1.001926722393864, newMultiplier 1.0023772500603487 effective at unix 1788481800.",
+  "mint": "XsCPL9dNWBMvFtTmwcCA5v3xWPSMEBCszbQdiLLq6aN",
+  "decimals": 8,
+  "parsedData": {
+    "program": "spl-token-2022",
+    "parsed": {
+      "info": {
+        "decimals": 8,
+        "extensions": [
+          {
+            "extension": "metadataPointer",
+            "state": {
+              "authority": "5aMNNLQJwAEeoemTEMkv5NVjqKwvvefRYCQ5Z67HFvEq",
+              "metadataAddress": "XsCPL9dNWBMvFtTmwcCA5v3xWPSMEBCszbQdiLLq6aN"
+            }
+          },
+          {
+            "extension": "permanentDelegate",
+            "state": { "delegate": "5aMNNLQJwAEeoemTEMkv5NVjqKwvvefRYCQ5Z67HFvEq" }
+          },
+          {
+            "extension": "defaultAccountState",
+            "state": { "accountState": "initialized" }
+          },
+          {
+            "extension": "scaledUiAmountConfig",
+            "state": {
+              "authority": "S7vYFFWH6BjJyEsdrPQpqpYTqLTrPRK6KW3VwsJuRaS",
+              "multiplier": "1.001926722393864",
+              "newMultiplier": "1.0023772500603487",
+              "newMultiplierEffectiveTimestamp": 1788481800
+            }
+          },
+          {
+            "extension": "pausableConfig",
+            "state": {
+              "authority": "JDq14BWvqCRFNu1krb12bcRpbGtJZ1FLEakMw6FdxJNs",
+              "paused": false
+            }
+          },
+          {
+            "extension": "confidentialTransferMint",
+            "state": {
+              "auditorElgamalPubkey": null,
+              "authority": "5aMNNLQJwAEeoemTEMkv5NVjqKwvvefRYCQ5Z67HFvEq",
+              "autoApproveNewAccounts": false
+            }
+          },
+          {
+            "extension": "transferHook",
+            "state": { "authority": "5aMNNLQJwAEeoemTEMkv5NVjqKwvvefRYCQ5Z67HFvEq", "programId": null }
+          },
+          {
+            "extension": "tokenMetadata",
+            "state": {
+              "additionalMetadata": [],
+              "mint": "XsCPL9dNWBMvFtTmwcCA5v3xWPSMEBCszbQdiLLq6aN",
+              "name": "Alphabet xStock",
+              "symbol": "GOOGLx",
+              "updateAuthority": "5aMNNLQJwAEeoemTEMkv5NVjqKwvvefRYCQ5Z67HFvEq",
+              "uri": "https://xstocks-metadata.backed.fi/tokens/Solana/GOOGLx/metadata.json"
+            }
+          }
+        ],
+        "freezeAuthority": "JDq14BWvqCRFNu1krb12bcRpbGtJZ1FLEakMw6FdxJNs",
+        "isInitialized": true,
+        "mintAuthority": "7pt9tkctJPK7PPNQJ77GKg8ZffSF6QxoMiCFYHxrtaCj",
+        "supply": "16040599034314"
+      },
+      "type": "mint"
+    },
+    "space": 683
+  },
+  "rawAccountBase64": "AQAAAGVqQkIv6okUBqQZ0dHeCPQqhHlBtaGulevOYZrDFyk0AlYwvpYOAAAIAQEAAAD/3+wbzSzTg5PITaoIyRzA041nf/jQq3tdAz8A9zLMMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARIAQABD+fHuLje4B+pFy3TmAJcivsAJKWAm5ORVi0NeJKXpxgfoLnBaKlo52YqJtAKCi0NVKixMi5Buc8QghNWrQU0TDAAgAEP58e4uN7gH6kXLdOYAlyK+wAkpYCbk5FWLQ14kpenGBgABAAEZADgABm9ZIlHMR3R4JaWa0UIupDVz9SjaXe4q94ErMU+ZRePMuJpQ5AfwPwgRmmoAAAAAwTc0urwJ8D8aACEA/9/sG80s04OTyE2qCMkcwNONZ3/40Kt7XQM/APcyzDAABABBAEP58e4uN7gH6kXLdOYAlyK+wAkpYCbk5FWLQ14kpenGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADgBAAEP58e4uN7gH6kXLdOYAlyK+wAkpYCbk5FWLQ14kpenGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATAKoAQ/nx7i43uAfqRct05gCXIr7ACSlgJuTkVYtDXiSl6cYH6C5wWipaOdmKibQCgotDVSosTIuQbnPEIITVq0FNEw8AAABBbHBoYWJldCB4U3RvY2sGAAAAR09PR0x4RQAAAGh0dHBzOi8veHN0b2Nrcy1tZXRhZGF0YS5iYWNrZWQuZmkvdG9rZW5zL1NvbGFuYS9HT09HTHgvbWV0YWRhdGEuanNvbgAAAAA="
+}

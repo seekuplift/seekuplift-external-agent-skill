@@ -30,6 +30,11 @@ import {
   type PoolConfig,
 } from '@meteora-ag/dynamic-bonding-curve-sdk'
 import { RPC_URL } from './config.ts'
+import {
+  parseTransferFeeConfig,
+  parseTransferFeeConfigFromRaw,
+  type MintTransferFeeConfig,
+} from './transfer-fee.ts'
 
 export function toBN(value: bigint): BN {
   return new BN(value.toString())
@@ -72,13 +77,19 @@ export function unwrapPoolState(raw: unknown): VirtualPoolState {
 export async function getPoolAndConfig(
   client: DynamicBondingCurveClient,
   poolAddress: string,
-): Promise<{ virtualPool: VirtualPool; poolState: VirtualPoolState; config: PoolConfig }> {
+): Promise<{
+  virtualPool: VirtualPool
+  poolState: VirtualPoolState
+  config: PoolConfig
+  /** The pool address the state was read under (echoed for the callers' result shapes). */
+  poolAddress: string
+}> {
   const virtualPool = await client.state.getPool(new PublicKey(poolAddress))
   if (!virtualPool) throw new Error(`DBC pool not found: ${poolAddress}`)
   const poolState = unwrapPoolState(virtualPool)
   const config = await client.state.getPoolConfig(poolState.config)
   if (!config) throw new Error(`DBC pool config not found for pool: ${poolAddress}`)
-  return { virtualPool, poolState, config }
+  return { virtualPool, poolState, config, poolAddress }
 }
 
 // ─── Pool-config decode helpers ────────────────────────────────────────────────
@@ -341,11 +352,11 @@ type MintReader = {
 }
 
 /**
- * Read a mint's decimals, token program (account owner) and scaled-UI config
- * in one pass. Parsed form is preferred; the raw account is only consulted
- * when the parsed response was unusable. `decimals`/`tokenProgram` may stay
- * null when neither response decodes — callers decide whether that is fatal
- * for their flow.
+ * Read a mint's decimals, token program (account owner), scaled-UI config
+ * and transfer-fee config in one pass. Parsed form is preferred; the raw
+ * account is only consulted when the parsed response was unusable.
+ * `decimals`/`tokenProgram` may stay null when neither response decodes —
+ * callers decide whether that is fatal for their flow.
  */
 export async function readMintTokenInfo(
   connection: MintReader,
@@ -354,6 +365,7 @@ export async function readMintTokenInfo(
   decimals: number | null
   tokenProgram: string | null
   scaledUiAmount: ScaledUiAmountConfig | null
+  transferFee: MintTransferFeeConfig | null
 }> {
   const parsed = await connection.getParsedAccountInfo(mint, 'confirmed')
   const data = parsed.value?.data
@@ -366,11 +378,13 @@ export async function readMintTokenInfo(
       decimals,
       tokenProgram: typeof owner === 'string' && owner ? owner : String(owner ?? '') || null,
       scaledUiAmount: parseScaledUiAmountConfig(data),
+      transferFee: parseTransferFeeConfig(data),
     }
   }
   const raw = await connection.getAccountInfo(mint, 'confirmed')
   const bytes = raw?.data ?? null
-  if (!bytes) return { decimals: null, tokenProgram: null, scaledUiAmount: null }
+  if (!bytes)
+    return { decimals: null, tokenProgram: null, scaledUiAmount: null, transferFee: null }
   const decimals = bytes.length > 44 ? bytes[44] : null
   const rawOwner = raw?.owner
   return {
@@ -382,6 +396,7 @@ export async function readMintTokenInfo(
           ? (rawOwner as { toBase58(): string }).toBase58()
           : null,
     scaledUiAmount: parseScaledUiAmountConfigFromRaw(bytes),
+    transferFee: parseTransferFeeConfigFromRaw(bytes),
   }
 }
 

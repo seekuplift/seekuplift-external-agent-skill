@@ -104,6 +104,52 @@ function isBuiltinQuoteMint(mint: string | null | undefined): boolean {
   return mint != null && BUILTIN_BY_MINT.has(mint)
 }
 
+/**
+ * The quote-asset record for a mint: a backend-served `quoteAssets` entry
+ * first, then the built-in registry (SOL/USDC/USDT/SKR) — the same order the
+ * app's `resolveQuoteAsset` uses. `undefined` for an unregistered mint.
+ */
+export function resolveQuoteAssetRecord(
+  mint: string | null | undefined,
+  served?: readonly QuoteAssetRecord[],
+): QuoteAssetRecord | undefined {
+  const key = typeof mint === 'string' ? mint.trim() : ''
+  if (!key) return undefined
+  return served?.find((asset) => asset.mint === key) ?? BUILTIN_BY_MINT.get(key)
+}
+
+/**
+ * Whether the mint is a served NON-built-in quote asset — the stock-quote
+ * leg of the geo feature map (`stock.create`/`stock.trade`). Built-ins,
+ * unresolved and unknown mints yield false — unknown is never assumed stock.
+ */
+export function isStockQuoteMint(
+  mint: string | null | undefined,
+  served?: readonly QuoteAssetRecord[],
+): boolean {
+  const key = typeof mint === 'string' ? mint.trim() : ''
+  if (!key || isBuiltinQuoteMint(key)) return false
+  return served?.some((asset) => asset.mint === key) ?? false
+}
+
+/**
+ * The category a config key was served under in `launchConfigOptions` —
+ * first category in canonical order wins (the backend should never serve a
+ * key under two categories — options are single-category). Null when not
+ * served. Mirrors the app's `servedCategoryForConfigKey`.
+ */
+export function servedCategoryForConfigKey(
+  options: LaunchConfigOptionsByCategory,
+  configKey: string | null | undefined,
+): LaunchCategory | null {
+  const key = configKey?.trim()
+  if (!key) return null
+  for (const category of CATEGORIES) {
+    if ((options[category] ?? []).some((ref) => ref.configKey === key)) return category
+  }
+  return null
+}
+
 function asNonEmptyString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null
 }
@@ -490,23 +536,24 @@ export async function getConfigCatalog(
 }
 
 /**
- * The config catalog plus the raw geo verdict it was built against — the
- * launch endpoint mirrors the app's per-key geo lookups (and the backend's
- * meme donation-claim refusal keys) on this same verdict, so one shared
- * mobile-config fetch keeps geo and config entries consistent.
+ * The parts of a `mobile-config` response that are not the catalog entries:
+ * the caller's fresh geo verdict plus the parsed launch options and served
+ * quote assets (cached ~60s keyed on the response `version`). The trade
+ * endpoints need this without paying for the per-config on-chain decodes.
  */
-export async function getConfigCatalogWithGeo(
+export type MobileConfigContext = {
+  geo: GeoVerdict
+  options: LaunchConfigOptionsByCategory
+  quoteAssets: QuoteAssetRecord[]
+  version: string
+}
+
+export async function getMobileConfigContext(
   clientIp: string | null,
   deps: CatalogDeps = {},
-): Promise<{ configs: ConfigCatalogEntry[]; geo: GeoVerdict }> {
+): Promise<MobileConfigContext> {
   const now = deps.now ?? (() => Date.now())
   const fetchMobileConfig = deps.fetchMobileConfig ?? defaultFetchMobileConfig
-  const fetchPoolConfig = deps.fetchPoolConfig ?? fetchPoolConfigData
-  const fetchMintInfo = deps.fetchMintInfo ?? defaultFetchMintInfo
-  const donationClaimAuthorities =
-    deps.donationClaimAuthorities === undefined
-      ? getDonationClaimAuthorities()
-      : deps.donationClaimAuthorities
 
   // Fresh fetch EVERY request — `geo` is per caller and never cached.
   const response = await fetchMobileConfig(clientIp)
@@ -543,6 +590,32 @@ export async function getConfigCatalogWithGeo(
       }
     }
   }
+  return { geo, options: parsed.options, quoteAssets: parsed.quoteAssets, version }
+}
+
+/**
+ * The config catalog plus the raw geo verdict it was built against — the
+ * launch endpoint mirrors the app's per-key geo lookups (and the backend's
+ * meme donation-claim refusal keys) on this same verdict, so one shared
+ * mobile-config fetch keeps geo and config entries consistent.
+ */
+export async function getConfigCatalogWithGeo(
+  clientIp: string | null,
+  deps: CatalogDeps = {},
+): Promise<{ configs: ConfigCatalogEntry[]; geo: GeoVerdict }> {
+  const now = deps.now ?? (() => Date.now())
+  const fetchPoolConfig = deps.fetchPoolConfig ?? fetchPoolConfigData
+  const fetchMintInfo = deps.fetchMintInfo ?? defaultFetchMintInfo
+  const donationClaimAuthorities =
+    deps.donationClaimAuthorities === undefined
+      ? getDonationClaimAuthorities()
+      : deps.donationClaimAuthorities
+
+  const { geo, options: parsedOptions, quoteAssets } = await getMobileConfigContext(
+    clientIp,
+    deps,
+  )
+  const parsed: ParsedMobileConfig = { options: parsedOptions, quoteAssets }
 
   // Merge categories per config key, preserving canonical category order and
   // first-seen option order.

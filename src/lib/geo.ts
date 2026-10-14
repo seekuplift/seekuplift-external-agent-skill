@@ -97,6 +97,46 @@ export type GeoCreateVerdict = {
 }
 
 /**
+ * Feature keys a trade (buy OR sell — the app resolves them identically, D5)
+ * on one coin is gated by, mirroring the app's `featuresForCoin`:
+ *   - idea/startup coins → `<category>.trade`
+ *   - stock-quoted coins → `stock.trade` (a coin may match both legs; any
+ *     match restricts)
+ *   - `meme` and unknown categories are never trade-gated (fail open, D4).
+ */
+export function tradeFeatureKeys(
+  category: string | null | undefined,
+  isStock: boolean,
+): string[] {
+  const keys: string[] = []
+  const normalized = category?.trim()
+  if (normalized === 'idea' || normalized === 'startup') {
+    keys.push(`${normalized}.trade`)
+  }
+  if (isStock) keys.push('stock.trade')
+  return keys
+}
+
+/**
+ * The caller's trade verdict for one coin. `allowed` when none of the coin's
+ * trade feature keys is in the verdict's restricted list; `reason` is the
+ * first matching restricted key (canonical order).
+ */
+export function resolveTradeGeo(
+  verdict: GeoVerdict | null | undefined,
+  category: string | null | undefined,
+  isStock: boolean,
+): GeoCreateVerdict {
+  const keys = tradeFeatureKeys(category, isStock)
+  const restricted = keys.find((key) => verdict?.restricted.includes(key as never))
+  return {
+    allowed: restricted == null,
+    reason: restricted ?? null,
+    region: verdict?.region ?? null,
+  }
+}
+
+/**
  * Feature keys a create on one category is gated by, as the backend enforces
  * at `POST /api/upload/metadata`:
  *   - idea/startup → `<category>.create`
