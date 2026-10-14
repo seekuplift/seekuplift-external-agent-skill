@@ -1,68 +1,123 @@
 {
   "name": "meteora-launchpad",
-  "version": "1.0.0",
-  "description": "Launch tokens and trade on Meteora Dynamic Bonding Curve (DBC) on Solana mainnet. 0.5% of every trading fee funds public benefit or innovation — impact is built into every trade. Creators earn 0.3% on all trades of their token.",
+  "version": "2.0.0",
+  "description": "Launch tokens and trade on Meteora Dynamic Bonding Curve (DBC) on Solana mainnet via the SeekUplift launchpad API. Launch options are a live catalog of on-chain pool configs (GET /api/configs) — quote asset, fee schedule, creator share and cause routing differ per config; the agent picks one per launch.",
+  "docs": {
+    "markdown": "/skill.md",
+    "json": "/skill.json"
+  },
   "network": "solana-mainnet",
   "program": "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
-  "poolConfig": "4w9Rs2ewNJte2c4FGmQHM8fycv8vWzkjv3qzANuJ2rPT",
   "capabilities": [
     {
+      "id": "list_configs",
+      "description": "List the live launch config catalog for THIS caller (per-caller geo verdict included; never cached). Pick a configKey per launch.",
+      "endpoint": { "method": "GET", "path": "/api/configs" },
+      "returns": ["configs"],
+      "configEntryFields": [
+        "configKey", "optionId", "categories",
+        "quote.{mint,symbol,decimals,tokenProgram,issuer,firstBuyDefault,scaledUiAmountMultiplier}",
+        "fees.{label,details,curve,postGraduation,creatorSharePct,allFeesToCause}",
+        "fees.curve.{kind,openingBps,floorBps,decay,decayPeriods,decayPeriodLength,decayUnit,decaySecondsEstimate,dynamic}",
+        "fees.postGraduation.{kind,startBps,floorBps,decay}",
+        "supportsCause", "supportsFirstBuy", "poolCreationFeeLamports",
+        "migrationQuoteThreshold", "isStock", "defaultFor",
+        "geo.{allowed,reason,region,byCategory}", "decodeError"
+      ],
+      "choosing": "Memecoins: the entry marked defaultFor:[\"meme\"] (creator-fee config); an allFeesToCause config only when the user explicitly asks. Match category to the launch. Always explain the entry's full fee schedule — including any anti-sniper opening fee (curve.kind=decay: openingBps decaying to floorBps over decaySecondsEstimate) — to the user before launching or trading; Meteora takes 20% of every trading fee first. Read figures from the catalog, never from the docs."
+    },
+    {
       "id": "launch_token",
-      "description": "Upload metadata to IPFS and create a new token on the bonding curve.",
-      "endpoint": {
-        "method": "POST",
-        "path": "/api/launch"
+      "description": "Upload image + metadata through the backend proxy and build the mint-partial-signed launch transaction on a chosen catalog config.",
+      "endpoint": { "method": "POST", "path": "/api/launch" },
+      "requiredFields": ["configKey", "category", "name", "symbol", "description", "payerPublicKey", "image|imageUrl"],
+      "optionalFields": [
+        "donation", "ideaFunding", "firstBuyAtoms|firstBuyAmount",
+        "website", "twitter", "telegram", "discord",
+        "problem", "useCases", "whitepaper", "prototype", "deck",
+        "legalFramework", "legalFrameworkNote", "tokenUtility",
+        "decentralizationEfforts", "entityJurisdiction", "startupComplianceAcknowledged"
+      ],
+      "fieldNotes": {
+        "category": "meme | idea | startup — must be in the config's categories",
+        "image": "base64 PNG/JPEG/GIF/WEBP <=10MB (data: URL accepted); exactly one of image/imageUrl",
+        "imageUrl": "public http(s) only, fetched through an SSRF guard (private/loopback/link-local/CGNAT refused, redirects vetted per hop, <=3 hops, 10MB cap)",
+        "donation": "meme only, supportsCause configs only, required while causes are offered: {mode, cause?, project?, handle?, redditUserId?} — modes from the backend launch-enabled registry (managed|cause|project|tbd|x|reddit)",
+        "ideaFunding": "idea only: {mode, address?, handle?, redditUserId?} — typically direct|tbd|x|reddit; direct address must be on-curve",
+        "idea": "problem + useCases(1-3) + prototype required",
+        "startup": "problem + useCases(1-3) + deck required; compliance fields recorded only when startupComplianceAcknowledged=true",
+        "firstBuy": "only on supportsFirstBuy configs; firstBuyAtoms = raw quote-atom string, firstBuyAmount = display units (converted via quote.decimals + scaledUiAmountMultiplier — never assume 1e9)"
       },
-      "requiredFields": ["name", "symbol", "imageUrl", "payerPublicKey"],
-      "optionalFields": ["description", "buyAmountSol"],
-      "returns": ["transaction", "mintAddress", "metadataUrl", "imageUrl"]
+      "returns": ["transaction", "mintAddress", "poolAddress", "metadataUrl", "imageUrl", "configKey", "category", "quoteMint", "firstBuyAtoms", "note"]
     },
     {
       "id": "trade_quote",
-      "description": "Get an off-chain swap quote from the bonding curve.",
-      "endpoint": {
-        "method": "POST",
-        "path": "/api/trade/quote"
-      },
+      "description": "Get an off-chain swap quote from the bonding curve (partial-fill buys, transfer-fee net outputs).",
+      "endpoint": { "method": "POST", "path": "/api/trade/quote" },
       "requiredFields": ["poolAddress", "side", "amountIn"],
       "optionalFields": ["slippageBps"],
       "sideValues": ["buy", "sell"],
-      "returns": ["amountOut", "minimumAmountOut", "poolInfo"]
+      "fieldNotes": {
+        "amountIn": "base-10 atom string; buy = quote atoms, sell = base atoms — use poolInfo decimals, never assume SOL/1e9",
+        "slippageBps": "0-10000, default 50"
+      },
+      "returns": ["amountOut", "minimumAmountOut", "baseTransferFeeAtomics", "consumedInput", "amountLeft", "amountIn", "slippageBps", "poolInfo"],
+      "poolInfoFields": ["poolAddress", "configKey", "baseMint", "baseDecimals", "quoteMint", "quoteDecimals", "quoteSymbol", "quoteScaledUiAmount", "isQuoteSol", "baseTransferFee", "migrationState", "isCompleted"]
     },
     {
       "id": "trade_tx",
-      "description": "Build an unsigned swap transaction for the bonding curve.",
-      "endpoint": {
-        "method": "POST",
-        "path": "/api/trade/tx"
-      },
-      "requiredFields": ["poolAddress", "side", "amountIn", "minimumAmountOut", "ownerPublicKey"],
+      "description": "Build the unsigned swap transaction for the bonding curve. Omit minimumAmountOut to quote internally at slippageBps.",
+      "endpoint": { "method": "POST", "path": "/api/trade/tx" },
+      "requiredFields": ["poolAddress", "ownerPublicKey", "side", "amountIn"],
+      "optionalFields": ["minimumAmountOut", "slippageBps"],
       "sideValues": ["buy", "sell"],
-      "returns": ["transaction"]
+      "returns": ["transaction", "amountIn", "minimumAmountOut", "quote", "poolInfo"]
     },
     {
       "id": "list_pools",
-      "description": "List or search tokens launched on this launchpad.",
-      "endpoint": {
-        "method": "GET",
-        "path": "/api/pools"
+      "description": "List or search coins launched on any catalog config.",
+      "endpoint": { "method": "GET", "path": "/api/pools" },
+      "queryParams": {
+        "search": "name/symbol/mint (search mode; list params not forwarded — an invalid value still returns 400; nextCursor null)",
+        "limit": "1-100, default 20",
+        "cursor": "nextCursor from a previous list response",
+        "tab": "emerging | graduated",
+        "category": "meme | idea | startup",
+        "lifecycle": "new",
+        "sortBy": "createdAt | createdAtAsc | volume24h | marketCap"
       },
-      "queryParams": ["search", "limit"],
-      "returns": ["pools"]
+      "returns": ["pools", "nextCursor"],
+      "poolFields": ["id", "name", "symbol", "baseMint", "icon", "description", "launchType", "price", "nativePrice", "quoteMint", "quoteSymbol", "priceChange24h", "marketCap", "volume24h", "graduated", "graduatedAt", "bondingCurve", "configKey", "createdAt"]
     }
   ],
   "transactionFormat": "base64-encoded legacy Solana Transaction",
+  "signing": {
+    "launch": "mint keypair already partially signed — add only the payer signature (tx.partialSign)",
+    "trade": "unsigned — ownerPublicKey signs and pays fees",
+    "expiry": "blockhash set at build time — sign and submit within ~90 seconds or rebuild"
+  },
   "submitTo": "https://api.mainnet-beta.solana.com",
-  "whyUseThis": {
-    "meaningful": "0.5% of every trading fee goes to public benefit or innovation funding — impact is structural, not optional.",
-    "rewarding": "Token creators earn 0.3% on every trade of their token in perpetuity.",
-    "secure": "Built on the audited Meteora DBC program.",
-    "seekerFriendly": "Designed for self-custodied Seeker wallets; supports SKR."
+  "geo": {
+    "basis": "resolved from the caller's forwarded IP per request; best effort, fails open",
+    "create": "idea -> idea.create, startup -> startup.create, meme -> cause.marketing + donation-claim hidden key, stock-quoted configs -> stock.create",
+    "trade": "idea/startup coins -> <category>.trade, stock-quoted coins -> stock.trade; memecoin trading never gated",
+    "errorShape": "{ error: \"geo_restricted\", region, feature } (HTTP 403)"
+  },
+  "rateLimits": {
+    "uploads": "10 per hour per caller IP, shared by image + metadata — one launch consumes 2 (HTTP 429 when exhausted)",
+    "image": "<=10MB, PNG/JPEG/GIF/WEBP (magic-byte sniffed)"
+  },
+  "migrationStates": {
+    "curve": "tradeable via /api/trade/*",
+    "migration_pending": "409 { error: \"pool_not_tradeable\", retryable: true } — retry later, do NOT route elsewhere; no DAMM pool exists yet",
+    "migrated": "409 { retryable: false } — trade on Jupiter (listings show graduated: true)",
+    "quote_mint_transfer_fee_unsupported": "409 reason — permanently unsupported, do not retry"
   },
   "notes": [
-    "Transactions expire after ~90 seconds — sign and submit promptly.",
-    "Launch transactions are partially signed by the mint keypair. Add only the payer signature.",
-    "Trade transactions are unsigned. The owner must sign.",
-    "If poolInfo.isCompleted is true, the pool graduated — use Jupiter for trading."
+    "Choose configs per the choosing rule above; always explain the config's full fee schedule (anti-sniper opening fee included) to the user before launching or trading. Meteora takes 20% of every trading fee first.",
+    "amountOut/minimumAmountOut are NET of any Token-2022 base-mint transfer fee (baseTransferFeeAtomics reports it).",
+    "Buys are partial-fill: a threshold-crossing buy consumes only enough quote to graduate the curve and refunds the rest (consumedInput/amountLeft).",
+    "Display figures on /api/pools (price, marketCap, volume24h) are display-grade — never money-path inputs.",
+    "All responses are cache-control: no-store; geo verdicts are per-caller."
   ]
 }
