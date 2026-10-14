@@ -481,16 +481,24 @@ function scaledUiMultiplierString(
   return useNew ? config.newMultiplier : config.multiplier
 }
 
-/**
- * Build the catalog for one caller. `clientIp` is the calling agent's client
- * IP (from its `x-forwarded-for`/`x-real-ip` headers at this service) — it is
- * forwarded to the backend on every mobile-config call so the geo verdict
- * and rate limits are per caller.
- */
 export async function getConfigCatalog(
   clientIp: string | null,
   deps: CatalogDeps = {},
 ): Promise<{ configs: ConfigCatalogEntry[] }> {
+  const { configs } = await getConfigCatalogWithGeo(clientIp, deps)
+  return { configs }
+}
+
+/**
+ * The config catalog plus the raw geo verdict it was built against — the
+ * launch endpoint mirrors the app's per-key geo lookups (and the backend's
+ * meme donation-claim refusal keys) on this same verdict, so one shared
+ * mobile-config fetch keeps geo and config entries consistent.
+ */
+export async function getConfigCatalogWithGeo(
+  clientIp: string | null,
+  deps: CatalogDeps = {},
+): Promise<{ configs: ConfigCatalogEntry[]; geo: GeoVerdict }> {
   const now = deps.now ?? (() => Date.now())
   const fetchMobileConfig = deps.fetchMobileConfig ?? defaultFetchMobileConfig
   const fetchPoolConfig = deps.fetchPoolConfig ?? fetchPoolConfigData
@@ -672,5 +680,5 @@ export async function getConfigCatalog(
     }
   }
 
-  return { configs: entries }
+  return { configs: entries, geo }
 }

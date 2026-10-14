@@ -1,60 +1,79 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { buildLaunchTx } from '@/lib/dbc-launch'
-import { uploadImageFromUrl, uploadMetadataJson } from '@/lib/ipfs'
+import { BackendHttpError, clientIpFromHeaders } from '@/lib/backend'
+import { LaunchError, prepareLaunch } from '@/lib/launch'
 
 export const runtime = 'nodejs'
+// Geo verdicts are per-caller and computed fresh by the backend on every
+// request — this route must never be cached anywhere.
+export const dynamic = 'force-dynamic'
 
+/**
+ * POST /api/launch — build the unsigned-by-payer, mint-partial-signed DBC
+ * launch transaction on an agent-chosen config from `GET /api/configs`.
+ *
+ * Body (JSON):
+ *   configKey       required — a live config key from GET /api/configs
+ *   category        required — "meme" | "idea" | "startup"; the config must
+ *                   be offered for it
+ *   name/symbol/description  required — app identity limits apply
+ *   image           required — base64 bytes (optionally a data: URL); the
+ *                   service uploads through the backend proxy. `imageUrl`
+ *                   is rejected (remote fetching is a later ticket).
+ *   payerPublicKey  required — the wallet that will sign + fund the launch;
+ *                   also recorded as creatorAddress in the metadata
+ *   donation        meme-only, cause-capable configs only, REQUIRED while
+ *                   /api/causes offers picks: { mode, cause?, project?,
+ *                   handle?, redditUserId? }
+ *   ideaFunding     idea-only: { mode, address?, handle?, redditUserId? }
+ *   firstBuyAtoms | firstBuyAmount — optional creator first buy, only on
+ *                   configs with supportsFirstBuy (display amounts convert
+ *                   with fresh quote decimals + the ScaledUiAmount
+ *                   multiplier — never a fixed 1e9)
+ *   idea/startup extras: problem, useCases, prototype, deck, whitepaper,
+ *                   links (website/twitter/telegram/discord), and the
+ *                   startup compliance fields.
+ */
 export async function POST(req: NextRequest) {
+  const clientIp = clientIpFromHeaders(req.headers)
   try {
-    const body = await req.json()
-    const { name, symbol, description, imageUrl, payerPublicKey, buyAmountSol } = body
-
-    if (!name || !symbol || !imageUrl || !payerPublicKey) {
+    const body = await req.json().catch(() => null)
+    const result = await prepareLaunch(body, clientIp)
+    return NextResponse.json(
+      {
+        transaction: result.transaction,
+        mintAddress: result.mintAddress,
+        poolAddress: result.poolAddress,
+        metadataUrl: result.metadataUrl,
+        imageUrl: result.imageUrl,
+        configKey: result.configKey,
+        category: result.category,
+        quoteMint: result.quoteMint,
+        firstBuyAtoms: result.firstBuyAtoms,
+        note: 'Deserialize from base64 as a legacy Transaction, sign with payerPublicKey, then submit to mainnet RPC. The mint keypair signature is already applied.',
+      },
+      { headers: { 'cache-control': 'no-store' } },
+    )
+  } catch (err) {
+    if (err instanceof LaunchError) {
       return NextResponse.json(
-        { error: 'Missing required fields: name, symbol, imageUrl, payerPublicKey' },
-        { status: 400 },
+        { error: err.fields.error ?? err.message, ...err.fields },
+        { status: err.status, headers: { 'cache-control': 'no-store' } },
       )
     }
-    if (name.length < 3 || name.length > 32) {
-      return NextResponse.json({ error: 'name must be 3–32 characters' }, { status: 400 })
+    if (err instanceof BackendHttpError) {
+      // The backend's own refusal (rate limit, geo refusal that slipped the
+      // pre-check) — surface its status and error body unchanged.
+      const body =
+        err.body && typeof err.body === 'object'
+          ? err.body
+          : { error: err.message }
+      return NextResponse.json(body as Record<string, unknown>, {
+        status: err.status === 400 || err.status === 403 || err.status === 429 ? err.status : 502,
+        headers: { 'cache-control': 'no-store' },
+      })
     }
-    if (symbol.length > 10) {
-      return NextResponse.json({ error: 'symbol must be ≤10 characters' }, { status: 400 })
-    }
-
-    // 1. Upload image to IPFS
-    const imgResult = await uploadImageFromUrl(imageUrl)
-
-    // 2. Upload metadata JSON to IPFS
-    const metadata = {
-      name,
-      symbol: symbol.toUpperCase(),
-      description: description ?? '',
-      image: imgResult.url,
-    }
-    const metaResult = await uploadMetadataJson(metadata)
-
-    // 3. Build the launch transaction
-    const buyAmountLamports = buyAmountSol && buyAmountSol > 0
-      ? BigInt(Math.round(buyAmountSol * 1e9))
-      : undefined
-
-    const result = await buildLaunchTx({
-      name,
-      symbol,
-      metadataUrl: metaResult.url,
-      imageUrl: imgResult.url,
-      payerAddress: payerPublicKey,
-      buyAmountLamports,
-    })
-
-    return NextResponse.json({
-      ...result,
-      note: 'Deserialize from base64 as a legacy Transaction, sign with payerPublicKey, then submit to mainnet RPC.',
-    })
-  } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error('[/api/launch]', message)
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: message }, { status: 502 })
   }
 }

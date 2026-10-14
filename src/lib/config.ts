@@ -11,9 +11,10 @@ export const KNOWN_MINTS: Record<string, { symbol: string; decimals: number }> =
 export const RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com'
 export const BACKEND_URL = (process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '')
 
-export const FILEBASE_API_KEY = process.env.FILEBASE_API_KEY || ''
-export const FILEBASE_RPC_URL = 'https://rpc.filebase.io'
-export const IPFS_GATEWAY_URL = (process.env.IPFS_GATEWAY_URL || 'https://ipfs.filebase.io/ipfs').replace(/\/$/, '')
+/**
+ * No storage credentials live here: uploads go through the backend proxy
+ * (`/api/upload/*` on backend-rs-sql), which owns the Filebase key.
+ */
 
 /**
  * Donation claim authorities — the feeClaimer values that make a config

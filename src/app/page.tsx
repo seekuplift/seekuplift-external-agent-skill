@@ -82,7 +82,7 @@ export default function Home() {
         <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Capabilities</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
           {[
-            { icon: '🚀', title: 'Launch Token', desc: 'Upload metadata to IPFS, get an unsigned createPool transaction.' },
+            { icon: '🚀', title: 'Launch Token', desc: 'Upload image + metadata through the backend proxy, get an unsigned createPool transaction on a config you choose.' },
             { icon: '💸', title: 'Buy', desc: 'Quote and build an unsigned swap transaction to buy a bonding-curve token.' },
             { icon: '🔄', title: 'Sell', desc: 'Quote and build an unsigned swap transaction to sell back to the curve.' },
             { icon: '🔍', title: 'List Pools', desc: 'Search and browse tokens launched on this launchpad.' },
@@ -128,9 +128,12 @@ const res = await fetch(\`\${AGENT_API}/api/launch\`, {
     name: 'My Agent Token',
     symbol: 'AGT',
     description: 'Launched by an AI agent',
-    imageUrl: 'https://example.com/logo.png',
+    configKey: '61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv', // from GET /api/configs
+    category: 'meme',
+    image: logoPngBase64,     // base64 image bytes (PNG/JPEG/GIF/WEBP)
     payerPublicKey: payer.publicKey.toBase58(),
-    // buyAmountSol: 0.001  // optional: buy on launch
+    // donation: { mode: 'cause', cause: '…' }  // meme on cause-capable configs
+    // firstBuyAmount: '100'                   // optional creator first buy, quote display units
   }),
 })
 const { transaction, mintAddress } = await res.json()
@@ -152,20 +155,49 @@ console.log('Launched:', mintAddress, 'tx:', sig)`}</pre>
         <ApiEndpoint
           method="POST"
           path="/api/launch"
-          description="Upload metadata to IPFS and build an unsigned createPool transaction."
+          description="Upload image + metadata through the backend proxy and build an unsigned createPool transaction on a config from GET /api/configs."
           request={`{
-  "name": "My Token",          // required, 3–32 chars
-  "symbol": "MTK",             // required, ≤10 chars (auto-uppercased)
-  "description": "optional",   // optional
-  "imageUrl": "https://...",   // required, public URL or ipfs:// URI
-  "payerPublicKey": "...",     // required, base58 Solana public key
-  "buyAmountSol": 0.001        // optional, initial buy in SOL (e.g. 0.001)
+  "configKey": "61UBwyZf…",    // required — a live config from GET /api/configs
+  "category": "meme",          // required — "meme" | "idea" | "startup"; the config
+                             //   must be offered for it (see its categories[])
+  "name": "My Token",          // required, ≥3 chars / ≤32 UTF-8 bytes
+  "symbol": "MTK",             // required, ≤10 UTF-8 bytes (canonicalized:
+                             //   leading "$" stripped, uppercased)
+  "description": "…",          // required, ≤2000 chars
+  "image": "<base64>",         // required — PNG/JPEG/GIF/WEBP bytes as base64
+                             //   (a data: URL works too); uploaded via the
+                             //   backend proxy. "imageUrl" is rejected.
+  "payerPublicKey": "...",     // required, base58 Solana public key — signs + funds
+  "donation": {                // meme-only; only on cause-capable configs;
+    "mode": "cause",           //   REQUIRED while /api/causes offers picks.
+    "cause": "education"       //   mode ∈ cause-funding launch modes
+  },                           //   (managed|cause|project|tbd); cause → slug,
+                               //   project → bare Giveth id, tbd/managed → {}
+  "ideaFunding": {             // idea-only: mode ∈ idea-funding launch modes
+    "mode": "direct",          //   (direct|tbd|x|reddit); direct → on-curve
+    "address": "..."           //   address; x → handle; reddit → handle+userId
+  },
+  "firstBuyAtoms": "1000000",  // OR "firstBuyAmount": "1.0" in display units;
+                               //   only on supportsFirstBuy configs. Display
+                               //   amounts convert via quote decimals + the
+                               //   ScaledUiAmount multiplier (never 1e9).
+  // idea/startup extras: problem, useCases (1–3 catalog slugs), prototype
+  //   (idea, required), deck (startup, required), whitepaper
+  // links: website, twitter, telegram, discord
+  // startup compliance: startupComplianceAcknowledged, legalFramework,
+  //   legalFrameworkNote, tokenUtility, decentralizationEfforts,
+  //   entityJurisdiction
 }`}
           response={`{
   "transaction": "...",    // base64 legacy Transaction, partially signed by mint keypair
   "mintAddress": "...",    // new token mint public key
+  "poolAddress": "...",    // derived DBC pool PDA
   "metadataUrl": "...",    // IPFS metadata URL
   "imageUrl": "...",       // IPFS image URL
+  "configKey": "61UBwyZf…",
+  "category": "meme",
+  "quoteMint": "SKRbvo6G…",
+  "firstBuyAtoms": "1000000",  // echo when a first buy was bundled, else null
   "note": "Sign with payerPublicKey then submit to mainnet RPC"
 }`}
         />

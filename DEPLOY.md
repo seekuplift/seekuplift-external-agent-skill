@@ -13,9 +13,7 @@ npm run dev                   # http://localhost:3001
 
 | Variable | Required | Description |
 |---|---|---|
-| `FILEBASE_API_KEY` | Yes | Filebase IPFS Bearer token (same as mobile app's `EXPO_PUBLIC_FILEBASE_API_KEY`) |
-| `IPFS_GATEWAY_URL` | No | IPFS gateway base URL. Default: `https://ipfs.filebase.io/ipfs` |
-| `BACKEND_URL` | No | backend-rs-sql base URL for the mobile-config source and pool listing. Default: `http://localhost:3000`. In the colocated deployment the service calls it over loopback and forwards each caller's IP as `X-Forwarded-For` (the backend trusts XFF only from `127.0.0.1`), so geo verdicts and the 10/hour upload limit apply per calling agent. |
+| `BACKEND_URL` | Yes | backend-rs-sql base URL — the mobile-config source, pool listing, AND the IPFS upload proxy (`/api/upload/*`); the backend owns the Filebase credentials, this service holds none. Default: `http://localhost:3000`. In the colocated deployment the service calls it over loopback and forwards each caller's IP as `X-Forwarded-For` (the backend trusts XFF only from `127.0.0.1`), so geo verdicts and the 10/hour upload limit apply per calling agent. |
 | `SOLANA_RPC_URL` | No | Solana mainnet RPC endpoint. Default: `https://api.mainnet-beta.solana.com` |
 | `DONATION_CLAIM_AUTHORITIES` | No | Comma-separated donation claim authorities (config `feeClaimer` values that make a launch config cause-capable). Must mirror the app's `config/production-manifest.json` → `targets.production.donationClaimAuthorities` (`EXPO_PUBLIC_DONATION_CLAIM_AUTHORITY`); update it whenever the app's value changes or new configs ship. Unset/empty → no config is cause-capable. |
 
@@ -30,10 +28,9 @@ For production, use a private RPC (Helius, QuickNode, Triton) to avoid rate limi
 2. In [vercel.com](https://vercel.com), create a new project and point it at the repo. Set the **Root Directory** to `agent/`.
 
 3. Add environment variables in **Project → Settings → Environment Variables**:
-   - `FILEBASE_API_KEY`
    - `SOLANA_RPC_URL` (use a private RPC)
-   - `BACKEND_URL` (your deployed backend-rs-sql URL, or omit if you don't need pool listing)
-   - `IPFS_GATEWAY_URL` (optional)
+   - `BACKEND_URL` (your deployed backend-rs-sql URL — required for launch + pool listing)
+   - `DONATION_CLAIM_AUTHORITIES` (optional; enables cause-capable configs)
 
 4. Deploy. Vercel auto-detects Next.js.
 
@@ -56,7 +53,7 @@ PORT=3001 npm start
 Set environment variables via the platform's dashboard or CLI. Example for Railway:
 
 ```bash
-railway variables set FILEBASE_API_KEY=... SOLANA_RPC_URL=... BACKEND_URL=...
+railway variables set SOLANA_RPC_URL=... BACKEND_URL=...
 ```
 
 ---
@@ -97,7 +94,6 @@ Build and run:
 ```bash
 docker build -t meteora-agent .
 docker run -p 3001:3001 \
-  -e FILEBASE_API_KEY=... \
   -e SOLANA_RPC_URL=... \
   -e BACKEND_URL=... \
   meteora-agent
@@ -114,7 +110,7 @@ backend-rs-sql  → :3000
 agent (Next.js) → :3001
 ```
 
-Set `BACKEND_URL=http://localhost:3000` in `agent/.env.local`. The `/api/pools` route proxies to it internally — no CORS configuration needed.
+Set `BACKEND_URL=http://localhost:3000` in `agent/.env.local`. The `/api/pools` route and the launch upload proxy (`/api/upload/image`, `/api/upload/metadata`) call it internally — no CORS configuration needed.
 
 For Docker Compose:
 
@@ -133,7 +129,6 @@ services:
       - "3001:3001"
     environment:
       BACKEND_URL: http://backend:3000
-      FILEBASE_API_KEY: ...
       SOLANA_RPC_URL: ...
     depends_on:
       - backend
@@ -144,7 +139,7 @@ services:
 ## Production Checklist
 
 - [ ] Private Solana RPC set (`SOLANA_RPC_URL`) — public endpoint rate-limits aggressively
-- [ ] `FILEBASE_API_KEY` set — launch will fail without it
+- [ ] `BACKEND_URL` set — launch image/metadata uploads proxy through backend-rs-sql (it owns the Filebase credentials); launch fails without it
 - [ ] HTTPS in front of the service (Vercel/Railway handle this automatically)
-- [ ] `BACKEND_URL` points to a running backend-rs-sql if you want pool listing to work
+- [ ] `BACKEND_URL` points to a running backend-rs-sql (pool listing, config catalog, and launch uploads all depend on it)
 - [ ] Verify `/skill.md` and `/skill.json` are publicly reachable (agent discovery)

@@ -2,6 +2,11 @@
 import { strict as assert } from 'node:assert'
 import { describe, it, afterEach } from 'node:test'
 import { backendGetJson, clientIpFromHeaders } from '../src/lib/backend.ts'
+import { decodeBase64Image, uploadImageBytes, uploadMetadataJson } from '../src/lib/upload.ts'
+
+/** A 1×1 transparent PNG. */
+const PNG_1PX =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
 
 const realFetch = globalThis.fetch
 
@@ -61,5 +66,61 @@ describe('backendGetJson', () => {
   it('throws on non-2xx', async () => {
     globalThis.fetch = (async () => new Response('nope', { status: 503 })) as typeof fetch
     await assert.rejects(() => backendGetJson('/api/x', {}, {}), /503/)
+  })
+})
+
+describe('upload proxy seam', () => {
+  it('POSTs image bytes to /api/upload/image as multipart with XFF', async () => {
+    let seen: {
+      url: string
+      method: string
+      xff: string | null
+      file: unknown
+    } | null = null
+    globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
+      const form = init?.body instanceof FormData ? init.body : null
+      seen = {
+        url: String(url),
+        method: init?.method ?? 'GET',
+        xff: new Headers(init?.headers).get('x-forwarded-for'),
+        file: form?.get('file'),
+      }
+      return new Response('{"cid":"bafy","url":"https://gw/bafy"}', { status: 200 })
+    }) as typeof fetch
+
+    const out = await uploadImageBytes(decodeBase64Image(PNG_1PX), '203.0.113.7')
+    assert.deepEqual(out, { cid: 'bafy', url: 'https://gw/bafy' })
+    assert.equal(seen!.method, 'POST')
+    assert.match(seen!.url, /\/api\/upload\/image$/)
+    assert.equal(seen!.xff, '203.0.113.7')
+    assert.ok(seen!.file, 'multipart `file` field missing')
+  })
+
+  it('POSTs metadata JSON to /api/upload/metadata with XFF', async () => {
+    let seen: {
+      url: string
+      method: string
+      xff: string | null
+      contentType: string | null
+      body: unknown
+    } | null = null
+    globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
+      seen = {
+        url: String(url),
+        method: init?.method ?? 'GET',
+        xff: new Headers(init?.headers).get('x-forwarded-for'),
+        contentType: new Headers(init?.headers).get('content-type'),
+        body: typeof init?.body === 'string' ? JSON.parse(init.body) : null,
+      }
+      return new Response('{"cid":"bafm","url":"https://gw/bafm"}', { status: 200 })
+    }) as typeof fetch
+
+    const out = await uploadMetadataJson({ name: 'X', launchType: 'meme' }, '198.51.100.4')
+    assert.deepEqual(out, { cid: 'bafm', url: 'https://gw/bafm' })
+    assert.equal(seen!.method, 'POST')
+    assert.match(seen!.url, /\/api\/upload\/metadata$/)
+    assert.equal(seen!.xff, '198.51.100.4')
+    assert.equal(seen!.contentType, 'application/json')
+    assert.deepEqual(seen!.body, { name: 'X', launchType: 'meme' })
   })
 })

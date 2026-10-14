@@ -58,3 +58,92 @@ export async function backendGetJson<T>(
   }
   return (await response.json()) as T
 }
+
+/**
+ * A non-2xx response from a backend POST. `status` is the backend's HTTP
+ * status; `body` is its parsed error object when it was JSON
+ * (`{ error: "geo_restricted", region, feature, status }` and friends) —
+ * callers may surface both to the agent unchanged.
+ */
+export class BackendHttpError extends Error {
+  readonly status: number
+  readonly body: unknown
+  constructor(message: string, status: number, body: unknown) {
+    super(message)
+    this.name = 'BackendHttpError'
+    this.status = status
+    this.body = body
+  }
+}
+
+async function readBackendError(response: Response, label: string): Promise<BackendHttpError> {
+  let body: unknown = null
+  try {
+    const text = await response.text()
+    try {
+      body = JSON.parse(text)
+    } catch {
+      body = text
+    }
+  } catch {
+    body = null
+  }
+  const code =
+    body && typeof body === 'object' && 'error' in body
+      ? String((body as { error: unknown }).error)
+      : null
+  return new BackendHttpError(
+    code ?? `Backend ${label} failed: ${response.status}`,
+    response.status,
+    body,
+  )
+}
+
+/**
+ * POST a JSON body to the backend, forwarding `clientIp` as
+ * `X-Forwarded-For`. Throws `BackendHttpError` on a non-2xx response.
+ */
+export async function backendPostJson<T>(
+  path: string,
+  body: unknown,
+  options: { clientIp?: string | null; timeoutMs?: number } = {},
+): Promise<T> {
+  const headers: Record<string, string> = {
+    accept: 'application/json',
+    'content-type': 'application/json',
+  }
+  if (options.clientIp) headers['x-forwarded-for'] = options.clientIp
+  const response = await fetch(`${BACKEND_URL}${path}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS),
+  })
+  if (!response.ok) {
+    throw await readBackendError(response, `POST ${path}`)
+  }
+  return (await response.json()) as T
+}
+
+/**
+ * POST a multipart/form-data body to the backend, forwarding `clientIp` as
+ * `X-Forwarded-For`. Throws `BackendHttpError` on a non-2xx response.
+ */
+export async function backendPostForm<T>(
+  path: string,
+  form: FormData,
+  options: { clientIp?: string | null; timeoutMs?: number } = {},
+): Promise<T> {
+  const headers: Record<string, string> = { accept: 'application/json' }
+  if (options.clientIp) headers['x-forwarded-for'] = options.clientIp
+  const response = await fetch(`${BACKEND_URL}${path}`, {
+    method: 'POST',
+    headers,
+    body: form,
+    signal: AbortSignal.timeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS),
+  })
+  if (!response.ok) {
+    throw await readBackendError(response, `POST ${path}`)
+  }
+  return (await response.json()) as T
+}
