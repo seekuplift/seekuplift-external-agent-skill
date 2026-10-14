@@ -16,9 +16,12 @@ export const dynamic = 'force-dynamic'
  *   category        required — "meme" | "idea" | "startup"; the config must
  *                   be offered for it
  *   name/symbol/description  required — app identity limits apply
- *   image           required — base64 bytes (optionally a data: URL); the
- *                   service uploads through the backend proxy. `imageUrl`
- *                   is rejected (remote fetching is a later ticket).
+ *   image | imageUrl  required (exactly one) — `image`: base64 bytes
+ *                   (optionally a data: URL); `imageUrl`: a public http(s)
+ *                   URL fetched through the SSRF guard (private/loopback/
+ *                   link-local/CGNAT targets refused, connection pinned to
+ *                   the vetted DNS answer, redirects vetted per hop). Either
+ *                   way the service re-uploads through the backend proxy.
  *   payerPublicKey  required — the wallet that will sign + fund the launch;
  *                   also recorded as creatorAddress in the metadata
  *   donation        meme-only, cause-capable configs only, REQUIRED while

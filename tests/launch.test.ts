@@ -42,6 +42,7 @@ import {
   type LaunchDeps,
 } from '../src/lib/launch.ts'
 import { OPEN_GEO_VERDICT } from '../src/lib/geo.ts'
+import { ImageFetchError } from '../src/lib/image-fetch.ts'
 import {
   decodePoolConfigFixture,
   mobileConfigFixture,
@@ -309,22 +310,84 @@ describe('POST /api/launch — request rejections', () => {
     )
   })
 
-  it('rejects imageUrl with a clear pointer to base64 image', async () => {
+  it('accepts imageUrl through the safe fetch seam and uploads its bytes', async () => {
+    const log: CallLog = { imageUploads: 0, metadataUploads: 0, builds: 0 }
+    let fetched: string | null = null
+    let uploaded: { bytes: Buffer; contentType: string } | null = null
+    const deps = launchDeps(await catalogDeps(), log, {
+      fetchImage: async (url) => {
+        fetched = url
+        return {
+          bytes: Buffer.from(PNG_1PX, 'base64'),
+          contentType: 'image/png',
+          fileName: 'image.png',
+        }
+      },
+      uploadImage: async (image) => {
+        log.imageUploads += 1
+        uploaded = image
+        return { cid: 'bafyimage', url: 'https://ipfs.filebase.io/ipfs/bafyimage' }
+      },
+    })
+    const result = await prepareLaunch(
+      baseBody({ image: undefined, imageUrl: ' https://cdn.example.com/logo.png ' }),
+      '203.0.113.10',
+      deps,
+    )
+    assert.equal(fetched, 'https://cdn.example.com/logo.png')
+    assert.equal(uploaded!.contentType, 'image/png')
+    assert.equal(log.imageUploads, 1)
+    assert.equal(log.builds, 1)
+    assert.equal(result.imageUrl, 'https://ipfs.filebase.io/ipfs/bafyimage')
+  })
+
+  it('surfaces an imageUrl guard refusal as a LaunchError before any upload', async () => {
+    const log: CallLog = { imageUploads: 0, metadataUploads: 0, builds: 0 }
+    const deps = launchDeps(await catalogDeps(), log, {
+      fetchImage: async () => {
+        throw new ImageFetchError('imageUrl targets a blocked address: 127.0.0.1', 400)
+      },
+    })
+    await expectLaunchError(
+      () =>
+        prepareLaunch(
+          baseBody({ image: undefined, imageUrl: 'http://127.0.0.1/x.png' }),
+          null,
+          deps,
+        ),
+      400,
+      /blocked address/,
+    )
+    assert.equal(log.imageUploads, 0)
+    assert.equal(log.metadataUploads, 0)
+    assert.equal(log.builds, 0)
+  })
+
+  it('rejects a request passing both image and imageUrl', async () => {
     const log: CallLog = { imageUploads: 0, metadataUploads: 0, builds: 0 }
     const deps = launchDeps(await catalogDeps(), log)
     await expectLaunchError(
       () =>
         prepareLaunch(
-          baseBody({ image: undefined, imageUrl: 'https://example.com/x.png' }),
+          baseBody({ imageUrl: 'https://example.com/x.png' }),
           null,
           deps,
         ),
       400,
-      /imageUrl is not supported/,
+      /only one of `image`.*`imageUrl`/,
     )
     assert.equal(log.imageUploads, 0)
-    assert.equal(log.metadataUploads, 0)
-    assert.equal(log.builds, 0)
+  })
+
+  it('rejects a missing image entirely (neither field)', async () => {
+    const log: CallLog = { imageUploads: 0, metadataUploads: 0, builds: 0 }
+    const deps = launchDeps(await catalogDeps(), log)
+    await expectLaunchError(
+      () => prepareLaunch(baseBody({ image: undefined }), null, deps),
+      400,
+      /image is required/,
+    )
+    assert.equal(log.imageUploads, 0)
   })
 
   it('rejects a missing/undecodable image before any network work', async () => {

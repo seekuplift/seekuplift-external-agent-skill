@@ -3,7 +3,7 @@
  *
  * Validation order (refusals cost no upload budget — geo runs BEFORE any
  * backend upload, mirroring the backend's own `/api/upload/metadata` gate):
- *   1. request shape + identity limits + `imageUrl` rejection (Ticket 03);
+ *   1. request shape + identity limits + `image`/`imageUrl` exclusivity;
  *   2. catalog lookup — unknown `configKey`, category/config mismatch;
  *   3. donation pick (meme-only, cause-capable only, required when causes
  *      are offered) and `ideaFunding` (idea-only);
@@ -40,7 +40,14 @@ import {
   type LaunchMetadataShape,
 } from './launch-metadata.ts'
 import { buildLaunchTx, type BuildLaunchTxDeps, type LaunchTxResult } from './dbc-launch.ts'
-import { decodeBase64Image, uploadImageBytes, uploadMetadataJson, type UploadResult } from './upload.ts'
+import {
+  decodeBase64Image,
+  uploadImageBytes,
+  uploadMetadataJson,
+  type DecodedLaunchImage,
+  type UploadResult,
+} from './upload.ts'
+import { fetchRemoteImage, ImageFetchError } from './image-fetch.ts'
 import { parseFirstBuyAtoms, parseFirstBuyUiAmount } from './first-buy.ts'
 import { parseScaledUiMultiplier } from './dbc-shared.ts'
 
@@ -103,6 +110,8 @@ export type LaunchDeps = {
     handle: string,
     clientIp: string | null,
   ) => Promise<ResolvedRedditHandle>
+  /** Fetch a remote `imageUrl` through the SSRF guard (Ticket 03). */
+  fetchImage?: (url: string) => Promise<DecodedLaunchImage>
   /** `POST /api/upload/image` through the backend proxy. */
   uploadImage?: (
     image: ReturnType<typeof decodeBase64Image>,
@@ -234,10 +243,13 @@ export async function prepareLaunch(
   const body = rawBody as Record<string, unknown>
 
   // ── 1. request shape ────────────────────────────────────────────────────
+  let imageUrlInput: string | null = null
   if (body.imageUrl != null) {
-    throw new LaunchError(
-      'imageUrl is not supported — pass the image bytes as base64 in `image` (remote image fetching is not implemented)',
-    )
+    imageUrlInput = asTrimmedString(body.imageUrl)
+    if (!imageUrlInput) throw new LaunchError('imageUrl must be a non-empty string')
+  }
+  if (imageUrlInput && body.image != null) {
+    throw new LaunchError('pass only one of `image` (base64) or `imageUrl` (a public http(s) URL)')
   }
   const configKey = asTrimmedString(body.configKey)
   if (!configKey) throw new LaunchError('Missing required field: configKey')
@@ -264,12 +276,18 @@ export async function prepareLaunch(
     if (err) throw new LaunchError(err)
   }
 
-  // Decode + sniff the image BEFORE any network call — cheap local checks first.
-  let image: ReturnType<typeof decodeBase64Image>
-  try {
-    image = decodeBase64Image(body.image)
-  } catch (err) {
-    throw new LaunchError(err instanceof Error ? err.message : String(err))
+  // Decode + sniff a base64 `image` BEFORE any network call — cheap local
+  // checks first. An `imageUrl` is fetched later (after the geo pre-check,
+  // right before the upload) through the SSRF-safe fetcher.
+  let image: DecodedLaunchImage | null = null
+  if (body.image != null) {
+    try {
+      image = decodeBase64Image(body.image)
+    } catch (err) {
+      throw new LaunchError(err instanceof Error ? err.message : String(err))
+    }
+  } else if (!imageUrlInput) {
+    throw new LaunchError('image is required — pass base64 `image` or a public `imageUrl`')
   }
 
   // ── 2. catalog: configKey must be a served option for the category ─────
@@ -530,6 +548,22 @@ export async function prepareLaunch(
 
   // ── 6. uploads through the backend proxy (image first — its URL is a
   //       metadata field) — geo verdict already passed.
+  if (image == null) {
+    // `imageUrl`: fetch through the SSRF guard (vet → pin → manual
+    // redirects → size cap → magic-byte sniff) before re-uploading.
+    const fetchImage = deps.fetchImage ?? fetchRemoteImage
+    try {
+      image = await fetchImage(imageUrlInput!)
+    } catch (err) {
+      if (err instanceof ImageFetchError) {
+        throw new LaunchError(err.message, err.status)
+      }
+      throw new LaunchError(
+        `imageUrl could not be fetched: ${err instanceof Error ? err.message : String(err)}`,
+        502,
+      )
+    }
+  }
   const uploadImage = deps.uploadImage ?? uploadImageBytes
   const uploadMetadata = deps.uploadMetadata ?? uploadMetadataJson
   const imageResult = await uploadImage(image, clientIp)

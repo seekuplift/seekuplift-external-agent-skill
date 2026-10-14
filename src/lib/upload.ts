@@ -43,7 +43,7 @@ export function sniffImageMime(
   return null
 }
 
-const MIME_EXTENSION: Record<string, string> = {
+export const MIME_EXTENSION: Record<string, string> = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
   'image/gif': 'gif',

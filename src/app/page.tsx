@@ -164,9 +164,12 @@ console.log('Launched:', mintAddress, 'tx:', sig)`}</pre>
   "symbol": "MTK",             // required, ≤10 UTF-8 bytes (canonicalized:
                              //   leading "$" stripped, uppercased)
   "description": "…",          // required, ≤2000 chars
-  "image": "<base64>",         // required — PNG/JPEG/GIF/WEBP bytes as base64
-                             //   (a data: URL works too); uploaded via the
-                             //   backend proxy. "imageUrl" is rejected.
+  "image": "<base64>",         // required (exactly one of image/imageUrl) —
+                             //   PNG/JPEG/GIF/WEBP bytes as base64 (a data:
+                             //   URL works too); uploaded via the backend proxy.
+  // "imageUrl": "https://…",  //   alternative — a public http(s) URL the
+                             //   service fetches through its SSRF guard
+                             //   (private/loopback/link-local/CGNAT refused).
   "payerPublicKey": "...",     // required, base58 Solana public key — signs + funds
   "donation": {                // meme-only; only on cause-capable configs;
     "mode": "cause",           //   REQUIRED while /api/causes offers picks.
