@@ -1,0 +1,51 @@
+# /etc/systemd/system/skill.service
+# Agent skill API behind skill.seekuplift.com, colocated with backend-rs-sql
+# (meteora-backend.service) on prod hosts A+B. Binds loopback only: Caddy
+# (deploy/Caddyfile.skill) is the sole ingress.
+[Unit]
+Description=Seek Uplift agent skill API (skill.seekuplift.com)
+# Order after the backend — every API route calls it over loopback — but never
+# require it: a dead backend fails this service's requests, not its boot, and
+# the backend's own unit (Restart=always) recovers it. Caddy is NOT bound to
+# this unit (it is bound to meteora-backend): a skill crash must not take down
+# app-api on the same Caddy process.
+After=network-online.target meteora-backend.service
+Wants=network-online.target
+
+[Service]
+User=meteora
+Group=meteora
+WorkingDirectory=/opt/meteora/agent
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/meteora/agent/.env
+# Loopback-only bind — `next start` defaults to 0.0.0.0, which would expose the
+# service on the public interface and let callers bypass Caddy's XFF rewrite
+# (a self-supplied first XFF hop would be forwarded to the backend as the
+# caller's IP). `-H` has no env equivalent in `next start`; keep it explicit.
+ExecStart=/usr/bin/env node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3001
+# "Started" = answering HTTP; any JSON on the static skill.json file proves the
+# server is up without touching the backend.
+ExecStartPost=/bin/sh -c 'for i in $(seq 1 60); do curl -fsS -o /dev/null http://127.0.0.1:3001/skill.json && exit 0; sleep 1; done; exit 1'
+TimeoutStartSec=90
+Restart=always
+RestartSec=3
+TimeoutStopSec=30
+LimitNOFILE=65536
+# Hardening: the service renders no shell, writes only its .next cache, and
+# needs no kernel, device, or home access.
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/meteora/agent/.next
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

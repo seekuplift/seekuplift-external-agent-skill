@@ -1,0 +1,36 @@
+# skill.seekuplift.com — external agent skill API (this repo).
+# Merge this block into /etc/caddy/Caddyfile alongside the app-api site — the
+# file is installed and owned by backend-rs-sql (ops/deploy/Caddyfile), so the
+# merged result must be kept in sync there when either side changes the shared
+# options block.
+#
+# Same ingress rules as app-api: Cloudflare is the only client (ufw admits 443
+# from Cloudflare's ranges only), so CF-Connecting-IP cannot be spoofed.
+# X-Forwarded-For is REPLACED with it, not appended: the service's
+# clientIpFromHeaders (src/lib/backend.ts) reads the FIRST XFF hop, then
+# forwards it to the backend over loopback, where the backend's
+# TRUSTED_PROXY_IPS=127.0.0.1 rule accepts it as the caller's IP. An appended
+# chain would leave a spoofable first hop in front of the real client.
+skill.seekuplift.com:443 {
+	# Cloudflare Origin CA certificate (SSL mode Full (strict)) — a separate
+	# cert from app-api's; see DEPLOY.md "Production — colocated on hosts A+B".
+	tls /etc/caddy/skill-origin.pem /etc/caddy/skill-origin.key
+
+	# /api/launch accepts a base64 `image` field: a 10 MB image (the backend's
+	# MAX_IMAGE_BYTES) is ~13.4 MB on the wire. 20 MB admits it with margin.
+	request_body {
+		max_size 20MB
+	}
+
+	reverse_proxy 127.0.0.1:3001 {
+		header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+		header_up -X-Real-IP
+		# Stream responses without buffering.
+		flush_interval -1
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
