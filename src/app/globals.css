@@ -1,0 +1,40 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0a0a0f;
+  --surface: #12121a;
+  --border: #1e1e2e;
+  --accent: #9945ff;
+  --accent2: #14f195;
+  --text: #e2e8f0;
+  --muted: #64748b;
+  --code-bg: #0d0d18;
+  --radius: 8px;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+body { background: var(--bg); color: var(--text); line-height: 1.6; }
+
+a { color: var(--accent2); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+code, pre { font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace; font-size: 0.875rem; }
+
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+
+code:not(pre code) {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  font-size: 0.85em;
+}
+
+h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.02em; }

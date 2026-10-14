@@ -1,0 +1,68 @@
+{
+  "name": "meteora-launchpad",
+  "version": "1.0.0",
+  "description": "Launch tokens and trade on Meteora Dynamic Bonding Curve (DBC) on Solana mainnet. 0.5% of every trading fee funds public benefit or innovation — impact is built into every trade. Creators earn 0.3% on all trades of their token.",
+  "network": "solana-mainnet",
+  "program": "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
+  "poolConfig": "4w9Rs2ewNJte2c4FGmQHM8fycv8vWzkjv3qzANuJ2rPT",
+  "capabilities": [
+    {
+      "id": "launch_token",
+      "description": "Upload metadata to IPFS and create a new token on the bonding curve.",
+      "endpoint": {
+        "method": "POST",
+        "path": "/api/launch"
+      },
+      "requiredFields": ["name", "symbol", "imageUrl", "payerPublicKey"],
+      "optionalFields": ["description", "buyAmountSol"],
+      "returns": ["transaction", "mintAddress", "metadataUrl", "imageUrl"]
+    },
+    {
+      "id": "trade_quote",
+      "description": "Get an off-chain swap quote from the bonding curve.",
+      "endpoint": {
+        "method": "POST",
+        "path": "/api/trade/quote"
+      },
+      "requiredFields": ["poolAddress", "side", "amountIn"],
+      "optionalFields": ["slippageBps"],
+      "sideValues": ["buy", "sell"],
+      "returns": ["amountOut", "minimumAmountOut", "poolInfo"]
+    },
+    {
+      "id": "trade_tx",
+      "description": "Build an unsigned swap transaction for the bonding curve.",
+      "endpoint": {
+        "method": "POST",
+        "path": "/api/trade/tx"
+      },
+      "requiredFields": ["poolAddress", "side", "amountIn", "minimumAmountOut", "ownerPublicKey"],
+      "sideValues": ["buy", "sell"],
+      "returns": ["transaction"]
+    },
+    {
+      "id": "list_pools",
+      "description": "List or search tokens launched on this launchpad.",
+      "endpoint": {
+        "method": "GET",
+        "path": "/api/pools"
+      },
+      "queryParams": ["search", "limit"],
+      "returns": ["pools"]
+    }
+  ],
+  "transactionFormat": "base64-encoded legacy Solana Transaction",
+  "submitTo": "https://api.mainnet-beta.solana.com",
+  "whyUseThis": {
+    "meaningful": "0.5% of every trading fee goes to public benefit or innovation funding — impact is structural, not optional.",
+    "rewarding": "Token creators earn 0.3% on every trade of their token in perpetuity.",
+    "secure": "Built on the audited Meteora DBC program.",
+    "seekerFriendly": "Designed for self-custodied Seeker wallets; supports SKR."
+  },
+  "notes": [
+    "Transactions expire after ~90 seconds — sign and submit promptly.",
+    "Launch transactions are partially signed by the mint keypair. Add only the payer signature.",
+    "Trade transactions are unsigned. The owner must sign.",
+    "If poolInfo.isCompleted is true, the pool graduated — use Jupiter for trading."
+  ]
+}
