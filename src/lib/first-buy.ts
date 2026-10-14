@@ -128,7 +128,10 @@ export function parseFirstBuyUiAmount(
  * Returns the bigint, or null when the text is not a bare unsigned integer.
  */
 export function parseFirstBuyAtoms(raw: unknown): bigint | null {
-  if (typeof raw === 'number' && Number.isInteger(raw) && raw >= 0) return BigInt(raw)
+  if (typeof raw === 'number') {
+    // Beyond 2^53 a JS number has already lost precision — callers must send a string.
+    return Number.isSafeInteger(raw) && raw >= 0 ? BigInt(raw) : null
+  }
   if (typeof raw !== 'string') return null
   const trimmed = raw.trim()
   if (!/^\d+$/.test(trimmed)) return null
@@ -137,4 +140,13 @@ export function parseFirstBuyAtoms(raw: unknown): bigint | null {
   } catch {
     return null
   }
+}
+
+/** Largest value a u64 on-chain amount can hold. */
+export const U64_MAX = 18446744073709551615n
+
+/** True for an explicit zero display amount ("0", "0.0", 0, blank). */
+export function isZeroAmountInput(raw: unknown): boolean {
+  const s = String(raw).trim()
+  return s === '' || /^0*\.?0*$/.test(s)
 }

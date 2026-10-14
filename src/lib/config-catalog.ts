@@ -26,6 +26,7 @@ import {
   fetchPoolConfigData,
   getConnection,
   readMintTokenInfo,
+  ScaledUiDecodeError,
   SPL_TOKEN_PROGRAM_ID,
   toBigIntish,
   toFiniteNumber,
@@ -675,8 +676,10 @@ export async function getConfigCatalogWithGeo(
     if (quoteMint && (!record || record.tokenProgram !== SPL_TOKEN_PROGRAM_ID)) {
       try {
         mintInfoResult = await mintInfo(quoteMint)
-      } catch {
+      } catch (err) {
         mintInfoResult = null
+        // An undecodable ScaledUiAmount extension fails closed with its reason.
+        if (err instanceof ScaledUiDecodeError) decodeError ??= err.message
       }
       // SQ-APP-4 parity (app resolveQuoteAssetForLaunch, dbc-launch-client.ts):
       // a failed or decimal-less read cannot prove the mint is unscaled — fail

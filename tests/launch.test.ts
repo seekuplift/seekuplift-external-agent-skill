@@ -898,6 +898,17 @@ describe('POST /api/launch — first buy', () => {
       deps,
     )
     assert.equal((log.lastTx as { firstBuyAtoms?: bigint }).firstBuyAtoms, 5000000n)
+    // 1 atom / multiplier 2 floors to 0 — a requested first buy is never silently dropped.
+    await expectLaunchError(
+      () =>
+        prepareLaunch(
+          baseBody({ configKey: STOCK_CONFIG_KEY, firstBuyAmount: '0.000001', donation: { mode: 'managed' } }),
+          null,
+          deps,
+        ),
+      400,
+      /rounds to 0 atoms/,
+    )
   })
 
   it('rejects a zero-or-less display first buy and malformed atoms', async () => {
@@ -927,6 +938,37 @@ describe('POST /api/launch — first buy', () => {
     await prepareLaunch(baseBody({ firstBuyAmount: '0' }), null, deps)
     assert.equal((log.lastTx as { firstBuyAtoms?: bigint }).firstBuyAtoms, undefined)
     assert.equal(log.builds, 1)
+  })
+
+  it('rejects unsafe-integer numbers and values above u64 max', async () => {
+    const log: CallLog = { imageUploads: 0, metadataUploads: 0, builds: 0 }
+    const deps = launchDeps(await catalogDeps(), log)
+    await expectLaunchError(
+      () => prepareLaunch(baseBody({ firstBuyAtoms: 2 ** 60 }), null, deps),
+      400,
+      /safe integer/,
+    )
+    await expectLaunchError(
+      () => prepareLaunch(baseBody({ firstBuyAtoms: '18446744073709551616' }), null, deps),
+      400,
+      /u64/,
+    )
+    await prepareLaunch(baseBody({ firstBuyAtoms: '18446744073709551615' }), null, deps)
+    assert.equal(log.builds, 1)
+  })
+})
+
+describe('POST /api/launch — causes unavailable', () => {
+  it('fails closed with 503 for a cause-capable meme without donation', async () => {
+    const log: CallLog = { imageUploads: 0, metadataUploads: 0, builds: 0 }
+    const deps = launchDeps(await catalogDeps(), log, {
+      fetchCauses: async () => {
+        throw new Error('backend down')
+      },
+    })
+    const err = await expectLaunchError(() => prepareLaunch(baseBody(), null, deps), 503, /unavailable/)
+    assert.equal(err.fields.error, 'causes_unavailable')
+    assert.equal(log.builds, 0)
   })
 })
 

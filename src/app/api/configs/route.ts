@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error('[/api/configs]', message)
-    return NextResponse.json({ error: message }, { status: 502 })
+    // Generic body: upstream errors can embed the RPC URL (incl. API key).
+    return NextResponse.json({ error: 'upstream_error' }, { status: 502 })
   }
 }

@@ -196,6 +196,7 @@ describe('prepareTradeQuote — request validation', () => {
     ['bad side', { poolAddress: POOL_ADDRESS, side: 'hold', amountIn: '100' }],
     ['missing amountIn', { poolAddress: POOL_ADDRESS, side: 'buy' }],
     ['non-integer amountIn', { poolAddress: POOL_ADDRESS, side: 'buy', amountIn: '1.5' }],
+    ['amountIn above u64 max', { poolAddress: POOL_ADDRESS, side: 'buy', amountIn: '18446744073709551616' }],
     ['zero amountIn', { poolAddress: POOL_ADDRESS, side: 'buy', amountIn: '0' }],
     ['bad slippage', { poolAddress: POOL_ADDRESS, side: 'buy', amountIn: '1', slippageBps: -1 }],
     ['not an object', null],
@@ -208,6 +209,27 @@ describe('prepareTradeQuote — request validation', () => {
       })
     })
   }
+
+  it('prepareTradeTx rejects minimumAmountOut above u64 max as a 400', async () => {
+    await assert.rejects(
+      prepareTradeTx(
+        {
+          poolAddress: POOL_ADDRESS,
+          side: 'buy',
+          amountIn: '1',
+          payerPublicKey: POOL_ADDRESS,
+          minimumAmountOut: '18446744073709551616',
+        },
+        null,
+        makeDeps(),
+      ),
+      (err: unknown) => {
+        assert.ok(err instanceof TradeError)
+        assert.equal(err.status, 400)
+        return true
+      },
+    )
+  })
 
   it('a missing pool resolves as a 404 pool_not_found', async () => {
     mockPoolExists = false

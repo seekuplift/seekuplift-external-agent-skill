@@ -17,6 +17,7 @@
  *   5. quote (50 bps default) or build the unsigned swap transaction.
  */
 import { PublicKey } from '@solana/web3.js'
+import { U64_MAX } from './first-buy.ts'
 import { backendGetJson } from './backend.ts'
 import {
   getMobileConfigContext,
@@ -96,7 +97,9 @@ function parseAtoms(value: unknown, field: string): bigint {
   if (!raw || !/^\d+$/.test(raw)) {
     throw new TradeError(`${field} must be a non-negative integer atom count`)
   }
-  return BigInt(raw)
+  const atoms = BigInt(raw)
+  if (atoms > U64_MAX) throw new TradeError(`${field} exceeds the maximum u64 atom amount (18446744073709551615)`)
+  return atoms
 }
 
 function normalizeCategory(value: string | null | undefined): LaunchCategory | null {

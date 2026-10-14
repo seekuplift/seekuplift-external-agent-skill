@@ -74,6 +74,7 @@ export async function POST(req: NextRequest) {
     }
     const message = err instanceof Error ? err.message : String(err)
     console.error('[/api/trade/tx]', message)
-    return NextResponse.json({ error: message }, { status: 502 })
+    // Generic body: upstream errors can embed the RPC URL (incl. API key).
+    return NextResponse.json({ error: 'upstream_error' }, { status: 502 })
   }
 }

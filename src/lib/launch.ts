@@ -48,7 +48,7 @@ import {
   type UploadResult,
 } from './upload.ts'
 import { fetchRemoteImage, ImageFetchError } from './image-fetch.ts'
-import { parseFirstBuyAtoms, parseFirstBuyUiAmount } from './first-buy.ts'
+import { U64_MAX, isZeroAmountInput, parseFirstBuyAtoms, parseFirstBuyUiAmount } from './first-buy.ts'
 import { parseScaledUiMultiplier } from './dbc-shared.ts'
 
 /** A refusal with an HTTP status and optional structured error fields. */
@@ -337,8 +337,17 @@ export async function prepareLaunch(
     const fetchCauses = deps.fetchCauses ?? defaultFetchCauses
     try {
       shippingCauses = shippingCauseSlugs(await fetchCauses(clientIp))
-    } catch {
-      shippingCauses = null // fail open — the pick simply cannot be validated
+    } catch (err) {
+      // Causes unavailable: with a donation we proceed (backend validates the
+      // pick); without one we fail closed (503) since the donation-required
+      // rule cannot be checked and the backend would default to managed.
+      console.warn('[launch] /api/causes fetch failed', err instanceof Error ? err.message : String(err))
+      if (donationRaw == null) {
+        throw new LaunchError('Causes list unavailable — retry shortly', 503, {
+          error: 'causes_unavailable',
+        })
+      }
+      shippingCauses = null
     }
     if (donationRaw == null && shippingCauses != null && shippingCauses.length > 0) {
       throw new LaunchError(
@@ -525,7 +534,7 @@ export async function prepareLaunch(
     if (body.firstBuyAtoms != null) {
       const atoms = parseFirstBuyAtoms(body.firstBuyAtoms)
       if (atoms == null) {
-        throw new LaunchError('firstBuyAtoms must be a bare unsigned integer string of raw quote atoms')
+        throw new LaunchError('firstBuyAtoms must be a bare unsigned integer string of raw quote atoms (a JSON number must be a safe integer — pass large values as a string)')
       }
       firstBuyAtoms = atoms
     } else {
@@ -534,6 +543,13 @@ export async function prepareLaunch(
         throw new LaunchError('firstBuyAmount must be a display-units decimal string')
       }
       const multiplier = parseScaledUiMultiplier(entry.quote.scaledUiAmountMultiplier)
+      if (entry.quote.scaledUiAmountMultiplier != null && !multiplier) {
+        // Extension present but multiplier unreadable: never fall back to 1.
+        throw new LaunchError(
+          `Config ${configKey} quote mint scaled-UI multiplier is undecodable — cannot convert firstBuyAmount`,
+          502,
+        )
+      }
       const atoms = parseFirstBuyUiAmount(String(amount), quoteDecimals, multiplier)
       if (atoms == null) {
         throw new LaunchError(
@@ -542,8 +558,19 @@ export async function prepareLaunch(
       }
       firstBuyAtoms = atoms
     }
-    // Zero parses to "no first buy" — same gate as the app (atomics > 0).
-    if (firstBuyAtoms <= 0n) firstBuyAtoms = undefined
+    if (firstBuyAtoms > U64_MAX) {
+      throw new LaunchError('first buy exceeds the maximum u64 atom amount (18446744073709551615)')
+    }
+    // An explicit zero (SKILL.md: "0/omitted = no first buy") means no first
+    // buy; a non-zero request that floors to 0 atoms is rejected (app: "tooSmall").
+    if (firstBuyAtoms <= 0n) {
+      if (body.firstBuyAmount != null && !isZeroAmountInput(body.firstBuyAmount)) {
+        throw new LaunchError(
+          'first buy rounds to 0 atoms (amount too small for the quote mint decimals/multiplier)',
+        )
+      }
+      firstBuyAtoms = undefined
+    }
   }
 
   // ── 6. uploads through the backend proxy (image first — its URL is a

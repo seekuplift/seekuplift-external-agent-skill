@@ -185,7 +185,7 @@ Uploads image + metadata through the backend proxy and builds the launch transac
 }
 ```
 
-**Errors**: `400 { error }` validation (incl. `donation_required` with `causesOffered`); `403 { error: "geo_restricted", region, feature }`; `429` upload rate limit (see **Limits**); `502` upstream failure.
+**Errors**: `400 { error }` validation (incl. `donation_required` with `causesOffered`); `403 { error: "geo_restricted", region, feature }`; `429` upload rate limit (see **Limits**); `502 { error: "upstream_error" }` upstream failure; `503 { error: "causes_unavailable" }` the cause list could not be loaded for a meme launch that needs a donation — retry later.
 
 ---
 
@@ -361,4 +361,5 @@ The service forwards the caller's IP to the backend, which resolves a fresh geo 
 | `404` | `{ error: "pool_not_found" }` | No DBC pool at that address. |
 | `409` | `{ error: "pool_not_tradeable", migrationState, retryable }` | See **Migration states**. |
 | `429` | backend body passthrough | Upload allowance exhausted. |
-| `502`/`500` | `{ error }` | Upstream backend or Solana RPC failure — safe to retry. |
+| `502`/`500` | `{ error: "upstream_error" }` | Upstream backend or Solana RPC failure — safe to retry. |
+| `503` | `{ error: "causes_unavailable" }` | Cause list unavailable for a meme launch that needs a donation — retry later. |

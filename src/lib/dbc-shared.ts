@@ -269,13 +269,31 @@ export function effectiveScaledUiMultiplier(
   return parsed ?? IDENTITY_SCALED_UI_MULTIPLIER
 }
 
+/**
+ * Thrown when a mint carries the ScaledUiAmount extension but its multiplier
+ * cannot be decoded. Fail closed: treating it as 1 would mis-size amounts.
+ */
+export class ScaledUiDecodeError extends Error {
+  constructor(detail: string) {
+    super(`ScaledUiAmount extension present but undecodable: ${detail}`)
+    this.name = 'ScaledUiDecodeError'
+  }
+}
+
+/** f64 -> plain decimal string (never exponent notation, which the parser rejects). */
+function formatF64Decimal(n: number): string {
+  if (!Number.isFinite(n)) return String(n)
+  return n.toLocaleString('en-US', { useGrouping: false, maximumFractionDigits: 20 })
+}
+
+/** Only called when the extension IS present; throws if the multiplier is undecodable. */
 function normalizeScaledUiConfig(input: {
   multiplier?: unknown
   newMultiplier?: unknown
   newMultiplierEffectiveTimestamp?: unknown
-}): ScaledUiAmountConfig | null {
+}): ScaledUiAmountConfig {
   const multiplier = parseScaledUiMultiplier(input.multiplier)
-  if (!multiplier) return null
+  if (!multiplier) throw new ScaledUiDecodeError(`multiplier ${String(input.multiplier)}`)
   const newMultiplier = parseScaledUiMultiplier(input.newMultiplier)
   const ts = Number(input.newMultiplierEffectiveTimestamp)
   return {
@@ -325,13 +343,15 @@ export function parseScaledUiAmountConfigFromRaw(
     offset += TLV_HEADER_SIZE
     if (offset + entryLen > buf.length) return null
     if (entryType === SCALED_UI_AMOUNT_EXTENSION_TYPE) {
-      if (entryLen !== SCALED_UI_AMOUNT_VALUE_SIZE) return null
+      if (entryLen !== SCALED_UI_AMOUNT_VALUE_SIZE) {
+        throw new ScaledUiDecodeError(`unexpected extension length ${entryLen}`)
+      }
       const multiplier = buf.readDoubleLE(offset + 32)
       const ts = buf.readBigInt64LE(offset + 40)
       const newMultiplier = buf.readDoubleLE(offset + 48)
       return normalizeScaledUiConfig({
-        multiplier: String(multiplier),
-        newMultiplier: String(newMultiplier),
+        multiplier: formatF64Decimal(multiplier),
+        newMultiplier: formatF64Decimal(newMultiplier),
         newMultiplierEffectiveTimestamp: Number(ts),
       })
     }

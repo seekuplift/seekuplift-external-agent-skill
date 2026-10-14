@@ -26,6 +26,7 @@ import {
   fetchDbcPoolRead,
   fetchDbcSwapQuote,
 } from '../src/lib/dbc-trade.ts'
+import { parseScaledUiAmountConfigFromRaw, ScaledUiDecodeError } from '../src/lib/dbc-shared.ts'
 import { loadFixture } from './helpers.ts'
 
 const POOL_ADDRESS = '9uFg8xPfLVVn92qeiNoBSURZdtSYYsByfp7id1WFVj3b'
@@ -686,5 +687,33 @@ describe('fetchDbcPoolInfo — migration state (CA-A-5)', () => {
     const info = await fetchDbcPoolInfo(POOL_ADDRESS, deps())
     assert.equal(info.migrationState, 'migration_pending')
     assert.equal(info.isCompleted, true)
+  })
+})
+
+describe('ScaledUiAmount raw decode fails closed', () => {
+  function rawMint(multiplier: number, len = 56): Uint8Array {
+    const buf = Buffer.alloc(166 + 4 + len)
+    buf.writeUInt16LE(25, 166)
+    buf.writeUInt16LE(len, 168)
+    if (len === 56) {
+      buf.writeDoubleLE(multiplier, 170 + 32)
+      buf.writeDoubleLE(multiplier, 170 + 48)
+    }
+    return buf
+  }
+
+  it('formats tiny/huge f64 multipliers without exponent notation', () => {
+    assert.equal(parseScaledUiAmountConfigFromRaw(rawMint(1e-7))?.multiplier, '0.0000001')
+    assert.equal(parseScaledUiAmountConfigFromRaw(rawMint(1e21))?.multiplier, '1000000000000000000000')
+  })
+
+  it('throws when the extension is present but the multiplier is undecodable', () => {
+    assert.throws(() => parseScaledUiAmountConfigFromRaw(rawMint(NaN)), ScaledUiDecodeError)
+    assert.throws(() => parseScaledUiAmountConfigFromRaw(rawMint(0)), ScaledUiDecodeError)
+    assert.throws(() => parseScaledUiAmountConfigFromRaw(rawMint(1, 8)), ScaledUiDecodeError)
+  })
+
+  it('still returns null for a mint without the extension', () => {
+    assert.equal(parseScaledUiAmountConfigFromRaw(Buffer.alloc(170)), null)
   })
 })
