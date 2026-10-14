@@ -3,3 +3,7 @@ node_modules/
 .env.local
 *.tsbuildinfo
 .scratch/
+
+# Ticket 09 acceptance artifacts (local-only: run reports + owner approval file)
+acceptance-report*.json
+acceptance-approval.json
