@@ -13,6 +13,7 @@
  * Run with: `node --test tests/` (or `npm test`)
  */
 import { strict as assert } from 'node:assert'
+import { readFileSync } from 'node:fs'
 import { describe, it, beforeEach, afterEach } from 'node:test'
 import {
   getConfigCatalogWithGeo,
@@ -36,6 +37,7 @@ import {
 } from '../src/lib/first-buy.ts'
 import {
   prepareLaunch,
+  parseCausesResponse,
   LaunchError,
   GeoRestrictedError,
   type BackendCause,
@@ -969,6 +971,18 @@ describe('POST /api/launch — causes unavailable', () => {
     const err = await expectLaunchError(() => prepareLaunch(baseBody(), null, deps), 503, /unavailable/)
     assert.equal(err.fields.error, 'causes_unavailable')
     assert.equal(log.builds, 0)
+  })
+})
+
+describe('GET /api/causes response', () => {
+  it('unwraps the backend { causes } envelope (captured response)', () => {
+    const body = JSON.parse(readFileSync(new URL('./fixtures/causes.json', import.meta.url), 'utf8'))
+    const causes = parseCausesResponse(body)
+    assert.ok(causes.length > 0)
+    assert.equal(typeof causes[0].slug, 'string')
+  })
+  it('rejects a body without the envelope', () => {
+    assert.throws(() => parseCausesResponse([{ slug: 'x' }]), /expected \{ causes/)
   })
 })
 

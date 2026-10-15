@@ -136,8 +136,15 @@ function asTrimmedString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
+/** `GET /api/causes` serves `{ causes: [...] }`; anything else is a failed read. */
+export function parseCausesResponse(body: unknown): BackendCause[] {
+  const causes = (body as { causes?: unknown } | null)?.causes
+  if (!Array.isArray(causes)) throw new Error('/api/causes: expected { causes: [...] }')
+  return causes as BackendCause[]
+}
+
 async function defaultFetchCauses(clientIp: string | null): Promise<BackendCause[]> {
-  return backendGetJson<BackendCause[]>('/api/causes', {}, { clientIp })
+  return parseCausesResponse(await backendGetJson<unknown>('/api/causes', {}, { clientIp }))
 }
 
 async function defaultFetchCauseModes(
