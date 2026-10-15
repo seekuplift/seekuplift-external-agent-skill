@@ -53,7 +53,7 @@ let swapQuoteCalls: Record<string, unknown>[] = []
 let swapQuote2Calls: Record<string, unknown>[] = []
 let swapCalls: Record<string, unknown>[] = []
 let swap2Calls: Record<string, unknown>[] = []
-let mockPoolExists = true
+let mockPoolExists: boolean | 'not-a-pool' = true
 let mockQuoteReserve: bigint | number = 0
 let mockIsMigrated: number | undefined = 0
 let mockMigrationProgress: number | undefined = 0
@@ -68,8 +68,9 @@ let metadataFetchThrows = false
 function makeMockClient(): DynamicBondingCurveClient {
   return {
     state: {
-      getPool: async () =>
-        mockPoolExists
+      getPool: async () => {
+        if (mockPoolExists === 'not-a-pool') throw new Error('Invalid account discriminator')
+        return mockPoolExists
           ? {
               baseMint: new PublicKey(BASE_MINT),
               config: new PublicKey(CONFIG_ADDRESS),
@@ -77,7 +78,8 @@ function makeMockClient(): DynamicBondingCurveClient {
               isMigrated: mockIsMigrated,
               migrationProgress: mockMigrationProgress,
             }
-          : null,
+          : null
+      },
       getPoolConfig: async () => ({
         quoteMint: new PublicKey(mockQuoteMint),
         migrationQuoteThreshold: bnLike(1_000_000_000),
@@ -241,6 +243,14 @@ describe('prepareTradeQuote — request validation', () => {
         assert.equal(err.fields.error, 'pool_not_found')
         return true
       },
+    )
+  })
+
+  it('an account that is not a DBC pool (wallet, mint) is also a 404', async () => {
+    mockPoolExists = 'not-a-pool'
+    await assert.rejects(
+      prepareTradeQuote({ poolAddress: POOL_ADDRESS, side: 'buy', amountIn: '100' }, null, makeDeps()),
+      (err: unknown) => err instanceof TradeError && err.status === 404,
     )
   })
 })

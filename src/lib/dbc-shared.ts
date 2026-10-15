@@ -84,7 +84,12 @@ export async function getPoolAndConfig(
   /** The pool address the state was read under (echoed for the callers' result shapes). */
   poolAddress: string
 }> {
-  const virtualPool = await client.state.getPool(new PublicKey(poolAddress))
+  // An existing account owned by something else (a wallet, a mint, another
+  // program's state) fails the Anchor decode — that is "no pool here" too.
+  const virtualPool = await client.state.getPool(new PublicKey(poolAddress)).catch((err) => {
+    if (/Invalid account discriminator/.test(err instanceof Error ? err.message : String(err))) return null
+    throw err
+  })
   if (!virtualPool) throw new Error(`DBC pool not found: ${poolAddress}`)
   const poolState = unwrapPoolState(virtualPool)
   const config = await client.state.getPoolConfig(poolState.config)
