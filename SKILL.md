@@ -341,7 +341,7 @@ GET /api/pools?search=<q>&limit=20&cursor=<cursor>&tab=emerging&category=meme&li
 
 The service forwards the caller's IP to the backend, which resolves a fresh geo verdict **per request** (never cached). An unresolvable verdict fails open.
 
-- **Launch (create) gating**: `idea` → `idea.create`; `startup` → `startup.create`; `meme` → `cause.marketing` plus a hidden key derived from the donation claim kind (`cause.specific_hidden` / `cause.managed_hidden`) — memecoin launches are effectively gated by cause availability; stock-quoted configs additionally → `stock.create` (checked only by this service). Refusal: `403 { error: "geo_restricted", region, feature }`, and — because the check runs **before** any upload — it costs no upload budget. Read `geo.byCategory` on the catalog entry first.
+- **Launch (create) gating**: `idea` → `idea.create`; `startup` → `startup.create`; `meme` → `cause.marketing` plus a hidden key derived from the donation claim kind (`cause.specific_hidden` / `cause.managed_hidden`) — memecoin launches are effectively gated by cause availability — and memecoin launches are also refused in every beta-gated jurisdiction (`feature: "beta.gated"`); stock-quoted configs additionally → `stock.create` (checked only by this service). Refusal: `403 { error: "geo_restricted", region, feature }`, and — because the check runs **before** any upload — it costs no upload budget. Read `geo.byCategory` on the catalog entry first.
 - **Trade gating**: idea/startup coins → `<category>.trade`; stock-quoted coins → `stock.trade`. **Memecoin trading is never geo-gated.**
 
 ## Limits

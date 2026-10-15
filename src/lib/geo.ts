@@ -159,7 +159,8 @@ export function createFeatureKeys(category: LaunchCategory, isStock: boolean): s
 /**
  * The caller's create verdict for one category on one config. `allowed`
  * when none of the category's feature keys is in the verdict's restricted
- * list; `reason` is the first matching restricted key.
+ * list; `reason` is the first matching restricted key. A meme launch is also
+ * refused with reason `beta.gated` when the caller's region is beta-gated.
  */
 export function resolveCreateGeo(
   verdict: GeoVerdict | null | undefined,
@@ -167,7 +168,10 @@ export function resolveCreateGeo(
   isStock: boolean,
 ): GeoCreateVerdict {
   const keys = createFeatureKeys(category, isStock)
-  const restricted = keys.find((key) => verdict?.restricted.includes(key as never))
+  let restricted = keys.find((key) => verdict?.restricted.includes(key as never))
+  // Owner rule (2026-10-15): memecoin launches are blocked in every
+  // beta-gated jurisdiction — agents have no beta admission path.
+  if (restricted == null && category === 'meme' && verdict?.betaGated) restricted = 'beta.gated'
   return {
     allowed: restricted == null,
     reason: restricted ?? null,

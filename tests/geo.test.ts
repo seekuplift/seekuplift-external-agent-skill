@@ -62,6 +62,16 @@ describe('resolveCreateGeo', () => {
     })
   })
 
+  it('refuses meme launches in a beta-gated region, other categories unaffected', () => {
+    const verdict = parseGeoVerdict({ region: 'XX', restricted: [], betaGated: true })
+    assert.deepEqual(resolveCreateGeo(verdict, 'meme', false), {
+      allowed: false,
+      reason: 'beta.gated',
+      region: 'XX',
+    })
+    assert.equal(resolveCreateGeo(verdict, 'idea', false).allowed, true)
+  })
+
   it('fails open without a verdict', () => {
     assert.equal(resolveCreateGeo(null, 'idea', true).allowed, true)
   })
