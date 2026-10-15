@@ -45,7 +45,7 @@ Each `GET /api/configs` entry is one launch option. Pick by:
 - **`supportsCause`**: donation routing is available — a meme launch on such a config must include a `donation` pick while causes are offered.
 - **`supportsFirstBuy`**: a creator first buy may be bundled into the launch transaction.
 - **`isStock`**: the quote mint is a stock quote asset — `stock.create`/`stock.trade` geo keys apply.
-- **`geo`**: the caller's create verdict (see **Geo** below). `geo.byCategory[category].allowed: false` means the launch will be refused for this caller.
+- **`geo`**: the caller's create verdict (see **Geo** below). `geo.byCategory[category].allowed: false` means the launch will be refused for this caller. Top-level `geo.allowed` is true only when **every** category the config serves is allowed — decide per category from `byCategory`.
 - **`decodeError`**: non-null means the on-chain config could not be decoded; launching on it fails and its fee fields are conservative `custom`/`null` values — pick another config.
 
 ## Autonomy — when to involve the user
@@ -173,7 +173,7 @@ Uploads image + metadata through the backend proxy and builds the launch transac
 - `name`: ≥3 characters, ≤32 UTF-8 bytes. `symbol`: ≤10 UTF-8 bytes (leading `$`/whitespace stripped, uppercased). `description`: required, ≤2000 characters.
 - `image`: base64 PNG/JPEG/GIF/WEBP, ≤10 MB; an RFC-2397 `data:<mime>;base64,…` URL is accepted when the declared type matches the bytes.
 - `imageUrl`: a public `http(s)` URL fetched through an **SSRF guard** — no credentials in the URL, no `localhost`/`.local`/`.internal` hosts, private/loopback/link-local/CGNAT/documentation address targets refused (every DNS answer is vetted and the connection is pinned to it), redirects followed manually (≤3 hops, each re-vetted), 10 MB cap, magic-byte sniffed. `ipfs://` and other non-http(s) schemes are refused — pass a public gateway URL instead.
-- `donation` — **meme launches only**, and only on `supportsCause` configs. `{ mode, cause?, project?, handle?, redditUserId? }`. **Required while the backend offers causes** — a `400` with `error: "donation_required"` lists `causesOffered` (slugs for `mode: "cause"`). Modes selectable at launch come from the backend's launch-enabled mode registry (typically `managed`, `cause`, `project`, `tbd`, `x`, `reddit`); `cause` takes `cause` (a shipping cause slug), `project` takes a bare positive Giveth project id in `project`, `x` takes `handle`, `reddit` takes `handle` + `redditUserId` (a `t2_` id), `managed`/`tbd` take no params.
+- `donation` — **meme launches only**, and only on `supportsCause` configs. `{ mode, cause?, project?, handle?, redditUserId? }`. **Required while the backend offers causes** — there is no separate lookup: omit it, and a `400` with `error: "donation_required"` (raised before any upload) lists `causesOffered` (slugs for `mode: "cause"`). Modes selectable at launch come from the backend's launch-enabled mode registry (typically `managed`, `cause`, `project`, `tbd`, `x`, `reddit`); `cause` takes `cause` (a shipping cause slug), `project` takes a bare positive Giveth project id in `project`, `x` takes `handle`, `reddit` takes `handle` + `redditUserId` (a `t2_` id), `managed`/`tbd` take no params.
 - `ideaFunding` — **idea launches only**. `{ mode, address?, handle?, redditUserId? }`. Modes come from the backend's launch-enabled registry (`managed` and `realms` are never selectable; typically `direct`, `tbd`, `x`, `reddit`): `direct` takes `address` — an **on-curve** Solana address (no PDAs) that becomes the coin's entitled signer; `x` takes `handle`; `reddit` takes `handle` + `redditUserId`, or just `handle` and the service resolves the `t2_` id.
 - **Idea extras** — required: `problem` (the use-case statement), `useCases` (1–3 slugs from the idea catalog: climate, education, inclusion, local, depin, desci, public-goods, infrastructure, payments, governance, social, art, gaming, defi, privacy, identity, health, energy, food, housing, mobility, other), `prototype` (URL). Optional: `whitepaper` (URI).
 - **Startup extras** — required: `problem` (the pitch), `useCases` (1–3 slugs from the startup catalog: saas, consumer, fintech, ai, infrastructure, defi, payments, depin, gaming, rwa, social, data, creator, climate, education, health, security, wallet, marketplace, media, stablecoins, other), `deck` (URL). Optional: `whitepaper` (recorded as roadmap), plus the compliance fields `legalFramework`, `legalFrameworkNote`, `tokenUtility`, `decentralizationEfforts`, `entityJurisdiction` — recorded only when `startupComplianceAcknowledged: true`.
@@ -195,6 +195,8 @@ Uploads image + metadata through the backend proxy and builds the launch transac
   "note": "Deserialize from base64 as a legacy Transaction, sign with payerPublicKey, then submit to mainnet RPC. The mint keypair signature is already applied."
 }
 ```
+
+`firstBuyAtoms` is `null` when the launch has no first buy.
 
 **Errors**: `400 { error }` validation (incl. `donation_required` with `causesOffered`); `403 { error: "geo_restricted", region, regionName, feature, message }`; `429` upload rate limit (see **Limits**); `502 { error: "upstream_error" }` upstream failure; `503 { error: "causes_unavailable" }` the cause list could not be loaded for a meme launch that needs a donation — retry later.
 
@@ -244,6 +246,7 @@ Off-chain swap quote for a live curve pool.
 }
 ```
 
+- **Quote the sell after the buy lands.** A quote is a snapshot: your own buy moves the price, so a sell quoted before it is stale. The sell amount is the wallet's balance of `baseMint` — read it with `getParsedTokenAccountsByOwner(owner, { mint })`, which covers both SPL Token and Token-2022 mints (many coins here are Token-2022).
 - Buys use **partial-fill**: a buy that would push the pool past `migrationQuoteThreshold` consumes only enough quote to graduate the curve and refunds the rest — `consumedInput`/`amountLeft` report it. Sells always fill fully.
 - `quoteScaledUiAmount`: `{ multiplier, newMultiplier, newMultiplierEffectiveTimestamp }` when the quote mint is a scaled Token-2022 mint — needed for display math on non-SOL quotes.
 - `migrationState` / `isCompleted`: see **Migration states** below.
@@ -301,7 +304,7 @@ GET /api/pools?search=<q>&limit=20&cursor=<cursor>&tab=emerging&category=meme&li
 | Param | Values | Notes |
 |---|---|---|
 | `search` | name / symbol / mint | When present the call is a search — the list-only params are not forwarded to the backend (an invalid value still returns `400`) and `nextCursor` is always `null`. |
-| `limit` | 1–100 | Default 20; out-of-range values are clamped. |
+| `limit` | 1–100 | Default 20; out-of-range values are clamped. A maximum — a page can hold fewer; keep paging while `nextCursor` is non-null. |
 | `cursor` | `nextCursor` from a previous list response | List only. |
 | `tab` | `emerging` \| `graduated` | List only. |
 | `category` | `meme` \| `idea` \| `startup` | List only. |
@@ -334,11 +337,11 @@ GET /api/pools?search=<q>&limit=20&cursor=<cursor>&tab=emerging&category=meme&li
 
 ## Migration states — when not to trade on the curve
 
-`poolInfo.migrationState` (and the `graduated` flag on pool listings) drives routing:
+`poolInfo.migrationState` from a quote drives routing. The listing's `graduated: true` only means the curve is finished — it covers both `migration_pending` and `migrated`, so quote before routing to Jupiter:
 
 - `"curve"` — tradeable via `/api/trade/*`.
 - `"migration_pending"` — the curve is finished but no graduated pool exists **yet**. `/api/trade/*` returns `409 { error: "pool_not_tradeable", migrationState: "migration_pending", retryable: true }`. **Retry later — do NOT route elsewhere**: no DAMM pool exists for Jupiter to route to either, and a curve swap would revert on-chain.
-- `"migrated"` — terminal migration proven (`graduated: true` in listings). `/api/trade/*` returns `409 { migrationState: "migrated", retryable: false }`. **Trade the token on Jupiter.**
+- `"migrated"` — terminal migration proven. `/api/trade/*` returns `409 { migrationState: "migrated", retryable: false }`. **Trade the token on Jupiter.**
 - A `409` with `reason: "quote_mint_transfer_fee_unsupported"` means the pool's quote mint carries a Token-2022 transfer fee the curve path cannot quote correctly — permanently unsupported, do not retry.
 - `isCompleted` is the "curve unavailable" compatibility signal (`migrationState !== "curve"`); route on `migrationState`, not on it.
 
@@ -346,7 +349,7 @@ GET /api/pools?search=<q>&limit=20&cursor=<cursor>&tab=emerging&category=meme&li
 
 The service forwards the caller's IP to the backend, which resolves a fresh geo verdict **per request** (never cached). An unresolvable verdict fails open.
 
-- **Launch (create) gating**: `idea` → `idea.create`; `startup` → `startup.create`; `meme` → `cause.marketing` plus a hidden key derived from the donation claim kind (`cause.specific_hidden` / `cause.managed_hidden`) — memecoin launches are effectively gated by cause availability — and memecoin launches are also refused in every beta-gated jurisdiction (`feature: "beta.gated"`); stock-quoted configs additionally → `stock.create` (checked only by this service). Refusal: `403 { error: "geo_restricted", region, feature }`, and — because the check runs **before** any upload — it costs no upload budget. Read `geo.byCategory` on the catalog entry first.
+- **Launch (create) gating**: `idea` → `idea.create`; `startup` → `startup.create`; `meme` → `cause.marketing` plus a hidden key derived from the donation claim kind (`cause.specific_hidden` / `cause.managed_hidden`) — memecoin launches are effectively gated by cause availability — and memecoin launches are also refused in every beta-gated jurisdiction (`feature: "beta.gated"`); stock-quoted configs additionally → `stock.create` (checked only by this service). Refusal: `403 { error: "geo_restricted", region, regionName, feature, message }`, and — because the check runs **before** any upload — it costs no upload budget. Read `geo.byCategory` on the catalog entry first.
 - **Trade gating**: idea/startup coins → `<category>.trade`; stock-quoted coins → `stock.trade`. **Memecoin trading is never geo-gated.**
 - **When refused, tell your user plainly that the action is not currently available in their detected jurisdiction, naming it** — the 403 body carries `regionName` (e.g. `"United Kingdom"`), `region` (ISO code) and a ready sentence in `message` (e.g. `"This is not currently available in United Kingdom (GB)."`). Do not retry the refused action from the same location, and do not try to work around the block.
 
@@ -366,7 +369,7 @@ The service forwards the caller's IP to the backend, which resolves a fresh geo 
 
 ### Sign and submit — minimal example (Node, `@solana/web3.js` v1)
 
-The key stays on your side; the service never sees it.
+The key stays on your side; the service never sees it. Save as an ES module (`sign.mjs`) next to an installed `@solana/web3.js` (ESM ignores `NODE_PATH`), set `KEYPAIR_PATH`, and replace `<pool id>` with a pool `id` from `/api/pools`.
 
 ```js
 import { Connection, Keypair, Transaction } from '@solana/web3.js'
@@ -389,7 +392,7 @@ async function signAndSend(base64Tx) {
   throw new Error(`not confirmed yet: ${signature} — check its status before rebuilding`)
 }
 
-// Buy 10 units of quote on a pool (quote decimals from poolInfo; 6 shown here).
+// Buy 10 SKR: amountIn = 10 × 10^poolInfo.quoteDecimals (SKR has 6 → '10000000'; SOL has 9).
 const res = await fetch(`${BASE}/api/trade/tx`, {
   method: 'POST',
   headers: { 'content-type': 'application/json' },

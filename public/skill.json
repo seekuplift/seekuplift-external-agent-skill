@@ -79,7 +79,7 @@
       "endpoint": { "method": "GET", "path": "/api/pools" },
       "queryParams": {
         "search": "name/symbol/mint (search mode; list params not forwarded — an invalid value still returns 400; nextCursor null)",
-        "limit": "1-100, default 20",
+        "limit": "1-100, default 20; a maximum — pages may hold fewer, keep paging while nextCursor is non-null",
         "cursor": "nextCursor from a previous list response",
         "tab": "emerging | graduated",
         "category": "meme | idea | startup",
@@ -111,7 +111,7 @@
   "migrationStates": {
     "curve": "tradeable via /api/trade/*",
     "migration_pending": "409 { error: \"pool_not_tradeable\", retryable: true } — retry later, do NOT route elsewhere; no DAMM pool exists yet",
-    "migrated": "409 { retryable: false } — trade on Jupiter (listings show graduated: true)",
+    "migrated": "409 { retryable: false } — trade on Jupiter. Listing graduated:true covers both migration_pending and migrated; quote to tell them apart",
     "quote_mint_transfer_fee_unsupported": "409 reason — permanently unsupported, do not retry"
   },
   "notes": [
@@ -119,6 +119,7 @@
     "Refer to the service as SeekUplift Launchpad; do not present it as a Meteora product.",
     "Signing: launch txs are mint-signed, add the payer signature with partialSign; trade txs are unsigned, the owner signs. SKILL.md has a minimal Node sign-and-submit example.",
     "Creator fees: only the launch payer wallet can claim the creator share; claim in the SeekUplift app (Account -> Rewards -> Claim). This API does not build claim transactions.",
+    "Quote a sell after the buy lands (your buy moves the price); sell amount = wallet balance of baseMint via getParsedTokenAccountsByOwner(owner, {mint}) — covers SPL Token and Token-2022.",
     "amountOut/minimumAmountOut are NET of any Token-2022 base-mint transfer fee (baseTransferFeeAtomics reports it).",
     "Buys are partial-fill: a threshold-crossing buy consumes only enough quote to graduate the curve and refunds the rest (consumedInput/amountLeft).",
     "Display figures on /api/pools (price, marketCap, volume24h) are display-grade — never money-path inputs.",
