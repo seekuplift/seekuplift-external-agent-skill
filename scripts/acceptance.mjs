@@ -69,8 +69,11 @@
  * ENV
  *   ACCEPTANCE_BASE_URL      service base URL (default https://skill.seekuplift.com)
  *   ACCEPTANCE_KEYPAIR       path to a Solana keypair JSON file (byte array).
- *                            Dry-run falls back to an ephemeral keypair when
- *                            unset; --send refuses without it.
+ *                            Dry-run falls back to ACCEPTANCE_SIM_PAYER, else an
+ *                            ephemeral keypair, when unset; --send refuses without it.
+ *   ACCEPTANCE_SIM_PAYER     dry-run only: a funded mainnet PUBLIC key to build and
+ *                            simulate as (nothing is signed), so simulations must
+ *                            come back clean instead of failing on an unfunded payer
  *   ACCEPTANCE_RPC           Solana mainnet RPC (default SOLANA_RPC_URL or
  *                            https://api.mainnet-beta.solana.com); logged and
  *                            reported as scheme+host only
@@ -104,6 +107,7 @@ import {
   Keypair,
   PublicKey,
   Transaction,
+  VersionedTransaction,
   LAMPORTS_PER_SOL,
 } from '@solana/web3.js'
 
@@ -384,6 +388,13 @@ function loadPayer() {
     if (SEND) {
       throw fail('--send requires ACCEPTANCE_KEYPAIR pointing at the payer/owner keypair file')
     }
+    const simPayer = process.env.ACCEPTANCE_SIM_PAYER
+    if (simPayer) {
+      // Dry-run never signs, so a public key alone is enough.
+      const publicKey = new PublicKey(simPayer)
+      console.log(`[setup] dry-run simulates as funded ACCEPTANCE_SIM_PAYER ${publicKey.toBase58()}`)
+      return { keypair: { publicKey }, source: 'sim payer (dry-run)' }
+    }
     const ephemeral = Keypair.generate()
     console.log(`[setup] no ACCEPTANCE_KEYPAIR — dry-run uses ephemeral payer ${ephemeral.publicKey.toBase58()}`)
     return { keypair: ephemeral, source: 'ephemeral (dry-run)' }
@@ -557,17 +568,28 @@ function skipSend(what) {
   console.log(`[SKIP-SEND] ${what} — dry-run does not sign, send or confirm`)
 }
 
-async function simulate(tx, label) {
-  // Read-only mainnet simulation (sigVerify off) — an unfunded payer yields
-  // the expected funds-class error; an InstructionError would mean the
-  // built instruction itself is rejected and is a REAL build bug.
+async function simulate(tx, label, { payerHoldsInput = true } = {}) {
+  // Read-only mainnet simulation (sigVerify off). A funded payer (real
+  // keypair or ACCEPTANCE_SIM_PAYER) must simulate clean; an ephemeral one
+  // fails at fee-payer lookup before any instruction runs, which proves
+  // nothing — reported as inconclusive, never as a clean build.
+  const funded = payerHoldsInput && !ctx.payer?.source.startsWith('ephemeral')
   try {
-    const result = await connection.simulateTransaction(tx)
+    const vtx = tx instanceof VersionedTransaction ? tx : new VersionedTransaction(tx.compileMessage())
+    const result = await connection.simulateTransaction(vtx, { sigVerify: false, replaceRecentBlockhash: true })
     const err = result.value.err
     const errJson = JSON.stringify(err)
     console.log(`[simulate] ${label}: unitsConsumed=${result.value.unitsConsumed} err=${errJson}`)
-    if (err && typeof err === 'object' && 'InstructionError' in err) {
-      throw fail(`${label} simulation failed at instruction level — real build bug: ${errJson}`)
+    if (err && funded) {
+      throw fail(`${label} simulation failed for a funded payer: ${errJson}`)
+    }
+    if (err) {
+      console.log(
+        `[simulate] ${label}: INCONCLUSIVE — ` +
+          (payerHoldsInput
+            ? 'ephemeral unfunded payer; set ACCEPTANCE_SIM_PAYER or ACCEPTANCE_KEYPAIR'
+            : 'the dry-run payer holds none of the coin it would sell'),
+      )
     }
     return { unitsConsumed: result.value.unitsConsumed ?? null, err: err ?? null }
   } catch (err) {
@@ -1267,7 +1289,8 @@ async function stepSell() {
   const { quote, tx } = await quoteAndBuild('sell', amountIn, poolInfo)
   ctx.sellQuote = quote
   if (!SEND) {
-    const sim = await simulate(tx, 'sell')
+    // The dry-run payer bought nothing, so the sell can only fail on balance.
+    const sim = await simulate(tx, 'sell', { payerHoldsInput: false })
     skipSend(`sell sign+send+confirm (${amountIn} base atoms → ${poolInfo.quoteSymbol})`)
     return {
       mode: 'quote+build-only',

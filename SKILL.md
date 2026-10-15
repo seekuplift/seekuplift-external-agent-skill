@@ -290,7 +290,7 @@ GET /api/pools?search=<q>&limit=20&cursor=<cursor>&tab=emerging&category=meme&li
 | Param | Values | Notes |
 |---|---|---|
 | `search` | name / symbol / mint | When present the call is a search — the list-only params are not forwarded to the backend (an invalid value still returns `400`) and `nextCursor` is always `null`. |
-| `limit` | 1–100 | Default 20. |
+| `limit` | 1–100 | Default 20; out-of-range values are clamped. |
 | `cursor` | `nextCursor` from a previous list response | List only. |
 | `tab` | `emerging` \| `graduated` | List only. |
 | `category` | `meme` \| `idea` \| `startup` | List only. |
@@ -317,7 +317,7 @@ GET /api/pools?search=<q>&limit=20&cursor=<cursor>&tab=emerging&category=meme&li
 
 `price`/`marketCap`/`volume24h`/`priceChange24h` are USD display figures, `nativePrice` is quote-denominated — display-grade only, never money-path inputs. `bondingCurve` is 0–1 progress toward migration.
 
-**Errors**: `400 { error }` on an invalid `limit`/`tab`/`category`/`lifecycle`/`sortBy`; `502` upstream.
+**Errors**: `400 { error }` on a non-numeric `limit`, invalid `tab`/`category`/`lifecycle`/`sortBy`; `502` upstream.
 
 ---
 
