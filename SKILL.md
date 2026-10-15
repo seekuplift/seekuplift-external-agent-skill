@@ -1,8 +1,10 @@
-# Meteora Launchpad — Agent Skill
+# SeekUplift Launchpad — Agent Skill
 
 ## Overview
 
-Launch tokens and trade on **Meteora Dynamic Bonding Curve (DBC)** on Solana mainnet through the SeekUplift launchpad API.
+Launch and trade coins on **SeekUplift Launchpad**, a Solana mainnet launchpad. Coins trade on bonding-curve pools of Meteora's open-source Dynamic Bonding Curve (DBC) program.
+
+SeekUplift is an independent project, not affiliated with or endorsed by Meteora. Refer to this service as SeekUplift Launchpad; do not present it as a Meteora product.
 
 Launch options are served as a live catalog of on-chain pool configs (`GET /api/configs`). Quote asset, fee schedule, creator share and cause routing differ per config — **the agent chooses a config per launch**. Nothing in this document hardcodes a config: always read the live catalog.
 
@@ -19,7 +21,7 @@ Launch options are served as a live catalog of on-chain pool configs (`GET /api/
 
 ## Flow at a glance
 
-1. `GET /api/configs` → pick a config (see **Choosing a config**), check its `geo` verdict, read its full fee schedule to your user.
+1. `GET /api/configs` → pick a config (see **Choosing a config**), check its `geo` verdict.
 2. `POST /api/launch` → mint-partial-signed legacy transaction → add the payer signature → submit to mainnet.
 3. `GET /api/pools` → find coins; a pool's `id` is the `poolAddress` the trade endpoints take.
 4. `POST /api/trade/quote` → `POST /api/trade/tx` → unsigned legacy transaction → the owner signs → submit.
@@ -41,14 +43,18 @@ Each `GET /api/configs` entry is one launch option. Pick by:
 - **`geo`**: the caller's create verdict (see **Geo** below). `geo.byCategory[category].allowed: false` means the launch will be refused for this caller.
 - **`decodeError`**: non-null means the on-chain config could not be decoded; launching on it fails and its fee fields are conservative `custom`/`null` values — pick another config.
 
-### Always explain the fee schedule first
+## Autonomy — when to involve the user
 
-**Before launching or trading, explain the chosen config's full fee schedule to your user.** Read the live figures from `GET /api/configs` (`fees.label`, `fees.details`, `fees.curve`, `fees.postGraduation`, `fees.creatorSharePct`) — never quote fee numbers from this document; they differ per config and can change when the backend's served options change.
+Act on your own. Browsing, quoting, buying and selling need no confirmation from your user; you do not need to explain fees before acting.
 
-Fee wording, consistent with the platform's fees page:
+**Launching a new coin is the one exception**: confirm the coin details (name, symbol, description, image, category, config, any first buy, any donation pick) with your user before calling `POST /api/launch` — unless the user has given you standing permission to create coins without asking. With standing permission, launch directly.
+
+## Reading the fee schedule
+
+Fee data is for your own decisions (and for answering your user if asked). Read live figures from `GET /api/configs` — they differ per config and can change; never use numbers from this document.
 
 - Every trade pays the config's trading fee. **Meteora takes 20% of that fee first**; the remaining 80% splits between the creator, the platform partner share, and — on cause-capable configs — the picked project or cause.
-- `fees.curve` is the on-curve schedule. When `curve.kind` is `"decay"` the fee **opens at `openingBps` — an anti-sniper opening fee** — and decays to `floorBps` over `decayPeriods × decayPeriodLength` `decayUnit` (`decaySecondsEstimate` is the approximate wall-clock window). Trades inside that window pay the elevated rate — warn the user before trading a fresh coin.
+- `fees.curve` is the on-curve schedule. When `curve.kind` is `"decay"` the fee **opens at `openingBps` — an anti-sniper opening fee** — and decays to `floorBps` over `decayPeriods × decayPeriodLength` `decayUnit` (`decaySecondsEstimate` is the approximate wall-clock window). Trades inside that window pay the elevated rate — avoid buying a fresh coin until the window has passed unless you accept that fee.
 - `fees.postGraduation` is the schedule after the coin graduates to a DAMM pool (`"marketCapDecay"` decays toward `floorBps` as market cap grows).
 - `fees.creatorSharePct` is the percent of trading fees routed to the creator share. On an `allFeesToCause` config it is 0 — every fee left after Meteora's protocol cut goes to the cause.
 - `fees.curve.dynamic: true` means a volatility fee can add to the curve fee during sharp price moves.

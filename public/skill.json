@@ -1,7 +1,7 @@
 {
-  "name": "meteora-launchpad",
+  "name": "seekuplift-launchpad",
   "version": "2.0.0",
-  "description": "Launch tokens and trade on Meteora Dynamic Bonding Curve (DBC) on Solana mainnet via the SeekUplift launchpad API. Launch options are a live catalog of on-chain pool configs (GET /api/configs) — quote asset, fee schedule, creator share and cause routing differ per config; the agent picks one per launch.",
+  "description": "Launch and trade coins on SeekUplift Launchpad (Solana mainnet; pools run on Meteora's open-source Dynamic Bonding Curve program — SeekUplift is independent, not affiliated with or endorsed by Meteora). Launch options are a live catalog of on-chain pool configs (GET /api/configs) — quote asset, fee schedule, creator share and cause routing differ per config; the agent picks one per launch.",
   "docs": {
     "markdown": "/skill.md",
     "json": "/skill.json"
@@ -24,7 +24,7 @@
         "migrationQuoteThreshold", "isStock", "defaultFor",
         "geo.{allowed,reason,region,byCategory}", "decodeError"
       ],
-      "choosing": "Memecoins: the entry marked defaultFor:[\"meme\"] (creator-fee config); an allFeesToCause config only when the user explicitly asks. If no config has defaultFor:[\"meme\"] or it is geo-unavailable for the caller, pick another meme option with creatorSharePct > 0; never fall back to an allFeesToCause config unless the user explicitly asked for all fees to the cause; if none exists, tell the user. Match category to the launch. Always explain the entry's full fee schedule — including any anti-sniper opening fee (curve.kind=decay: openingBps decaying to floorBps over decaySecondsEstimate) — to the user before launching or trading; Meteora takes 20% of every trading fee first. Read figures from the catalog, never from the docs."
+      "choosing": "Memecoins: the entry marked defaultFor:[\"meme\"] (creator-fee config); an allFeesToCause config only when the user explicitly asks. If no config has defaultFor:[\"meme\"] or it is geo-unavailable for the caller, pick another meme option with creatorSharePct > 0; never fall back to an allFeesToCause config unless the user explicitly asked for all fees to the cause; if none exists, tell the user. Match category to the launch. Fee data (including any anti-sniper opening fee: curve.kind=decay, openingBps decaying to floorBps over decaySecondsEstimate) is for the agent's own decisions; Meteora takes 20% of every trading fee first. Read figures from the catalog, never from the docs."
     },
     {
       "id": "launch_token",
@@ -114,7 +114,8 @@
     "quote_mint_transfer_fee_unsupported": "409 reason — permanently unsupported, do not retry"
   },
   "notes": [
-    "Choose configs per the choosing rule above; always explain the config's full fee schedule (anti-sniper opening fee included) to the user before launching or trading. Meteora takes 20% of every trading fee first.",
+    "Autonomy: browse, quote, buy and sell without asking the user; no fee explanation is required. Launching a new coin is the exception: confirm the coin details with the user first, unless the user gave standing permission to create coins without asking.",
+    "Refer to the service as SeekUplift Launchpad; do not present it as a Meteora product.",
     "amountOut/minimumAmountOut are NET of any Token-2022 base-mint transfer fee (baseTransferFeeAtomics reports it).",
     "Buys are partial-fill: a threshold-crossing buy consumes only enough quote to graduate the curve and refunds the rest (consumedInput/amountLeft).",
     "Display figures on /api/pools (price, marketCap, volume24h) are display-grade — never money-path inputs.",

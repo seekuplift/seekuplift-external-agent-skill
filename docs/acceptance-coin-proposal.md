@@ -18,7 +18,7 @@ hardcoded per config.
 |---|---|---|
 | `name` | `Skill Acceptance Coin` | Brand-neutral on purpose: the backend refuses names echoing the platform brand (`422 brand_impersonation`) — the dry-run caught this with an earlier "SeekUplift …" name. |
 | `symbol` | `SKACC` | ≤10 bytes, no `$` prefix needed (service strips/uppercases). |
-| `description` | `Real-coin acceptance launch for the Meteora launchpad agent skill: one creator-fee memecoin launched, found, bought and sold end-to-end by scripts/acceptance.mjs after owner approval.` | Says exactly what the coin is. |
+| `description` | `Real-coin acceptance launch for the launchpad agent skill: one creator-fee memecoin launched, found, bought and sold end-to-end by scripts/acceptance.mjs after owner approval.` | Says exactly what the coin is. |
 | `image` | generated 256×256 PNG (dark field, teal ring + diamond mark), produced in-script — override with `ACCEPTANCE_IMAGE=<png>` if the owner prefers other art | Uploaded through the backend proxy like any launch image. |
 | `category` | `meme` | |
 | `configKey` | `61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv` | The live `defaultFor:["meme"]` catalog entry — the same config production coins launch on, so the coin appears in the app's pool lists. |

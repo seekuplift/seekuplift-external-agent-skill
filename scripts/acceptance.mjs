@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * scripts/acceptance.mjs — real-coin acceptance for the Meteora launchpad
+ * scripts/acceptance.mjs — real-coin acceptance for the SeekUplift Launchpad
  * agent skill (ticket 09).
  *
  * Drives the deployed service exactly the way an agent following SKILL.md
@@ -121,7 +121,7 @@ const COIN = {
   symbol: process.env.ACCEPTANCE_COIN_SYMBOL || 'SKACC',
   description:
     process.env.ACCEPTANCE_COIN_DESC ||
-    'Real-coin acceptance launch for the Meteora launchpad agent skill: ' +
+    'Real-coin acceptance launch for the launchpad agent skill: ' +
       'one creator-fee memecoin launched, found, bought and sold end-to-end by ' +
       'scripts/acceptance.mjs after owner approval.',
   category: 'meme',

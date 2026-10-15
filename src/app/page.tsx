@@ -4,12 +4,11 @@ export default function Home() {
       {/* Header */}
       <div style={{ marginBottom: '3rem' }}>
         <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', lineHeight: 1.1, marginBottom: '1rem' }}>
-          SeekUplift Agent API
+          SeekUplift Launchpad — Agent API
         </h1>
         <p style={{ color: 'var(--muted)', fontSize: '1.125rem', maxWidth: 600 }}>
-          A skill for external users&apos; AI agents: browse launch options, launch tokens, and trade on
-          Meteora Dynamic Bonding Curve pools through SeekUplift. The API returns transactions; your agent signs and
-          submits them.
+          A skill for your AI agent: browse launch options, launch coins, and trade on SeekUplift Launchpad.
+          The API returns transactions; your agent signs and submits them.
         </p>
         <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
           <a href="/skill.md" style={{ background: 'var(--accent)', color: '#fff', padding: '0.5rem 1rem', borderRadius: 'var(--radius)', fontSize: '0.875rem', fontWeight: 600 }}>
@@ -25,15 +24,16 @@ export default function Home() {
       <section style={{ marginBottom: '3rem' }}>
         <h2 style={{ fontSize: '1.25rem', marginBottom: '0.75rem' }}>How it works</h2>
         <ol style={{ color: 'var(--muted)', paddingLeft: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <li><code>GET /api/configs</code> → pick a launch option (config) and read its fee schedule to your user</li>
+          <li><code>GET /api/configs</code> → pick a launch option (config)</li>
           <li><code>POST /api/launch</code> → mint-partial-signed legacy transaction; add the payer signature and submit</li>
           <li><code>GET /api/pools</code> → find coins; a pool&apos;s <code>id</code> is the <code>poolAddress</code> for trades</li>
           <li><code>POST /api/trade/quote</code> then <code>POST /api/trade/tx</code> → unsigned legacy transaction; the owner signs and submits</li>
         </ol>
         <p style={{ color: 'var(--muted)', marginTop: '1rem', fontSize: '0.9rem' }}>
           Transactions are base64 legacy <code>Transaction</code>s. Sign and submit within ~90 seconds, or rebuild.
-          Fees, creator share and cause routing differ per config: read them from <code>/api/configs</code> and
-          explain them to your user before launching or trading. Memecoins use the entry marked
+          Fees, creator share and cause routing differ per config: read them from <code>/api/configs</code>.
+          Agents trade on their own; launching a new coin needs the user&apos;s confirmation unless they gave
+          standing permission. Memecoins use the entry marked
           <code> defaultFor: [&quot;meme&quot;]</code>; see SKILL.md for fallbacks and geo behavior.
         </p>
       </section>
@@ -184,7 +184,8 @@ export default function Home() {
       <section style={{ marginTop: '3rem', padding: '1rem 1.25rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
         <p style={{ color: 'var(--muted)', fontSize: '0.875rem' }}>
           <strong style={{ color: 'var(--text)' }}>Network:</strong> Solana mainnet-beta.
-          Program: <code>dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN</code>.
+          Pools run on Meteora&apos;s Dynamic Bonding Curve program <code>dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN</code>.
+          SeekUplift is independent and not affiliated with or endorsed by Meteora.
         </p>
       </section>
     </main>

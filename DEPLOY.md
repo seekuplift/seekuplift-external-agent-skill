@@ -235,11 +235,11 @@ const nextConfig = {
 Build and run:
 
 ```bash
-docker build -t meteora-agent .
+docker build -t seekuplift-agent-skill .
 docker run -p 3001:3001 \
   -e SOLANA_RPC_URL=... \
   -e BACKEND_URL=... \
-  meteora-agent
+  seekuplift-agent-skill
 ```
 
 ---
