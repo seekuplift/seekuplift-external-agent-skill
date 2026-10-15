@@ -26,11 +26,11 @@ hardcoded per config.
 | `fees` | label `99% → 1.25% (anti-sniper ~10 min), then 0.25% after graduation`; curve `decay`: opening 9900 bps → floor 125 bps over 20×75 slots (`decaySecondsEstimate` ≈ 600 s); `creatorSharePct` 16; `allFeesToCause` false | The creator-fee default the skill mandates for memecoins. Trades wait out the ~600 s window (+60 s margin) so they pay the floor fee, not the opening fee. |
 | `supportsFirstBuy` / `supportsCause` | `true` / `true` | First buy bundled; donation required only while shipping causes are offered. |
 | `donation` | `{ "mode": "cause", "cause": "<causesOffered[0]>" }` when causes are offered, else none | Resolved **before approval** and printed in the plan (and hashed): the dry-run POSTs without a donation and takes the first offered slug on `400 donation_required` (pin one with `ACCEPTANCE_DONATION_CAUSE`). `--send` never re-picks; if the offered causes change, the plan hash changes and needs re-approval. On the earlier dry-run backend no shipping cause was offered (donation none). **The owner must confirm the cause printed in the plan.** |
-| `firstBuyAmount` | `100` SKR (display units — the config's `quote.firstBuyDefault`; service converts to atoms) | ≈ the suggested creator position. |
+| `firstBuyAmount` | `20` SKR (`ACCEPTANCE_FIRST_BUY=20`; owner shrank it from the 100 SKR `quote.firstBuyDefault` on 2026-10-15) | Pays the minimum fee, not the anti-sniper fee: the config has `enableFirstSwapWithMinFee = 1` (read on-chain 2026-10-15). |
 | buy amount | `10` SKR = `10000000` quote atoms (`ACCEPTANCE_BUY_AMOUNT`) | Small; inside the migration threshold by far. |
 | sell amount | 50% of the purchased base balance (`ACCEPTANCE_SELL_BPS=5000`) | "Part of the balance" per the ticket. |
 | `slippageBps` | `100` | 1% — small trade on a fresh curve. |
-| payer | funded owner keypair from `ACCEPTANCE_KEYPAIR` (part of the plan) | Pre-checked before anything is sent; the script refuses if short. Needs the config's pool-creation fee + 0.03 SOL margin for rent/fees, and ~111.1 SKR (100 first buy + 10 buy, +1% margin). |
+| payer | `2CQPz54PeYsH8MUVLns833ghrVEBH1WRLy6ZThR8tSBP` (`~/.config/solana/id.json`, via `ACCEPTANCE_KEYPAIR`; part of the plan) | Pre-checked before anything is sent; the script refuses if short. Needs 0.03 SOL and 30.3 SKR (20 first buy + 10 buy, +1% margin); on 2026-10-15 it held 0.054 SOL / 41.7 SKR. |
 
 ## Run plan (once owner approves + service is deployed)
 
@@ -41,6 +41,9 @@ them (including via `ACCEPTANCE_*` env overrides) changes the plan hash and
 voids the approval.
 
 ```bash
+# amounts approved 2026-10-15 — set these on every command below:
+export ACCEPTANCE_FIRST_BUY=20 ACCEPTANCE_BUY_AMOUNT=10
+
 # 1. get the plan + hash (no sends). Use the real payer keypair and the
 #    deployed URL so the hash is the one --send will compute.
 ACCEPTANCE_KEYPAIR=<payer.json> \
@@ -79,3 +82,47 @@ All read-only steps passed — docs fetch, configs check, launch tx build
 returns the expected unfunded-payer `AccountNotFound`), pools search/list,
 buy and sell quote + unsigned tx build against a live curve pool (OILY).
 `[SKIP-SEND]` markers confirmed no sign/send/confirm ran.
+
+## Test record
+
+### 2026-10-15 — external-agent run (local service on :3011, backend :3033)
+
+A subagent acting as an external user's agent read only `/skill.md` and
+`/skill.json` and exercised every capability except sending a launch.
+
+| Capability | Result |
+|---|---|
+| `list_configs` — choose the memecoin default | PASS: picked `61UBwyZf` (creator-fee, `defaultFor:["meme"]`) |
+| `list_pools` — list, cursor, category/tab filters, search by name/symbol/mint, bad params | PASS |
+| `trade_quote` — buy and sell | PASS |
+| `trade_tx` — **real** buy and sell, signed with the doc's example | PASS: 2 SKR → 38,754,244.27 OILY (matched quote), sig `2T55gMHQECWmMMGZh3FLZ3dnZaQL569NH73h3pqaoE3axLVocRZTUKtPFs8hzyKa1HcLTgewPSeQjMnkcjZFU1gN`; sold back for 1.941567 SKR, sig `2U9iuvpq6dnqxZMzWc18gsHFg9bjvq3HmY7PGzdPPGVeMFLjEsUeh1vJo6ttCv1LGGTppgJovnsYSqBPPQHwZ1Dt`; net cost 0.058 SKR + 10,092 lamports |
+| `launch_token` — build + simulate (not signed or sent; metadata uploaded) | PASS: simulation `err: null` |
+| Geo — US / UK via `X-Forwarded-For` | PASS: launches 403 naming the country; idea trades 403 `idea.trade`; memecoin trading open |
+| Errors — migrated (409, not retryable), migration_pending (409, retryable), bad side, `amountIn` 0, bad inputs | PASS |
+| Errors — address that is not a pool | FAIL → fixed in `cb1c8c5` (502 → 404 `pool_not_found`), re-verified live |
+
+Doc gaps the run found were fixed in `940c79d` (listing `graduated` also covers
+`migration_pending`; quote sells after the buy lands; Token-2022 balance read;
+short pages; `firstBuyAtoms` null; donation discovery; `geo.allowed` vs
+`byCategory`; signing-example setup and buy amount).
+
+### 2026-10-15 — acceptance dry-run with the shrunk amounts (local)
+
+`--dry-run` against the local service, payer `id.json`, first buy 20 SKR, buy
+10 SKR, sell 50%: **PASSED**. Launch, buy and sell all simulated with
+`err: null`; balances pre-flight OK. Local plan hash
+`37f1ede6…` is **not** the one to approve — the hash includes `baseUrl`.
+
+### Left
+
+1. Deploy `skill.seekuplift.com` (owner; `DEPLOY.md`). Not yet resolving on 2026-10-15.
+2. Dry-run against the deployed URL → plan hash → owner approves it
+   (`acceptance-approval.json`).
+3. `--send`: real launch with the 20 SKR first buy, find the coin, wait out the
+   anti-sniper window, buy 10 SKR, sell half. Also proves geo on real
+   Cloudflare client IPs instead of a forged header.
+4. Claim the creator fees from that coin in the SeekUplift app (Account →
+   Rewards → Claim) with the payer wallet — the skill only points there.
+
+Not tested by design: trading graduated coins on Jupiter (outside the skill;
+the API's refusal pointing there is tested).
