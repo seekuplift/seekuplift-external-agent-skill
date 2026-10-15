@@ -21,7 +21,13 @@ import {
   type CatalogDeps,
   type ConfigCatalogEntry,
 } from './config-catalog.ts'
-import { resolveCreateGeo, type GeoVerdict, type LaunchCategory } from './geo.ts'
+import {
+  geoBlockedMessage,
+  regionDisplayName,
+  resolveCreateGeo,
+  type GeoVerdict,
+  type LaunchCategory,
+} from './geo.ts'
 import {
   buildDonationFundingClaim,
   buildIdeaFundingClaim,
@@ -70,7 +76,13 @@ export class LaunchError extends Error {
 /** The geo refusal — mirrors the backend's `geo_restricted` error body. */
 export class GeoRestrictedError extends LaunchError {
   constructor(region: string | null, feature: string) {
-    super('geo_restricted', 403, { error: 'geo_restricted', region, feature })
+    super('geo_restricted', 403, {
+      error: 'geo_restricted',
+      region,
+      regionName: regionDisplayName(region),
+      feature,
+      message: geoBlockedMessage(region),
+    })
   }
 }
 

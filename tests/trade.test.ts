@@ -416,6 +416,8 @@ describe('trade geo gate', () => {
         assert.equal(err.fields.error, 'geo_restricted')
         assert.equal(err.fields.feature, 'idea.trade')
         assert.equal(err.fields.region, 'US')
+        assert.equal(err.fields.regionName, 'United States')
+        assert.equal(err.fields.message, 'This is not currently available in United States (US).')
         return true
       },
     )

@@ -3,6 +3,8 @@ import { strict as assert } from 'node:assert'
 import { describe, it } from 'node:test'
 import {
   createFeatureKeys,
+  geoBlockedMessage,
+  regionDisplayName,
   OPEN_GEO_VERDICT,
   parseGeoVerdict,
   resolveCreateGeo,
@@ -70,6 +72,12 @@ describe('resolveCreateGeo', () => {
       region: 'XX',
     })
     assert.equal(resolveCreateGeo(verdict, 'idea', false).allowed, true)
+  })
+
+  it('names the blocked jurisdiction', () => {
+    assert.equal(geoBlockedMessage('gb'), 'This is not currently available in United Kingdom (GB).')
+    assert.equal(geoBlockedMessage(null), 'This is not currently available in your detected jurisdiction.')
+    assert.equal(regionDisplayName('ZZ'), null)
   })
 
   it('fails open without a verdict', () => {

@@ -1,3 +1,8 @@
+---
+name: seekuplift-launchpad
+description: Launch and trade coins on SeekUplift Launchpad (Solana mainnet) over a public HTTP API. Use when the user wants to launch a memecoin, idea coin or startup coin, find SeekUplift coins, or buy/sell them. The API returns transactions; the agent signs with the user's wallet and submits.
+---
+
 # SeekUplift Launchpad — Agent Skill
 
 ## Overview
@@ -191,7 +196,7 @@ Uploads image + metadata through the backend proxy and builds the launch transac
 }
 ```
 
-**Errors**: `400 { error }` validation (incl. `donation_required` with `causesOffered`); `403 { error: "geo_restricted", region, feature }`; `429` upload rate limit (see **Limits**); `502 { error: "upstream_error" }` upstream failure; `503 { error: "causes_unavailable" }` the cause list could not be loaded for a meme launch that needs a donation — retry later.
+**Errors**: `400 { error }` validation (incl. `donation_required` with `causesOffered`); `403 { error: "geo_restricted", region, regionName, feature, message }`; `429` upload rate limit (see **Limits**); `502 { error: "upstream_error" }` upstream failure; `503 { error: "causes_unavailable" }` the cause list could not be loaded for a meme launch that needs a donation — retry later.
 
 ---
 
@@ -343,6 +348,7 @@ The service forwards the caller's IP to the backend, which resolves a fresh geo 
 
 - **Launch (create) gating**: `idea` → `idea.create`; `startup` → `startup.create`; `meme` → `cause.marketing` plus a hidden key derived from the donation claim kind (`cause.specific_hidden` / `cause.managed_hidden`) — memecoin launches are effectively gated by cause availability — and memecoin launches are also refused in every beta-gated jurisdiction (`feature: "beta.gated"`); stock-quoted configs additionally → `stock.create` (checked only by this service). Refusal: `403 { error: "geo_restricted", region, feature }`, and — because the check runs **before** any upload — it costs no upload budget. Read `geo.byCategory` on the catalog entry first.
 - **Trade gating**: idea/startup coins → `<category>.trade`; stock-quoted coins → `stock.trade`. **Memecoin trading is never geo-gated.**
+- **When refused, tell your user plainly that the action is not currently available in their detected jurisdiction, naming it** — the 403 body carries `regionName` (e.g. `"United Kingdom"`), `region` (ISO code) and a ready sentence in `message` (e.g. `"This is not currently available in United Kingdom (GB)."`). Do not retry the refused action from the same location, and do not try to work around the block.
 
 ## Limits
 
@@ -358,12 +364,53 @@ The service forwards the caller's IP to the backend, which resolves a fresh geo 
 - The blockhash is fetched at build time — **sign and submit within ~90 seconds** or the transaction expires; rebuild instead of retrying a stale one.
 - Submit to a Solana mainnet RPC (e.g. `https://api.mainnet-beta.solana.com`; a private RPC avoids rate limits).
 
+### Sign and submit — minimal example (Node, `@solana/web3.js` v1)
+
+The key stays on your side; the service never sees it.
+
+```js
+import { Connection, Keypair, Transaction } from '@solana/web3.js'
+import { readFileSync } from 'node:fs'
+
+const BASE = 'https://skill.seekuplift.com'
+const wallet = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(readFileSync(process.env.KEYPAIR_PATH, 'utf8'))))
+const connection = new Connection(process.env.SOLANA_RPC_URL ?? 'https://api.mainnet-beta.solana.com', 'confirmed')
+
+async function signAndSend(base64Tx) {
+  const tx = Transaction.from(Buffer.from(base64Tx, 'base64'))
+  tx.partialSign(wallet) // keeps the mint signature already on a launch tx
+  const signature = await connection.sendRawTransaction(tx.serialize())
+  for (let i = 0; i < 45; i++) {
+    const { value: [status] } = await connection.getSignatureStatuses([signature])
+    if (status?.err) throw new Error(`transaction failed: ${JSON.stringify(status.err)}`)
+    if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') return signature
+    await new Promise((r) => setTimeout(r, 2000))
+  }
+  throw new Error(`not confirmed yet: ${signature} — check its status before rebuilding`)
+}
+
+// Buy 10 units of quote on a pool (quote decimals from poolInfo; 6 shown here).
+const res = await fetch(`${BASE}/api/trade/tx`, {
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ poolAddress: '<pool id>', ownerPublicKey: wallet.publicKey.toBase58(), side: 'buy', amountIn: '10000000' }),
+})
+if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
+console.log(await signAndSend((await res.json()).transaction))
+```
+
+The same `signAndSend` works for `/api/launch` (`payerPublicKey` = the wallet). If confirmation times out, check the signature's status before rebuilding — never sign a second launch blindly.
+
+## Creator fees — claiming
+
+A launch's `payerPublicKey` is recorded as the coin's creator; only that wallet can claim the creator share of trading fees (`fees.creatorSharePct`). This API does not build claim transactions: the creator claims in the SeekUplift app — connect the same wallet, then **Account → Rewards → Claim**. Tell your user this after a launch so they keep the wallet.
+
 ## Error shapes
 
 | Status | Body | Meaning |
 |---|---|---|
 | `400` | `{ error }` | Invalid request — message names the field. `error: "donation_required"` adds `causesOffered`; `unsupported_<field>` errors list `allowed`. |
-| `403` | `{ error: "geo_restricted", region, feature }` | The caller's geo verdict blocks this launch or trade. |
+| `403` | `{ error: "geo_restricted", region, regionName, feature, message }` | The caller's geo verdict blocks this launch or trade — relay `message` (names the jurisdiction) to your user. |
 | `404` | `{ error: "pool_not_found" }` | No DBC pool at that address. |
 | `409` | `{ error: "pool_not_tradeable", migrationState, retryable }` | See **Migration states**. |
 | `429` | backend body passthrough | Upload allowance exhausted. |

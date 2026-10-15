@@ -178,3 +178,21 @@ export function resolveCreateGeo(
     region: verdict?.region ?? null,
   }
 }
+
+/** English country name for an ISO region code, or null when unknown. */
+export function regionDisplayName(region: string | null): string | null {
+  if (!region) return null
+  try {
+    const name = new Intl.DisplayNames(['en'], { type: 'region' }).of(region.toUpperCase())
+    return name && name !== region.toUpperCase() && name !== 'Unknown Region' ? name : null
+  } catch {
+    return null
+  }
+}
+
+/** The user-facing refusal sentence agents relay verbatim. */
+export function geoBlockedMessage(region: string | null): string {
+  const name = regionDisplayName(region)
+  const where = name ? `${name} (${region!.toUpperCase()})` : region ? region.toUpperCase() : 'your detected jurisdiction'
+  return `This is not currently available in ${where}.`
+}
