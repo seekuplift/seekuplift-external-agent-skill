@@ -14,7 +14,7 @@
       "role": "production",
       "default": true,
       "indexed": true,
-      "summary": "SKR cheap-grad (~$5) config; the judge-period production default since 2026-10-12 (history). Creator metadata authority.",
+      "summary": "SKR cheap-grad (~$5) config; the production default since 2026-10-12 (history); stays default until the bootstrap SKR keys are created and added to the record. Creator metadata authority.",
       "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
       "quoteSymbol": "SKR",
       "quoteDecimals": 6,
@@ -88,8 +88,13 @@
     },
     {
       "date": "2026-10-12",
-      "event": "61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv marked the production default for the hackathon judge period (user-requested; the SKR test config is the watched/launch config and its claimer FdrDZ… the donation claim authority until the owner's production keys replace it). 4w9Rs2ew… stays the un-indexed USDC production config. The post-judging role of the two keys is an open owner decision (TB-D-1 plan-review marker); if the owner restores 4w9Rs2ew… as default, change this record first.",
+      "event": "61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv marked the production default for the hackathon judge period (user-requested; the SKR test config is the watched/launch config and its claimer FdrDZ… the donation claim authority until the owner's production keys replace it). 4w9Rs2ew… stays the un-indexed USDC production config.",
       "source": "backend-rs-sql commit a58af8d (ops/deploy/backend.env.template, 'ops(prod): plan 2 hackathon variant live on A and B (dev SKR config, ROLE=all)') and redesign/launchpad-mobile-redesign commit b6dc7f7e ('release: judge APK on the dev SKR config'; config/production-manifest.json approvedBy 'owner (instructed in a Claude Code session)', approvedAt 2026-10-12). No named person in either source."
+    },
+    {
+      "date": "2026-10-16",
+      "event": "Owner decision (\"SKR will be default\"): the production default launch config stays SKR-quoted after judging; the USDC config 4w9Rs2ew… is NOT restored as default (role unchanged: USDC production, not indexed). 61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv remains the default until the three bootstrap SKR keys (market-cap / flat-5 / flat-10, bootstrap claim-PDA feeClaimer) are created on chain and added to this record, which then moves the default. Resolves the TB-D-1 plan-review marker.",
+      "source": "owner instruction in a Claude Code session, 2026-10-16 (dbc-config tickets/tickets-trust-boundary-2026-10-15.md TB-D-1)"
     },
     {
       "date": "2026-10-16",

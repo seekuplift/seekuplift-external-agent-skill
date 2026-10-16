@@ -22,8 +22,8 @@ import { configRecord, mobileConfigFixture, type ConfigRecordKey } from './helpe
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8')
 
-const RECORD_COMMIT = '8996d43a0aace6a0c3f4787fd123fe41ef791df2'
-const RECORD_SHA256 = 'd7a46296404c6dfd90b2d5e32bfccf0ecbc3ff5a1390e8a0777b9c1d9824b632'
+const RECORD_COMMIT = '1942b7ca7697b01de4296423c881a2af1c5b7af5'
+const RECORD_SHA256 = '3908692975dd5a7f40e2b45011a6db485d019e9d90f44bab65257456c3357aa1'
 
 const BASE58_ADDRESS = /\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/g
 const BASE58_ELLIPSIS = /\b[1-9A-HJ-NP-Za-km-z]{8,12}…/g
