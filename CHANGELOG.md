@@ -19,7 +19,8 @@ removed; the unversioned document paths will then serve the current version.
 The launch, trade and claim build responses return an optional
 `lastValidBlockHeight` from the same `getLatestBlockhash` read as the
 blockhash, and the documents describe a prove-before-rebuild submit protocol
-(rebuild only once the chain is past that height; no field → never rebuild).
+(an agent rebuilds only once it has proved the earlier send cannot land; see
+the submit protocol in `SKILL.md` for the exact steps).
 Launch/trade landed 2026-10-15 (IV-S-1); claim followed 2026-10-16. The
 endpoints are unversioned, so every caller gets the field; it is additive and
 optional. The v1 documents carry the same field and protocol text for launch
