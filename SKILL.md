@@ -16,7 +16,8 @@ Launch options are served as a live catalog of on-chain pool configs (`GET /api/
 - **Network**: Solana mainnet-beta
 - **DBC program**: `dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN`
 - **Base URL**: the same host that served this document
-- **Machine-readable form**: `GET /skill.json`
+- **Contract version**: `2.1.0` — this document is served at `/v2/skill.md`, its machine-readable form at `GET /v2/skill.json`
+- **v1 (frozen)**: the original contract is still served at `/skill.md` + `/skill.json` (also `/v1/skill.md`, `/v1/skill.json`) **until 2027-01-15** — see `CHANGELOG.md` for the differences
 
 ## Prerequisites
 
@@ -169,7 +170,7 @@ Uploads image + metadata through the backend proxy and builds the launch transac
 }
 ```
 
-**Required**: `configKey`, `category` (`"meme"` | `"idea"` | `"startup"` — must be in the config's `categories`), `name`, `symbol`, `description`, `payerPublicKey`, and exactly one of `image` / `imageUrl`.
+**Required**: `configKey`, `category` (`"meme"` | `"idea"` | `"startup"` — must be in the config's `categories`), `name`, `symbol`, `description`, `payerPublicKey`, and exactly one of `image` / `imageUrl`. (**v1 compatibility**: omitting `configKey`/`category` selects the v1 default — the production memecoin config `61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv` and category `"meme"`. Always send both in v2.)
 
 - `name`: ≥3 characters, ≤32 UTF-8 bytes. `symbol`: ≤10 UTF-8 bytes (leading `$`/whitespace stripped, uppercased). `description`: required, ≤2000 characters.
 - `image`: base64 PNG/JPEG/GIF/WEBP, ≤10 MB; an RFC-2397 `data:<mime>;base64,…` URL is accepted when the declared type matches the bytes.
@@ -178,7 +179,7 @@ Uploads image + metadata through the backend proxy and builds the launch transac
 - `ideaFunding` — **idea launches only**. `{ mode, address?, handle?, redditUserId? }`. Modes come from the backend's launch-enabled registry (`managed` and `realms` are never selectable; typically `direct`, `tbd`, `x`, `reddit`): `direct` takes `address` — an **on-curve** Solana address (no PDAs) that becomes the coin's entitled signer; `x` takes `handle`; `reddit` takes `handle` + `redditUserId`, or just `handle` and the service resolves the `t2_` id.
 - **Idea extras** — required: `problem` (the use-case statement), `useCases` (1–3 slugs from the idea catalog: climate, education, inclusion, local, depin, desci, public-goods, infrastructure, payments, governance, social, art, gaming, defi, privacy, identity, health, energy, food, housing, mobility, other), `prototype` (URL). Optional: `whitepaper` (URI).
 - **Startup extras** — required: `problem` (the pitch), `useCases` (1–3 slugs from the startup catalog: saas, consumer, fintech, ai, infrastructure, defi, payments, depin, gaming, rwa, social, data, creator, climate, education, health, security, wallet, marketplace, media, stablecoins, other), `deck` (URL). Optional: `whitepaper` (recorded as roadmap), plus the compliance fields `legalFramework`, `legalFrameworkNote`, `tokenUtility`, `decentralizationEfforts`, `entityJurisdiction` — recorded only when `startupComplianceAcknowledged: true`.
-- `firstBuyAtoms` **or** `firstBuyAmount` — optional creator first buy, only on `supportsFirstBuy` configs. `firstBuyAtoms` is a bare integer string of raw **quote** atoms; `firstBuyAmount` is display units converted with the config's `quote.decimals` + `quote.scaledUiAmountMultiplier`. `0`/omitted = no first buy.
+- `firstBuyAtoms` **or** `firstBuyAmount` — optional creator first buy, only on `supportsFirstBuy` configs. `firstBuyAtoms` is a bare integer string of raw **quote** atoms; `firstBuyAmount` is display units converted with the config's `quote.decimals` + `quote.scaledUiAmountMultiplier`. `0`/omitted = no first buy. (`buyAmountSol`, the v1 field, is a SOL display amount accepted only on wrapped-SOL-quoted configs — on any other quote mint a nonzero value is rejected before any upload with `400 { error: "unsupported_buyAmountSol", migrateTo: ["firstBuyAtoms", "firstBuyAmount"] }`.)
 
 **Response**:
 

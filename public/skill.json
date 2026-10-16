@@ -1,137 +1,79 @@
 {
-  "name": "seekuplift-launchpad",
-  "version": "2.1.0",
-  "description": "Launch and trade coins on SeekUplift Launchpad (Solana mainnet; pools run on Meteora's open-source Dynamic Bonding Curve program — SeekUplift is independent, not affiliated with or endorsed by Meteora). Launch options are a live catalog of on-chain pool configs (GET /api/configs) — quote asset, fee schedule, creator share and cause routing differ per config; the agent picks one per launch.",
+  "name": "meteora-launchpad",
+  "version": "1.0.0",
+  "status": "deprecated",
+  "sunset": "2027-01-15",
+  "successor": { "version": "2.1.0", "markdown": "/v2/skill.md", "json": "/v2/skill.json", "changelog": "/CHANGELOG.md" },
+  "description": "Launch tokens and trade on Meteora Dynamic Bonding Curve (DBC) on Solana mainnet. 0.5% of every trading fee funds public benefit or innovation — impact is built into every trade. Creators earn 0.3% on all trades of their token.",
   "docs": {
     "markdown": "/skill.md",
-    "json": "/skill.json"
+    "json": "/skill.json",
+    "versioned": { "markdown": "/v1/skill.md", "json": "/v1/skill.json" }
   },
   "network": "solana-mainnet",
   "program": "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
+  "poolConfig": "61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv",
   "capabilities": [
     {
-      "id": "list_configs",
-      "description": "List the live launch config catalog for THIS caller (per-caller geo verdict included; never cached). Pick a configKey per launch.",
-      "endpoint": { "method": "GET", "path": "/api/configs" },
-      "returns": ["configs"],
-      "configEntryFields": [
-        "configKey", "optionId", "categories",
-        "quote.{mint,symbol,decimals,tokenProgram,issuer,firstBuyDefault,scaledUiAmountMultiplier}",
-        "fees.{label,details,curve,postGraduation,creatorSharePct,allFeesToCause}",
-        "fees.curve.{kind,openingBps,floorBps,decay,decayPeriods,decayPeriodLength,decayUnit,decaySecondsEstimate,dynamic}",
-        "fees.postGraduation.{kind,startBps,floorBps,decay}",
-        "supportsCause", "supportsFirstBuy", "poolCreationFeeLamports",
-        "migrationQuoteThreshold", "isStock", "defaultFor",
-        "geo.{allowed,reason,region,byCategory}", "decodeError"
-      ],
-      "choosing": "Memecoins: the entry marked defaultFor:[\"meme\"] (creator-fee config); an allFeesToCause config only when the user explicitly asks. If no config has defaultFor:[\"meme\"] or it is geo-unavailable for the caller, pick another meme option with creatorSharePct > 0; never fall back to an allFeesToCause config unless the user explicitly asked for all fees to the cause; if none exists, tell the user. Match category to the launch. Fee data (including any anti-sniper opening fee: curve.kind=decay, openingBps decaying to floorBps over decaySecondsEstimate) is for the agent's own decisions; Meteora takes 20% of every trading fee first. Read figures from the catalog, never from the docs."
-    },
-    {
       "id": "launch_token",
-      "description": "Upload image + metadata through the backend proxy and build the mint-partial-signed launch transaction on a chosen catalog config.",
-      "endpoint": { "method": "POST", "path": "/api/launch" },
-      "requiredFields": ["configKey", "category", "name", "symbol", "description", "payerPublicKey", "image|imageUrl"],
-      "optionalFields": [
-        "donation", "ideaFunding", "firstBuyAtoms|firstBuyAmount",
-        "website", "twitter", "telegram", "discord",
-        "problem", "useCases", "whitepaper", "prototype", "deck",
-        "legalFramework", "legalFrameworkNote", "tokenUtility",
-        "decentralizationEfforts", "entityJurisdiction", "startupComplianceAcknowledged"
-      ],
-      "fieldNotes": {
-        "category": "meme | idea | startup — must be in the config's categories",
-        "image": "base64 PNG/JPEG/GIF/WEBP <=10MB (data: URL accepted); exactly one of image/imageUrl",
-        "imageUrl": "public http(s) only, fetched through an SSRF guard (private/loopback/link-local/CGNAT refused, redirects vetted per hop, <=3 hops, 10MB cap)",
-        "donation": "meme only, supportsCause configs only, required while causes are offered: {mode, cause?, project?, handle?, redditUserId?} — modes from the backend launch-enabled registry (managed|cause|project|tbd|x|reddit)",
-        "ideaFunding": "idea only: {mode, address?, handle?, redditUserId?} — typically direct|tbd|x|reddit; direct address must be on-curve",
-        "idea": "problem + useCases(1-3) + prototype required",
-        "startup": "problem + useCases(1-3) + deck required; compliance fields recorded only when startupComplianceAcknowledged=true",
-        "firstBuy": "only on supportsFirstBuy configs; firstBuyAtoms = raw quote-atom string, firstBuyAmount = display units (converted via quote.decimals + scaledUiAmountMultiplier — never assume 1e9)"
+      "description": "Upload metadata to IPFS and create a new token on the bonding curve.",
+      "endpoint": {
+        "method": "POST",
+        "path": "/api/launch"
       },
-      "returns": ["transaction", "mintAddress", "poolAddress", "metadataUrl", "imageUrl", "configKey", "category", "quoteMint", "firstBuyAtoms", "note"]
+      "requiredFields": ["name", "symbol", "description", "imageUrl", "payerPublicKey"],
+      "optionalFields": ["buyAmountSol"],
+      "fieldNotes": {
+        "buyAmountSol": "v1 first-buy field: a SOL display amount (0.001 = 0.001 SOL). Only spendable on a wrapped-SOL-quoted config — the default poolConfig is SKR-quoted, so a nonzero buyAmountSol returns 400 { error: \"unsupported_buyAmountSol\", quoteMint, migrateTo: [\"firstBuyAtoms\", \"firstBuyAmount\"], docs: \"/v2/skill.md\" } before any upload. Migrate to v2's firstBuyAtoms/firstBuyAmount; 0 or omitted = no first buy."
+      },
+      "returns": ["transaction", "mintAddress", "metadataUrl", "imageUrl"]
     },
     {
       "id": "trade_quote",
-      "description": "Get an off-chain swap quote from the bonding curve (partial-fill buys, transfer-fee net outputs).",
-      "endpoint": { "method": "POST", "path": "/api/trade/quote" },
+      "description": "Get an off-chain swap quote from the bonding curve.",
+      "endpoint": {
+        "method": "POST",
+        "path": "/api/trade/quote"
+      },
       "requiredFields": ["poolAddress", "side", "amountIn"],
       "optionalFields": ["slippageBps"],
       "sideValues": ["buy", "sell"],
-      "fieldNotes": {
-        "amountIn": "base-10 atom string; buy = quote atoms, sell = base atoms — use poolInfo decimals, never assume SOL/1e9",
-        "slippageBps": "0-10000, default 50"
-      },
-      "returns": ["amountOut", "minimumAmountOut", "baseTransferFeeAtomics", "consumedInput", "amountLeft", "amountIn", "slippageBps", "poolInfo"],
-      "poolInfoFields": ["poolAddress", "configKey", "baseMint", "baseDecimals", "quoteMint", "quoteDecimals", "quoteSymbol", "quoteScaledUiAmount", "isQuoteSol", "baseTransferFee", "migrationState", "isCompleted"]
+      "returns": ["amountOut", "minimumAmountOut", "poolInfo"]
     },
     {
       "id": "trade_tx",
-      "description": "Build the unsigned swap transaction for the bonding curve. Omit minimumAmountOut to quote internally at slippageBps.",
-      "endpoint": { "method": "POST", "path": "/api/trade/tx" },
-      "requiredFields": ["poolAddress", "ownerPublicKey", "side", "amountIn"],
-      "optionalFields": ["minimumAmountOut", "slippageBps"],
+      "description": "Build an unsigned swap transaction for the bonding curve.",
+      "endpoint": {
+        "method": "POST",
+        "path": "/api/trade/tx"
+      },
+      "requiredFields": ["poolAddress", "side", "amountIn", "minimumAmountOut", "ownerPublicKey"],
       "sideValues": ["buy", "sell"],
-      "returns": ["transaction", "amountIn", "minimumAmountOut", "quote", "poolInfo"]
+      "returns": ["transaction"]
     },
     {
       "id": "list_pools",
-      "description": "List or search coins launched on any catalog config.",
-      "endpoint": { "method": "GET", "path": "/api/pools" },
-      "queryParams": {
-        "search": "name/symbol/mint (search mode; list params not forwarded — an invalid value still returns 400; nextCursor null)",
-        "limit": "1-100, default 20; a maximum — pages may hold fewer, keep paging while nextCursor is non-null",
-        "cursor": "nextCursor from a previous list response",
-        "tab": "emerging | graduated",
-        "category": "meme | idea | startup",
-        "lifecycle": "new",
-        "sortBy": "createdAt | createdAtAsc | volume24h | marketCap"
+      "description": "List or search tokens launched on this launchpad.",
+      "endpoint": {
+        "method": "GET",
+        "path": "/api/pools"
       },
-      "returns": ["pools", "nextCursor"],
-      "poolFields": ["id", "name", "symbol", "baseMint", "icon", "description", "launchType", "price", "nativePrice", "quoteMint", "quoteSymbol", "priceChange24h", "marketCap", "volume24h", "graduated", "graduatedAt", "bondingCurve", "configKey", "createdAt"]
-    },
-    {
-      "id": "claim_fees",
-      "description": "Build the unsigned creator-fee claim for a coin the wallet launched (full claimable amounts; works on the curve and after migration). Signed by the launch payer.",
-      "endpoint": { "method": "POST", "path": "/api/claim/tx" },
-      "requiredFields": ["poolAddress", "creatorPublicKey"],
-      "returns": ["transaction", "claimable", "poolInfo"],
-      "errors": { "403": "not_creator | config_not_served", "404": "pool_not_found", "409": "no_claimable_fees" }
+      "queryParams": ["search", "limit"],
+      "returns": ["pools"]
     }
   ],
   "transactionFormat": "base64-encoded legacy Solana Transaction",
-  "signing": {
-    "launch": "mint keypair already partially signed — add only the payer signature (tx.partialSign)",
-    "trade": "unsigned — ownerPublicKey signs and pays fees",
-    "expiry": "blockhash set at build time — sign and submit within ~90 seconds or rebuild"
-  },
   "submitTo": "https://api.mainnet-beta.solana.com",
-  "geo": {
-    "basis": "resolved from the caller's forwarded IP per request; best effort, fails open",
-    "create": "idea -> idea.create, startup -> startup.create, meme -> cause.marketing + donation-claim hidden key, and refused in every beta-gated jurisdiction (beta.gated), stock-quoted configs -> stock.create",
-    "trade": "idea/startup coins -> <category>.trade, stock-quoted coins -> stock.trade; memecoin trading never gated",
-    "errorShape": "{ error: \"geo_restricted\", region, regionName, feature, message } (HTTP 403)",
-    "onRefusal": "Tell the user the action is not currently available in their detected jurisdiction, naming it (relay message). Do not retry from the same location or work around the block."
-  },
-  "rateLimits": {
-    "uploads": "10 per hour per caller IP, shared by image + metadata — one launch consumes 2 (HTTP 429 when exhausted)",
-    "image": "<=10MB, PNG/JPEG/GIF/WEBP (magic-byte sniffed)"
-  },
-  "migrationStates": {
-    "curve": "tradeable via /api/trade/*",
-    "migration_pending": "409 { error: \"pool_not_tradeable\", retryable: true } — retry later, do NOT route elsewhere; no DAMM pool exists yet",
-    "migrated": "409 { retryable: false } — trade on Jupiter. Listing graduated:true covers both migration_pending and migrated; quote to tell them apart",
-    "quote_mint_transfer_fee_unsupported": "409 reason — permanently unsupported, do not retry"
+  "whyUseThis": {
+    "meaningful": "0.5% of every trading fee goes to public benefit or innovation funding — impact is structural, not optional.",
+    "rewarding": "Token creators earn 0.3% on every trade of their token in perpetuity.",
+    "secure": "Built on the audited Meteora DBC program.",
+    "seekerFriendly": "Designed for self-custodied Seeker wallets; supports SKR."
   },
   "notes": [
-    "Autonomy: browse, quote, buy and sell without asking the user; no fee explanation is required. Launching a new coin is the exception: confirm the coin details with the user first, unless the user gave standing permission to create coins without asking.",
-    "Refer to the service as SeekUplift Launchpad; do not present it as a Meteora product.",
-    "Signing: launch txs are mint-signed, add the payer signature with partialSign; trade txs are unsigned, the owner signs. SKILL.md has a minimal Node sign-and-submit example.",
-    "Creator fees: only the launch payer wallet can claim the creator share; claim with POST /api/claim/tx signed by that wallet. To claim in the SeekUplift app (Account -> Rewards -> Claim) the user must connect that same wallet.",
-    "Quote a sell after the buy lands (your buy moves the price); sell amount = wallet balance of baseMint via getParsedTokenAccountsByOwner(owner, {mint}) — covers SPL Token and Token-2022.",
-    "amountOut/minimumAmountOut are NET of any Token-2022 base-mint transfer fee (baseTransferFeeAtomics reports it).",
-    "Buys are partial-fill: a threshold-crossing buy consumes only enough quote to graduate the curve and refunds the rest (consumedInput/amountLeft).",
-    "Display figures on /api/pools (price, marketCap, volume24h) are display-grade — never money-path inputs.",
-    "minimumAmountOut \"0\" disables slippage protection — agents should not send it; pass the quote's value or omit it.",
-    "All responses are cache-control: no-store; geo verdicts are per-caller."
+    "Transactions expire after ~90 seconds — sign and submit promptly.",
+    "Launch transactions are partially signed by the mint keypair. Add only the payer signature.",
+    "Trade transactions are unsigned. The owner must sign.",
+    "If poolInfo.isCompleted is true, the pool graduated — use Jupiter for trading."
   ]
 }

@@ -670,14 +670,16 @@ function assertMovedAsQuoted(delta, quote, side) {
 }
 
 // ─── The steps ────────────────────────────────────────────────────────────────
-const KNOWN_CAPABILITIES = ['list_configs', 'launch_token', 'trade_quote', 'trade_tx', 'list_pools']
+const KNOWN_CAPABILITIES = ['list_configs', 'launch_token', 'trade_quote', 'trade_tx', 'list_pools', 'claim_fees']
 
 async function stepDocs() {
-  const md = await apiFetch('/skill.md')
-  if (md.status !== 200) throw fail(`/skill.md returned ${md.status}`)
-  if (!md.text.includes('list_configs')) throw fail('/skill.md does not look like the skill document')
-  const js = await apiFetch('/skill.json')
-  if (js.status !== 200 || !js.json) throw fail(`/skill.json returned ${js.status} or non-JSON`)
+  // The run drives the CURRENT (v2) contract — the unversioned paths serve
+  // the frozen v1 document until its sunset.
+  const md = await apiFetch('/v2/skill.md')
+  if (md.status !== 200) throw fail(`/v2/skill.md returned ${md.status}`)
+  if (!md.text.includes('list_configs')) throw fail('/v2/skill.md does not look like the v2 skill document')
+  const js = await apiFetch('/v2/skill.json')
+  if (js.status !== 200 || !js.json) throw fail(`/v2/skill.json returned ${js.status} or non-JSON`)
   const jsonCaps = (js.json.capabilities ?? []).map((c) => c?.id).filter(Boolean)
   // SKILL.md lists capabilities as "### N. `id` — METHOD /path" headings.
   const mdCaps = [...md.text.matchAll(/^###\s+\d+\.\s+`([a-z_]+)`/gm)].map((m) => m[1])
@@ -1315,6 +1317,35 @@ async function stepSell() {
   return { signature: sig, amountIn: amountIn.toString(), quoteDelta: delta.toString(), check }
 }
 
+/**
+ * `claim_fees` — builds the unsigned creator-fee claim for the coin this run
+ * launched. Fresh out of launch there is usually nothing to claim yet, so the
+ * documented `409 no_claimable_fees` is a pass; a `200` must carry a
+ * transaction. In dry-run there is no launch of ours, so the documented
+ * `403 not_creator` on a foreign pool is also a pass — it proves the route,
+ * auth check and claim path are live.
+ */
+async function stepClaim() {
+  const poolAddress = ctx.launch?.poolAddress ?? ctx.pool?.poolAddress
+  if (!poolAddress) throw fail('no pool to claim on (neither launch nor trade target resolved)')
+  const creatorPublicKey = ctx.payer.keypair.publicKey.toBase58()
+  const res = await apiFetch('/api/claim/tx', {
+    method: 'POST',
+    body: { poolAddress, creatorPublicKey },
+  })
+  if (res.status === 200) {
+    if (!res.json?.transaction) throw fail('claim_tx returned 200 without a transaction')
+    return { status: 200, claimable: res.json.claimable ?? null }
+  }
+  if (res.status === 409 && res.json?.error === 'no_claimable_fees') {
+    return { status: 409, error: 'no_claimable_fees' }
+  }
+  if (!SEND && res.status === 403 && res.json?.error === 'not_creator') {
+    return { status: 403, error: 'not_creator', note: 'dry-run pool is not ours — auth check proven' }
+  }
+  throw fail(`/api/claim/tx returned ${res.status}: ${res.text.slice(0, 300)}`)
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 async function main() {
   console.log(`mode:      ${SEND ? (priorReport || RESUME_POOL ? 'SEND (RESUME — real transactions)' : 'SEND (real transactions)') : 'DRY-RUN (read-only + tx builds)'}`)
@@ -1347,6 +1378,7 @@ async function main() {
   await step('wait out the anti-sniper fee window', null, stepAntiSniperWait)
   await step('buy: quote + tx + sign + send + confirm + balance check', 'trade_quote/trade_tx', stepBuy)
   await step('sell part of the balance: quote + tx + sign + send + confirm + balance check', 'trade_quote/trade_tx', stepSell)
+  await step('claim creator fees (tx build; 409 no_claimable_fees acceptable pre-volume)', 'claim_fees', stepClaim)
 
   report.result = SEND ? 'pass' : 'dry-run-pass'
   writeReport({ final: true })

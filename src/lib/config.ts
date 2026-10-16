@@ -1,5 +1,14 @@
 // Meteora DBC constants — mainnet only
-export const DBC_CONFIG_KEY = '4w9Rs2ewNJte2c4FGmQHM8fycv8vWzkjv3qzANuJ2rPT'
+
+/**
+ * The production-indexed pool config — the launch default when a (v1-shaped)
+ * request omits `configKey`, and the key the pools filter's catalog always
+ * serves. `4w9Rs2ew…` (the April 2026 default) is NOT indexed by the
+ * production backend: coins launched on it never appear in the app.
+ * Both contract documents (SKILL.v1.md, public/skill.json) name this value —
+ * tests/skill-docs.test.ts pins them to this one source constant.
+ */
+export const DEFAULT_DBC_CONFIG_KEY = '61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv'
 export const DBC_PROGRAM_ID = 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN'
 export const NATIVE_MINT = 'So11111111111111111111111111111111111111112'
 
@@ -7,6 +16,13 @@ export const KNOWN_MINTS: Record<string, { symbol: string; decimals: number }> =
   [NATIVE_MINT]: { symbol: 'SOL', decimals: 9 },
   EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: { symbol: 'USDC', decimals: 6 },
 }
+
+/**
+ * The frozen v1 contract (`/skill.md`, `/skill.json`, `/v1/*`) is served
+ * until this date, then retired — the date is stated in both versions' docs
+ * and CHANGELOG.md; tests pin them to this constant.
+ */
+export const V1_CONTRACT_SUNSET = '2027-01-15'
 
 export const RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com'
 export const BACKEND_URL = (process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '')

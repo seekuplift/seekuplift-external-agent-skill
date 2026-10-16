@@ -56,6 +56,7 @@ import {
 import { fetchRemoteImage, ImageFetchError } from './image-fetch.ts'
 import { U64_MAX, isZeroAmountInput, parseFirstBuyAtoms, parseFirstBuyUiAmount } from './first-buy.ts'
 import { parseScaledUiMultiplier } from './dbc-shared.ts'
+import { DEFAULT_DBC_CONFIG_KEY, KNOWN_MINTS, NATIVE_MINT, V1_CONTRACT_SUNSET } from './config.ts'
 
 /** A refusal with an HTTP status and optional structured error fields. */
 export class LaunchError extends Error {
@@ -270,13 +271,15 @@ export async function prepareLaunch(
   if (imageUrlInput && body.image != null) {
     throw new LaunchError('pass only one of `image` (base64) or `imageUrl` (a public http(s) URL)')
   }
-  const configKey = asTrimmedString(body.configKey)
-  if (!configKey) throw new LaunchError('Missing required field: configKey')
+  // v1 compatibility: the original contract had no configKey/category — an
+  // omitted pair selects the production memecoin default. Blank strings are
+  // treated as omitted; anything else invalid still rejects.
+  const configKey = asTrimmedString(body.configKey) ?? DEFAULT_DBC_CONFIG_KEY
   const categoryRaw = asTrimmedString(body.category)
-  if (!categoryRaw || !(CATEGORIES as readonly string[]).includes(categoryRaw)) {
+  if (categoryRaw && !(CATEGORIES as readonly string[]).includes(categoryRaw)) {
     throw new LaunchError('category must be one of: meme, idea, startup')
   }
-  const category = categoryRaw as LaunchCategory
+  const category = (categoryRaw ?? 'meme') as LaunchCategory
   const payerAddress = asTrimmedString(body.payerPublicKey)
   if (!payerAddress) throw new LaunchError('Missing required field: payerPublicKey')
   try {
@@ -535,7 +538,13 @@ export async function prepareLaunch(
   }
 
   // ── 5. first buy — only on configs whose enableFirstSwapWithMinFee is set.
-  const hasFirstBuyInput = body.firstBuyAtoms != null || body.firstBuyAmount != null
+  //    `buyAmountSol` is the frozen v1 contract's field: a SOL display amount.
+  //    It is only spendable on a wrapped-SOL-quoted config — on any other
+  //    quote mint a nonzero amount is rejected BEFORE any upload (a SOL
+  //    amount must never be silently reinterpreted as the quote asset's
+  //    atoms), with a migration pointer to v2's quote-asset fields.
+  const hasFirstBuyInput =
+    body.firstBuyAtoms != null || body.firstBuyAmount != null || body.buyAmountSol != null
   if (hasFirstBuyInput && !entry.supportsFirstBuy) {
     throw new LaunchError(
       `config ${configKey} does not support a creator first buy (enableFirstSwapWithMinFee is unset)`,
@@ -546,44 +555,81 @@ export async function prepareLaunch(
     if (body.firstBuyAtoms != null && body.firstBuyAmount != null) {
       throw new LaunchError('pass only one of firstBuyAtoms (raw atoms) or firstBuyAmount (display units)')
     }
-    const quoteDecimals = entry.quote.decimals
-    if (quoteDecimals == null) {
-      throw new LaunchError(`Config ${configKey} quote decimals are unknown — cannot convert first buy`, 502)
+    if (body.buyAmountSol != null && (body.firstBuyAtoms != null || body.firstBuyAmount != null)) {
+      throw new LaunchError(
+        'pass only one of `buyAmountSol` (v1: SOL display units) or `firstBuyAtoms`/`firstBuyAmount` (v2: quote-asset units)',
+      )
     }
-    if (body.firstBuyAtoms != null) {
-      const atoms = parseFirstBuyAtoms(body.firstBuyAtoms)
-      if (atoms == null) {
-        throw new LaunchError('firstBuyAtoms must be a bare unsigned integer string of raw quote atoms (a JSON number must be a safe integer — pass large values as a string)')
-      }
-      firstBuyAtoms = atoms
-    } else {
-      const amount = body.firstBuyAmount
+    if (body.buyAmountSol != null) {
+      const amount = body.buyAmountSol
       if (typeof amount !== 'string' && typeof amount !== 'number') {
-        throw new LaunchError('firstBuyAmount must be a display-units decimal string')
+        throw new LaunchError('buyAmountSol must be a display-units decimal (SOL)')
       }
-      const multiplier = parseScaledUiMultiplier(entry.quote.scaledUiAmountMultiplier)
-      if (entry.quote.scaledUiAmountMultiplier != null && !multiplier) {
-        // Extension present but multiplier unreadable: never fall back to 1.
-        throw new LaunchError(
-          `Config ${configKey} quote mint scaled-UI multiplier is undecodable — cannot convert firstBuyAmount`,
-          502,
-        )
+      if (quoteMint !== NATIVE_MINT) {
+        if (!isZeroAmountInput(amount)) {
+          throw new LaunchError(
+            `buyAmountSol is denominated in SOL, but config ${configKey} is quoted in ${quoteMint} — a SOL amount cannot be spent there. Migrate to the v2 contract's firstBuyAtoms (raw quote-atom string) or firstBuyAmount (quote display units) — see /v2/skill.md. The v1 contract is served until ${V1_CONTRACT_SUNSET}.`,
+            400,
+            {
+              error: 'unsupported_buyAmountSol',
+              quoteMint,
+              migrateTo: ['firstBuyAtoms', 'firstBuyAmount'],
+              docs: '/v2/skill.md',
+              v1Sunset: V1_CONTRACT_SUNSET,
+            },
+          )
+        }
+        // Explicit zero on a non-SOL config: no first buy.
+        firstBuyAtoms = undefined
+      } else {
+        // wSOL quote: v1 semantics — SOL display units × 10^9 lamports.
+        const atoms = parseFirstBuyUiAmount(String(amount), KNOWN_MINTS[NATIVE_MINT].decimals)
+        if (atoms == null) {
+          throw new LaunchError(`buyAmountSol "${String(amount)}" is not a valid non-negative decimal`)
+        }
+        firstBuyAtoms = atoms
       }
-      const atoms = parseFirstBuyUiAmount(String(amount), quoteDecimals, multiplier)
-      if (atoms == null) {
-        throw new LaunchError(
-          `firstBuyAmount "${String(amount)}" is not a valid non-negative decimal (≤ ${quoteDecimals} fraction digits)`,
-        )
+    } else {
+      const quoteDecimals = entry.quote.decimals
+      if (quoteDecimals == null) {
+        throw new LaunchError(`Config ${configKey} quote decimals are unknown — cannot convert first buy`, 502)
       }
-      firstBuyAtoms = atoms
+      if (body.firstBuyAtoms != null) {
+        const atoms = parseFirstBuyAtoms(body.firstBuyAtoms)
+        if (atoms == null) {
+          throw new LaunchError('firstBuyAtoms must be a bare unsigned integer string of raw quote atoms (a JSON number must be a safe integer — pass large values as a string)')
+        }
+        firstBuyAtoms = atoms
+      } else {
+        const amount = body.firstBuyAmount
+        if (typeof amount !== 'string' && typeof amount !== 'number') {
+          throw new LaunchError('firstBuyAmount must be a display-units decimal string')
+        }
+        const multiplier = parseScaledUiMultiplier(entry.quote.scaledUiAmountMultiplier)
+        if (entry.quote.scaledUiAmountMultiplier != null && !multiplier) {
+          // Extension present but multiplier unreadable: never fall back to 1.
+          throw new LaunchError(
+            `Config ${configKey} quote mint scaled-UI multiplier is undecodable — cannot convert firstBuyAmount`,
+            502,
+          )
+        }
+        const atoms = parseFirstBuyUiAmount(String(amount), quoteDecimals, multiplier)
+        if (atoms == null) {
+          throw new LaunchError(
+            `firstBuyAmount "${String(amount)}" is not a valid non-negative decimal (≤ ${quoteDecimals} fraction digits)`,
+          )
+        }
+        firstBuyAtoms = atoms
+      }
     }
-    if (firstBuyAtoms > U64_MAX) {
+    if (firstBuyAtoms != null && firstBuyAtoms > U64_MAX) {
       throw new LaunchError('first buy exceeds the maximum u64 atom amount (18446744073709551615)')
     }
     // An explicit zero (SKILL.md: "0/omitted = no first buy") means no first
     // buy; a non-zero request that floors to 0 atoms is rejected (app: "tooSmall").
-    if (firstBuyAtoms <= 0n) {
-      if (body.firstBuyAmount != null && !isZeroAmountInput(body.firstBuyAmount)) {
+    if (firstBuyAtoms != null && firstBuyAtoms <= 0n) {
+      const rawDisplayAmount = body.firstBuyAmount ?? body.buyAmountSol
+      if (rawDisplayAmount != null && !isZeroAmountInput(rawDisplayAmount)) {
         throw new LaunchError(
           'first buy rounds to 0 atoms (amount too small for the quote mint decimals/multiplier)',
         )
