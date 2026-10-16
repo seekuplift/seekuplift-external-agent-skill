@@ -352,11 +352,12 @@ Builds the unsigned transaction that claims a coin's accrued creator fees to the
 {
   "transaction": "<base64 legacy transaction, unsigned — the creator signs and pays>",
   "claimable": { "quoteAtoms": "<string>", "baseAtoms": "<string>" },
-  "poolInfo": { "poolAddress": "…", "configKey": "…", "baseMint": "…", "creator": "…" }
+  "poolInfo": { "poolAddress": "…", "configKey": "…", "baseMint": "…", "creator": "…" },
+  "lastValidBlockHeight": 390000000
 }
 ```
 
-`claimable` is the full amount the transaction claims, in atoms of the pool's quote and base mints.
+`claimable` is the full amount the transaction claims, in atoms of the pool's quote and base mints. `lastValidBlockHeight` (optional) bounds the transaction's validity — see the **submit protocol** below.
 
 **Errors**: `400 { error }` invalid body; `403 { error: "not_creator", creator }` the wallet did not launch this pool; `403 { error: "config_not_served", configKey }` not a SeekUplift coin on a served config — claim in the app; `404 pool_not_found`; `409 { error: "no_claimable_fees" }` nothing to claim yet; `502` upstream.
 
@@ -392,7 +393,7 @@ The service forwards the caller's IP to the backend, which resolves a fresh geo 
 - **Launch**: the server-generated mint keypair has **already partially signed**. Add only the payer signature — `tx.partialSign(payerKeypair)` — then `connection.sendRawTransaction(tx.serialize())`.
 - **Trade**: the transaction is **unsigned** — `ownerPublicKey` signs and pays fees.
 - **Before signing**, show your user the spend and confirm: the amount and the quote asset it is denominated in — a trade's `amountIn` against `poolInfo.quoteSymbol`/`quoteMint`; on a launch, `firstBuyAtoms` against `quoteMint` — the same amounts the response returns.
-- The blockhash is fetched at build time — **sign and submit within ~90 seconds** or the transaction expires. Launch and trade build responses carry `lastValidBlockHeight` (optional): the block height the transaction can no longer land past, taken from the same `getLatestBlockhash` read as the blockhash.
+- The blockhash is fetched at build time — **sign and submit within ~90 seconds** or the transaction expires. Launch, trade and claim build responses carry `lastValidBlockHeight` (optional): the block height the transaction can no longer land past, taken from the same `getLatestBlockhash` read as the blockhash.
 - Submit to a Solana mainnet RPC (e.g. `https://api.mainnet-beta.solana.com`; a private RPC avoids rate limits).
 
 ### Submit protocol — prove the last send before any rebuild

@@ -98,7 +98,7 @@
       "description": "Build the unsigned creator-fee claim for a coin the wallet launched (full claimable amounts; works on the curve and after migration). Signed by the launch payer.",
       "endpoint": { "method": "POST", "path": "/api/claim/tx" },
       "requiredFields": ["poolAddress", "creatorPublicKey"],
-      "returns": ["transaction", "claimable", "poolInfo"],
+      "returns": ["transaction", "claimable", "poolInfo", "lastValidBlockHeight"],
       "errors": { "403": "not_creator | config_not_served", "404": "pool_not_found", "409": "no_claimable_fees" }
     }
   ],
@@ -112,7 +112,7 @@
     "launch": "mint keypair already partially signed — add only the payer signature (tx.partialSign)",
     "trade": "unsigned — ownerPublicKey signs and pays fees",
     "beforeSigning": "Show the user the spend and confirm: the amount and the quote asset it is denominated in (a trade's amountIn vs poolInfo.quoteSymbol/quoteMint; a launch's firstBuyAtoms vs quoteMint) — the same amounts the response returns.",
-    "expiry": "blockhash set at build time — sign and submit within ~90 seconds or the transaction expires; launch/trade build responses carry lastValidBlockHeight (optional), the block height the tx can no longer land past, from the same getLatestBlockhash read",
+    "expiry": "blockhash set at build time — sign and submit within ~90 seconds or the transaction expires; launch/trade/claim build responses carry lastValidBlockHeight (optional), the block height the tx can no longer land past, from the same getLatestBlockhash read",
     "submitProtocol": "Prove the last send before any rebuild, in order: 1) before broadcasting persist the signature (on a launch the response's mintAddress too); 2) after broadcasting poll the signature status with transaction-history search (getSignatureStatuses([sig], { searchTransactionHistory: true })); 3) finalized success → done — on a launch reuse the recorded mintAddress, never relaunch; 4) finalized failure → landed and failed, a rebuild is safe; 5) absent status is 'not landed yet' only once a finalized getBlockHeight exceeds the response's lastValidBlockHeight AND one more history search after that read still finds nothing, in that order; 6) an RPC error at any step leaves the outcome unknown. Without a lastValidBlockHeight (older cached docs, or a response that lacks it) the outcome cannot be proven — do not rebuild automatically: report the signature to the user and wait. A launch rebuild creates a new mint and pool and spends the creation fee plus any first buy again — a rebuild after an unknown outcome is a duplicate-token hazard."
   },
   "submitTo": "https://api.mainnet-beta.solana.com",

@@ -82,7 +82,7 @@ beforeEach(() => {
   claimCalls = []
   patch('getLatestBlockhash', async () => ({
     blockhash: '4uQeVj5tqViQh7yWWGStvkEG1RgTksVZc8k1q1iT1c1k',
-    lastValidBlockHeight: 1,
+    lastValidBlockHeight: 350_000_042,
   }))
   patch('simulateTransaction', async () => {
     throw new Error('simulateTransaction not available in tests')
@@ -154,5 +154,8 @@ describe('prepareClaimTx', () => {
     assert.equal(result.poolInfo.configKey, CONFIG_ADDRESS)
     const tx = Transaction.from(Buffer.from(result.transaction, 'base64'))
     assert.equal(tx.feePayer?.toBase58(), CREATOR)
+    // IV-S-1: the expiry bound from the same getLatestBlockhash read.
+    assert.equal(result.lastValidBlockHeight, 350_000_042)
+    assert.equal(tx.recentBlockhash, '4uQeVj5tqViQh7yWWGStvkEG1RgTksVZc8k1q1iT1c1k')
   })
 })

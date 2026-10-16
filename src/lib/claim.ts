@@ -61,6 +61,10 @@ export type ClaimTxResult = {
     baseMint: string
     creator: string
   }
+  /** Expiry bound from the same `getLatestBlockhash` read as the blockhash —
+   *  the agent's proof that an unlanded send can no longer land (SKILL.md's
+   *  submit protocol). */
+  lastValidBlockHeight: number
 }
 
 function parseAddress(body: Record<string, unknown>, field: string): string {
@@ -148,7 +152,8 @@ export async function prepareClaimTx(
     maxQuoteAmount: toBN(claimableQuote),
   })
   tx.feePayer = owner
-  const { blockhash } = await connection.getLatestBlockhash('confirmed')
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash('confirmed')
   tx.recentBlockhash = blockhash
   await applyEstimatedComputeBudget(connection, tx, DBC_CLAIM_FALLBACK_COMPUTE_UNITS)
 
@@ -161,5 +166,6 @@ export async function prepareClaimTx(
       baseMint: pool.baseMint?.toString() ?? '',
       creator,
     },
+    lastValidBlockHeight,
   }
 }

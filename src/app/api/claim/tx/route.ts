@@ -13,6 +13,7 @@
  *     transaction: string   // base64 legacy transaction, unsigned
  *     claimable: { quoteAtoms: string, baseAtoms: string }
  *     poolInfo: { poolAddress, configKey, baseMint, creator },
+ *     lastValidBlockHeight: number // expiry bound from the tx's blockhash read
  *   }
  *
  * Errors:

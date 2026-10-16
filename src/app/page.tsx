@@ -39,7 +39,7 @@ export default function Home() {
         </ol>
         <p style={{ color: 'var(--muted)', marginTop: '1rem', fontSize: '0.9rem' }}>
           Transactions are base64 legacy <code>Transaction</code>s. Sign and submit within ~90 seconds;
-          launch and trade build responses carry <code>lastValidBlockHeight</code>. Before rebuilding after
+          launch, trade and claim build responses carry <code>lastValidBlockHeight</code>. Before rebuilding after
           a timeout, prove the earlier send never landed (signature-history search, then a finalized block
           height past <code>lastValidBlockHeight</code>, then one more history search) — an unproven send
           means do not rebuild: a launch rebuild mints a duplicate coin and spends again. See SKILL.md&apos;s
@@ -195,7 +195,8 @@ export default function Home() {
           response={`{
   "transaction": "<base64, unsigned>",
   "claimable": { "quoteAtoms": "...", "baseAtoms": "..." },
-  "poolInfo": { "poolAddress", "configKey", "baseMint", "creator" }
+  "poolInfo": { "poolAddress", "configKey", "baseMint", "creator" },
+  "lastValidBlockHeight": 390000000
 }`}
         />
       </section>

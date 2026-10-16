@@ -14,6 +14,15 @@ The API endpoints themselves are unversioned and accept both request shapes
 After 2027-01-15 the v1 documents and the v1 compatibility fields may be
 removed; the unversioned document paths will then serve the current version.
 
+## 2026-10-16 — `lastValidBlockHeight` on claim (additive, v2 docs only)
+
+`POST /api/claim/tx` now returns the optional `lastValidBlockHeight` (from the
+same `getLatestBlockhash` read as the blockhash), like the launch and trade
+build responses (IV-S-1). Documented in `SKILL.md` / `/v2/skill.json` only:
+the frozen v1 documents never described `/api/claim/tx` (it is a v2 addition),
+so their shape is unchanged. The endpoint is unversioned, so any caller gets
+the extra field; it is additive and optional.
+
 ## 2.1.0 — 2026-10-15 (v2, versioned path added)
 
 Same contract surface as the already-shipped 2.x docs; this release adds the
