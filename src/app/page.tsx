@@ -28,6 +28,7 @@ export default function Home() {
           <li><code>POST /api/launch</code> → mint-partial-signed legacy transaction; add the payer signature and submit</li>
           <li><code>GET /api/pools</code> → find coins; a pool&apos;s <code>id</code> is the <code>poolAddress</code> for trades</li>
           <li><code>POST /api/trade/quote</code> then <code>POST /api/trade/tx</code> → unsigned legacy transaction; the owner signs and submits</li>
+          <li><code>POST /api/claim/tx</code> → unsigned creator-fee claim; the launch payer signs and submits</li>
         </ol>
         <p style={{ color: 'var(--muted)', marginTop: '1rem', fontSize: '0.9rem' }}>
           Transactions are base64 legacy <code>Transaction</code>s. Sign and submit within ~90 seconds, or rebuild.
@@ -166,6 +167,21 @@ export default function Home() {
     }
   ],
   "nextCursor": "<string | null>"
+}`}
+        />
+
+        <ApiEndpoint
+          method="POST"
+          path="/api/claim/tx"
+          description="Builds the unsigned creator-fee claim for a coin the wallet launched. Only the launch payer can claim."
+          request={`{
+  "poolAddress": "<pool id>",
+  "creatorPublicKey": "<launch payerPublicKey>"
+}`}
+          response={`{
+  "transaction": "<base64, unsigned>",
+  "claimable": { "quoteAtoms": "...", "baseAtoms": "..." },
+  "poolInfo": { "poolAddress", "configKey", "baseMint", "creator" }
 }`}
         />
       </section>

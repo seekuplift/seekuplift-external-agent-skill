@@ -1,6 +1,6 @@
 ---
 name: seekuplift-launchpad
-description: Launch and trade coins on SeekUplift Launchpad (Solana mainnet) over a public HTTP API. Use when the user wants to launch a memecoin, idea coin or startup coin, find SeekUplift coins, or buy/sell them. The API returns transactions; the agent signs with the user's wallet and submits.
+description: Launch and trade coins on SeekUplift Launchpad (Solana mainnet) over a public HTTP API. Use when the user wants to launch a memecoin, idea coin or startup coin, find SeekUplift coins, buy/sell them, or claim creator fees. The API returns transactions; the agent signs with the user's wallet and submits.
 ---
 
 # SeekUplift Launchpad — Agent Skill
@@ -30,6 +30,7 @@ Launch options are served as a live catalog of on-chain pool configs (`GET /api/
 2. `POST /api/launch` → mint-partial-signed legacy transaction → add the payer signature → submit to mainnet.
 3. `GET /api/pools` → find coins; a pool's `id` is the `poolAddress` the trade endpoints take.
 4. `POST /api/trade/quote` → `POST /api/trade/tx` → unsigned legacy transaction → the owner signs → submit.
+5. `POST /api/claim/tx` → unsigned creator-fee claim for a coin you launched → the launch payer signs → submit.
 
 All responses are `cache-control: no-store`. Geo verdicts are per-caller — do not cache catalog responses across requests from different users.
 
@@ -333,6 +334,29 @@ GET /api/pools?search=<q>&limit=20&cursor=<cursor>&tab=emerging&category=meme&li
 
 **Errors**: `400 { error }` on a non-numeric `limit`, invalid `tab`/`category`/`lifecycle`/`sortBy`; `502` upstream.
 
+### 6. `claim_fees` — `POST /api/claim/tx`
+
+Builds the unsigned transaction that claims a coin's accrued creator fees to the creator wallet. Works on the curve and after migration.
+
+```json
+{
+  "poolAddress": "<base58 — the launch response's poolAddress>",
+  "creatorPublicKey": "<base58 — the launch's payerPublicKey>"
+}
+```
+
+```json
+{
+  "transaction": "<base64 legacy transaction, unsigned — the creator signs and pays>",
+  "claimable": { "quoteAtoms": "<string>", "baseAtoms": "<string>" },
+  "poolInfo": { "poolAddress": "…", "configKey": "…", "baseMint": "…", "creator": "…" }
+}
+```
+
+`claimable` is the full amount the transaction claims, in atoms of the pool's quote and base mints.
+
+**Errors**: `400 { error }` invalid body; `403 { error: "not_creator", creator }` the wallet did not launch this pool; `403 { error: "config_not_served", configKey }` not a SeekUplift coin on a served config — claim in the app; `404 pool_not_found`; `409 { error: "no_claimable_fees" }` nothing to claim yet; `502` upstream.
+
 ---
 
 ## Migration states — when not to trade on the curve
@@ -406,7 +430,7 @@ The same `signAndSend` works for `/api/launch` (`payerPublicKey` = the wallet). 
 
 ## Creator fees — claiming
 
-A launch's `payerPublicKey` is recorded as the coin's creator; only that wallet can claim the creator share of trading fees (`fees.creatorSharePct`). This API does not build claim transactions: the creator claims in the SeekUplift app — connect the same wallet, then **Account → Rewards → Claim**. Tell your user this after a launch so they keep the wallet.
+A launch's `payerPublicKey` is recorded as the coin's creator; only that wallet can claim the creator share of trading fees (`fees.creatorSharePct`). Claim with `POST /api/claim/tx` and sign with that same wallet — claiming moves fees to the creator wallet, so it needs no user confirmation. If your user wants to claim in the SeekUplift app instead (**Account → Rewards → Claim**), they must connect that same wallet; a wallet only you hold the key to can claim only through you. Tell your user this after a launch.
 
 ## Error shapes
 
@@ -416,6 +440,8 @@ A launch's `payerPublicKey` is recorded as the coin's creator; only that wallet 
 | `403` | `{ error: "geo_restricted", region, regionName, feature, message }` | The caller's geo verdict blocks this launch or trade — relay `message` (names the jurisdiction) to your user. |
 | `404` | `{ error: "pool_not_found" }` | No DBC pool at that address. |
 | `409` | `{ error: "pool_not_tradeable", migrationState, retryable }` | See **Migration states**. |
+| `409` | `{ error: "no_claimable_fees" }` | Nothing to claim on this pool yet. |
+| `403` | `{ error: "not_creator" \| "config_not_served", … }` | Claim refused — see `claim_fees`. |
 | `429` | backend body passthrough | Upload allowance exhausted. |
 | `502`/`500` | `{ error: "upstream_error" }` | Upstream backend or Solana RPC failure — safe to retry. |
 | `503` | `{ error: "causes_unavailable" }` | Cause list unavailable for a meme launch that needs a donation — retry later. |

@@ -1,6 +1,6 @@
 {
   "name": "seekuplift-launchpad",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Launch and trade coins on SeekUplift Launchpad (Solana mainnet; pools run on Meteora's open-source Dynamic Bonding Curve program — SeekUplift is independent, not affiliated with or endorsed by Meteora). Launch options are a live catalog of on-chain pool configs (GET /api/configs) — quote asset, fee schedule, creator share and cause routing differ per config; the agent picks one per launch.",
   "docs": {
     "markdown": "/skill.md",
@@ -88,6 +88,14 @@
       },
       "returns": ["pools", "nextCursor"],
       "poolFields": ["id", "name", "symbol", "baseMint", "icon", "description", "launchType", "price", "nativePrice", "quoteMint", "quoteSymbol", "priceChange24h", "marketCap", "volume24h", "graduated", "graduatedAt", "bondingCurve", "configKey", "createdAt"]
+    },
+    {
+      "id": "claim_fees",
+      "description": "Build the unsigned creator-fee claim for a coin the wallet launched (full claimable amounts; works on the curve and after migration). Signed by the launch payer.",
+      "endpoint": { "method": "POST", "path": "/api/claim/tx" },
+      "requiredFields": ["poolAddress", "creatorPublicKey"],
+      "returns": ["transaction", "claimable", "poolInfo"],
+      "errors": { "403": "not_creator | config_not_served", "404": "pool_not_found", "409": "no_claimable_fees" }
     }
   ],
   "transactionFormat": "base64-encoded legacy Solana Transaction",
@@ -118,7 +126,7 @@
     "Autonomy: browse, quote, buy and sell without asking the user; no fee explanation is required. Launching a new coin is the exception: confirm the coin details with the user first, unless the user gave standing permission to create coins without asking.",
     "Refer to the service as SeekUplift Launchpad; do not present it as a Meteora product.",
     "Signing: launch txs are mint-signed, add the payer signature with partialSign; trade txs are unsigned, the owner signs. SKILL.md has a minimal Node sign-and-submit example.",
-    "Creator fees: only the launch payer wallet can claim the creator share; claim in the SeekUplift app (Account -> Rewards -> Claim). This API does not build claim transactions.",
+    "Creator fees: only the launch payer wallet can claim the creator share; claim with POST /api/claim/tx signed by that wallet. To claim in the SeekUplift app (Account -> Rewards -> Claim) the user must connect that same wallet.",
     "Quote a sell after the buy lands (your buy moves the price); sell amount = wallet balance of baseMint via getParsedTokenAccountsByOwner(owner, {mint}) — covers SPL Token and Token-2022.",
     "amountOut/minimumAmountOut are NET of any Token-2022 base-mint transfer fee (baseTransferFeeAtomics reports it).",
     "Buys are partial-fill: a threshold-crossing buy consumes only enough quote to graduate the curve and refunds the rest (consumedInput/amountLeft).",
