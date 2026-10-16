@@ -1,6 +1,6 @@
 {
   "name": "seekuplift-launchpad",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "status": "current",
   "description": "Launch and trade coins on SeekUplift Launchpad (Solana mainnet; pools run on Meteora's open-source Dynamic Bonding Curve program — SeekUplift is independent, not affiliated with or endorsed by Meteora). Launch options are a live catalog of on-chain pool configs (GET /api/configs) — quote asset, fee schedule, creator share and cause routing differ per config; the agent picks one per launch.",
   "docs": {

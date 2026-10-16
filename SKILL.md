@@ -16,7 +16,7 @@ Launch options are served as a live catalog of on-chain pool configs (`GET /api/
 - **Network**: Solana mainnet-beta
 - **DBC program**: `dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN`
 - **Base URL**: the same host that served this document
-- **Contract version**: `2.1.0` — this document is served at `/v2/skill.md`, its machine-readable form at `GET /v2/skill.json`
+- **Contract version**: `2.2.0` — this document is served at `/v2/skill.md`, its machine-readable form at `GET /v2/skill.json`
 - **v1 (frozen)**: the original contract is still served at `/skill.md` + `/skill.json` (also `/v1/skill.md`, `/v1/skill.json`) **until 2027-01-15** — see `CHANGELOG.md` for the differences
 
 ## Prerequisites

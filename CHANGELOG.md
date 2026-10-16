@@ -6,7 +6,7 @@ version and path and the old shape keeps being served until a dated sunset.
 
 | Version | Status | Paths | Sunset |
 |---|---|---|---|
-| v2 (`2.1.0`) | current | `/v2/skill.md`, `/v2/skill.json` | — |
+| v2 (`2.2.0`) | current | `/v2/skill.md`, `/v2/skill.json` | — |
 | v1 (`1.0.0`) | frozen, deprecated | `/skill.md`, `/skill.json`, `/v1/skill.md`, `/v1/skill.json` | **2027-01-15** |
 
 The API endpoints themselves are unversioned and accept both request shapes
@@ -14,14 +14,17 @@ The API endpoints themselves are unversioned and accept both request shapes
 After 2027-01-15 the v1 documents and the v1 compatibility fields may be
 removed; the unversioned document paths will then serve the current version.
 
-## 2026-10-16 — `lastValidBlockHeight` on claim (additive, v2 docs only)
+## 2.2.0 — 2026-10-16 (additive: expiry bound + submit protocol)
 
-`POST /api/claim/tx` now returns the optional `lastValidBlockHeight` (from the
-same `getLatestBlockhash` read as the blockhash), like the launch and trade
-build responses (IV-S-1). Documented in `SKILL.md` / `/v2/skill.json` only:
-the frozen v1 documents never described `/api/claim/tx` (it is a v2 addition),
-so their shape is unchanged. The endpoint is unversioned, so any caller gets
-the extra field; it is additive and optional.
+The launch, trade and claim build responses return an optional
+`lastValidBlockHeight` from the same `getLatestBlockhash` read as the
+blockhash, and the documents describe a prove-before-rebuild submit protocol
+(rebuild only once the chain is past that height; no field → never rebuild).
+Launch/trade landed 2026-10-15 (IV-S-1); claim followed 2026-10-16. The
+endpoints are unversioned, so every caller gets the field; it is additive and
+optional. The v1 documents carry the same field and protocol text for launch
+and trade (IV-S-1 put it in both served versions) and stay `1.0.0`; they never
+described `/api/claim/tx`, so claim is documented in v2 only.
 
 ## 2.1.0 — 2026-10-15 (v2, versioned path added)
 

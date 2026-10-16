@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "status": "deprecated",
   "sunset": "2027-01-15",
-  "successor": { "version": "2.1.0", "markdown": "/v2/skill.md", "json": "/v2/skill.json", "changelog": "/CHANGELOG.md" },
+  "successor": { "version": "2.2.0", "markdown": "/v2/skill.md", "json": "/v2/skill.json", "changelog": "/CHANGELOG.md" },
   "description": "Launch tokens and trade on Meteora Dynamic Bonding Curve (DBC) on Solana mainnet. 0.5% of every trading fee funds public benefit or innovation — impact is built into every trade. Creators earn 0.3% on all trades of their token.",
   "docs": {
     "markdown": "/skill.md",
