@@ -1,6 +1,7 @@
 # Test fixtures
 
 Real captured responses — nothing synthetic. Do not hand-edit; re-capture.
+(`config-record.json` is vendored, not captured; see its row.)
 
 | File | Source | Captured |
 |---|---|---|
@@ -15,3 +16,4 @@ Tests feed the account bytes through the real
 `@meteora-ag/dynamic-bonding-curve-sdk` decoder via a stubbed `Connection`
 (`getAccountInfo`/`getAccountInfoAndContext`), so the exercised path is the
 production one.
+| `config-record.json` | Vendored byte-for-byte from `dbc-config/configs/mainnet/config-record.json` at dbc-config commit `8996d43a0aace6a0c3f4787fd123fe41ef791df2` (TB-D-1), sha256 `d7a46296404c6dfd90b2d5e32bfccf0ecbc3ff5a1390e8a0777b9c1d9824b632` (pinned by `tests/config-record.test.ts`). To refresh: copy the new file, update this row and the pinned sha in the test. Reused by TB-S-4. | 2026-10-16 |
