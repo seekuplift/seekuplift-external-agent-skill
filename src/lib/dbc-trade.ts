@@ -456,7 +456,7 @@ export type BuildDbcSwapParams = {
 export async function buildDbcSwapTx(
   params: BuildDbcSwapParams,
   deps: TradeClientDeps = {},
-): Promise<{ transaction: string }> {
+): Promise<{ transaction: string; lastValidBlockHeight: number }> {
   const { poolAddress, ownerAddress, swapBaseForQuote, amountIn, minimumAmountOut } = params
   const connection = deps.connection ?? getConnection()
   const client = deps.client ?? getDbcClient()
@@ -487,7 +487,8 @@ export async function buildDbcSwapTx(
       })
 
   tx.feePayer = owner
-  const { blockhash } = await connection.getLatestBlockhash('confirmed')
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash('confirmed')
   tx.recentBlockhash = blockhash
 
   // Estimate AFTER feePayer + recentBlockhash are set so the simulation sees
@@ -495,5 +496,10 @@ export async function buildDbcSwapTx(
   await applyEstimatedComputeBudget(connection, tx, DBC_SWAP_FALLBACK_COMPUTE_UNITS)
 
   const serialized = tx.serialize({ requireAllSignatures: false })
-  return { transaction: serialized.toString('base64') }
+  return {
+    transaction: serialized.toString('base64'),
+    // From the same getLatestBlockhash read as the blockhash — the agent's
+    // proof that an unlanded send can no longer land before it rebuilds.
+    lastValidBlockHeight,
+  }
 }

@@ -76,11 +76,11 @@ function fakeDbcClient(captured: Captured, badged: boolean): DynamicBondingCurve
 }
 
 /** A connection double: fixed blockhash, clean simulation, no fees. */
-function fakeConnection(): Connection {
+function fakeConnection(lastValidBlockHeight = 1): Connection {
   return {
     getLatestBlockhash: async () => ({
       blockhash: '11111111111111111111111111111111',
-      lastValidBlockHeight: 1,
+      lastValidBlockHeight,
     }),
     simulateTransaction: async () => ({
       context: { slot: 1 },
@@ -173,5 +173,17 @@ describe('buildLaunchTx — token badge (SQ-APP-3)', () => {
       (captured.firstBuyParam!.buyAmount as { toString(): string }).toString(),
       '1000000',
     )
+  })
+
+  it('returns lastValidBlockHeight from the same getLatestBlockhash read as the blockhash (IV-S-1)', async () => {
+    const captured: Captured = { badgeLookups: [], createPoolParam: null, firstBuyParam: null }
+    const result = await buildLaunchTx(baseParams(SKR_MINT), {
+      client: fakeDbcClient(captured, false),
+      connection: fakeConnection(350_000_042),
+    })
+    assert.equal(result.lastValidBlockHeight, 350_000_042)
+    // … and the tx really carries that read's blockhash.
+    const tx = Transaction.from(Buffer.from(result.transaction, 'base64'))
+    assert.equal(tx.recentBlockhash, '11111111111111111111111111111111')
   })
 })

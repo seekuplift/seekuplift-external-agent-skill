@@ -76,9 +76,12 @@ Launch a new token on the bonding curve.
   "transaction": "<base64>",
   "mintAddress": "<base58>",
   "metadataUrl": "https://ipfs.filebase.io/ipfs/...",
-  "imageUrl": "https://ipfs.filebase.io/ipfs/..."
+  "imageUrl": "https://ipfs.filebase.io/ipfs/...",
+  "lastValidBlockHeight": 390000000
 }
 ```
+
+`lastValidBlockHeight` (optional) is the block height the transaction can no longer land past — keep it for the submit protocol below.
 
 ---
 
@@ -152,6 +155,20 @@ Returns pools with price, market cap, and 24h volume. `graduated: true` means th
 - All transactions are **legacy `Transaction`s** (not versioned): `Transaction.from(Buffer.from(b64, 'base64'))`.
 - **Launch**: the server-generated mint keypair has **already partially signed**. Add only the payer signature — `tx.partialSign(payerKeypair)` — then `connection.sendRawTransaction(tx.serialize())`.
 - **Trade**: the transaction is **unsigned** — `ownerPublicKey` signs and pays fees.
-- The blockhash is fetched at build time — **sign and submit within ~90 seconds** or the transaction expires; rebuild instead of retrying a stale one.
+- **Before signing**, show your user the spend and confirm: the amount and the quote asset it is denominated in — on a launch, the `buyAmountSol` first buy (a SOL amount) too.
+- The blockhash is fetched at build time — **sign and submit within ~90 seconds** or the transaction expires. Build responses carry `lastValidBlockHeight` (optional): the block height the transaction can no longer land past, taken from the same `getLatestBlockhash` read as the blockhash.
 - `isCompleted: true` in a quote response means the pool graduated. Do not trade on a completed DBC pool; use Jupiter instead.
 - Images: provide any public HTTPS URL or an `ipfs://` URI. The API will upload to IPFS if needed.
+
+### Submit protocol — prove the last send before any rebuild
+
+A rebuild is safe only once the transaction you already sent can no longer land. Work it out in this order:
+
+1. **Before broadcasting**, persist the signature (sign, then record `tx.signature` before `sendRawTransaction`) — on a launch, persist the response's `mintAddress` too.
+2. **After broadcasting**, poll the signature status with transaction-history search — `getSignatureStatuses([signature], { searchTransactionHistory: true })` — so a processed send still resolves.
+3. **Finalized success** → done. On a launch the recorded `mintAddress` is the coin — never relaunch.
+4. **Finalized failure** → the transaction landed and failed; a rebuild is safe.
+5. **Absent status** is "not landed yet" only once a finalized block-height read (`getBlockHeight` at `finalized` commitment) exceeds the response's `lastValidBlockHeight` **and** one more history search after that read still finds nothing — in that order. Then the send can never land; a rebuild is safe.
+6. **An RPC error at any step leaves the outcome unknown.**
+
+**Outcome unknown → do not rebuild.** Without a `lastValidBlockHeight` — older cached docs, or a response that lacks it — the outcome cannot be proven, and an errored step proves nothing either: report the signature to your user and wait; do not rebuild automatically. A launch rebuild creates a new mint and pool and spends the creation fee plus any first buy again — a rebuild after an unknown outcome is a duplicate-token hazard.

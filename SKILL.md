@@ -194,11 +194,12 @@ Uploads image + metadata through the backend proxy and builds the launch transac
   "category": "meme",
   "quoteMint": "<base58>",
   "firstBuyAtoms": "100000000",
+  "lastValidBlockHeight": 390000000,
   "note": "Deserialize from base64 as a legacy Transaction, sign with payerPublicKey, then submit to mainnet RPC. The mint keypair signature is already applied."
 }
 ```
 
-`firstBuyAtoms` is `null` when the launch has no first buy.
+`firstBuyAtoms` is `null` when the launch has no first buy. `lastValidBlockHeight` (optional) is the expiry bound from the same blockhash read — keep it for the **submit protocol** below.
 
 **Errors**: `400 { error }` validation (incl. `donation_required` with `causesOffered`); `403 { error: "geo_restricted", region, regionName, feature, message }`; `429` upload rate limit (see **Limits**); `502 { error: "upstream_error" }` upstream failure; `503 { error: "causes_unavailable" }` the cause list could not be loaded for a meme launch that needs a donation — retry later.
 
@@ -285,11 +286,12 @@ Builds the unsigned swap transaction.
   "amountIn": "…",
   "minimumAmountOut": "…",
   "quote": { "amountOut": "…", "minimumAmountOut": "…", "baseTransferFeeAtomics": "…", "consumedInput": "…", "amountLeft": "…", "amountIn": "…", "slippageBps": 50 },
-  "poolInfo": { "…same as quote response…" }
+  "poolInfo": { "…same as quote response…" },
+  "lastValidBlockHeight": 390000000
 }
 ```
 
-`quote` is `null` when `minimumAmountOut` was supplied.
+`quote` is `null` when `minimumAmountOut` was supplied. `lastValidBlockHeight` (optional) bounds the transaction's validity — see the **submit protocol** below.
 
 **Errors**: same set as the quote endpoint.
 
@@ -389,8 +391,22 @@ The service forwards the caller's IP to the backend, which resolves a fresh geo 
 - All transactions are **legacy `Transaction`s** (not versioned): `Transaction.from(Buffer.from(b64, 'base64'))`.
 - **Launch**: the server-generated mint keypair has **already partially signed**. Add only the payer signature — `tx.partialSign(payerKeypair)` — then `connection.sendRawTransaction(tx.serialize())`.
 - **Trade**: the transaction is **unsigned** — `ownerPublicKey` signs and pays fees.
-- The blockhash is fetched at build time — **sign and submit within ~90 seconds** or the transaction expires; rebuild instead of retrying a stale one.
+- **Before signing**, show your user the spend and confirm: the amount and the quote asset it is denominated in — a trade's `amountIn` against `poolInfo.quoteSymbol`/`quoteMint`; on a launch, `firstBuyAtoms` against `quoteMint` — the same amounts the response returns.
+- The blockhash is fetched at build time — **sign and submit within ~90 seconds** or the transaction expires. Launch and trade build responses carry `lastValidBlockHeight` (optional): the block height the transaction can no longer land past, taken from the same `getLatestBlockhash` read as the blockhash.
 - Submit to a Solana mainnet RPC (e.g. `https://api.mainnet-beta.solana.com`; a private RPC avoids rate limits).
+
+### Submit protocol — prove the last send before any rebuild
+
+A rebuild is safe only once the transaction you already sent can no longer land. Work it out in this order:
+
+1. **Before broadcasting**, persist the signature (sign, then record `tx.signature` before `sendRawTransaction`) — on a launch, persist the response's `mintAddress` too.
+2. **After broadcasting**, poll the signature status with transaction-history search — `getSignatureStatuses([signature], { searchTransactionHistory: true })` — so a processed send still resolves.
+3. **Finalized success** → done. On a launch the recorded `mintAddress` is the coin — never relaunch.
+4. **Finalized failure** → the transaction landed and failed; a rebuild is safe.
+5. **Absent status** is "not landed yet" only once a finalized block-height read (`getBlockHeight` at `finalized` commitment) exceeds the response's `lastValidBlockHeight` **and** one more history search after that read still finds nothing — in that order. Then the send can never land; a rebuild is safe.
+6. **An RPC error at any step leaves the outcome unknown.**
+
+**Outcome unknown → do not rebuild.** Without a `lastValidBlockHeight` — older cached docs, or a response that lacks it — the outcome cannot be proven, and an errored step proves nothing either: report the signature to your user and wait; do not rebuild automatically. A launch rebuild creates a new mint and pool and spends the creation fee plus any first buy again — a rebuild after an unknown outcome is a duplicate-token hazard.
 
 ### Sign and submit — minimal example (Node, `@solana/web3.js` v1)
 
@@ -409,7 +425,7 @@ async function signAndSend(base64Tx) {
   tx.partialSign(wallet) // keeps the mint signature already on a launch tx
   const signature = await connection.sendRawTransaction(tx.serialize())
   for (let i = 0; i < 45; i++) {
-    const { value: [status] } = await connection.getSignatureStatuses([signature])
+    const { value: [status] } = await connection.getSignatureStatuses([signature], { searchTransactionHistory: true })
     if (status?.err) throw new Error(`transaction failed: ${JSON.stringify(status.err)}`)
     if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') return signature
     await new Promise((r) => setTimeout(r, 2000))
@@ -427,7 +443,7 @@ if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
 console.log(await signAndSend((await res.json()).transaction))
 ```
 
-The same `signAndSend` works for `/api/launch` (`payerPublicKey` = the wallet). If confirmation times out, check the signature's status before rebuilding — never sign a second launch blindly.
+The same `signAndSend` works for `/api/launch` (`payerPublicKey` = the wallet). If confirmation times out, run the **submit protocol** above — never sign a second launch blindly.
 
 ## Creator fees — claiming
 
@@ -444,5 +460,5 @@ A launch's `payerPublicKey` is recorded as the coin's creator; only that wallet 
 | `409` | `{ error: "no_claimable_fees" }` | Nothing to claim on this pool yet. |
 | `403` | `{ error: "not_creator" \| "config_not_served", … }` | Claim refused — see `claim_fees`. |
 | `429` | backend body passthrough | Upload allowance exhausted. |
-| `502`/`500` | `{ error: "upstream_error" }` | Upstream backend or Solana RPC failure — safe to retry. |
+| `502`/`500` | `{ error: "upstream_error" }` | Upstream backend or Solana RPC failure — safe to re-request a build; see the submit protocol before re-sending. |
 | `503` | `{ error: "causes_unavailable" }` | Cause list unavailable for a meme launch that needs a donation — retry later. |

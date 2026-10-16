@@ -351,7 +351,7 @@ describe('prepareTradeTx — transfer-fee mint (TF-APP-1)', () => {
   })
 
   it('a caller-supplied minimumAmountOut passes through verbatim (no internal quote)', async () => {
-    await prepareTradeTx(
+    const result = await prepareTradeTx(
       {
         poolAddress: POOL_ADDRESS,
         ownerPublicKey: OWNER_ADDRESS,
@@ -365,6 +365,8 @@ describe('prepareTradeTx — transfer-fee mint (TF-APP-1)', () => {
     const args = swapCalls[0]
     assert.equal((args.minimumAmountOut as { toString(): string }).toString(), '123')
     assert.equal(swapQuoteCalls.length + swapQuote2Calls.length, 0, 'no internal quote ran')
+    // IV-S-1: the response carries the expiry bound the tx was built with.
+    assert.equal(result.lastValidBlockHeight, 1)
   })
 })
 

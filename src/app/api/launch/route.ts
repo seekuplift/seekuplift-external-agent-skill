@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
         category: result.category,
         quoteMint: result.quoteMint,
         firstBuyAtoms: result.firstBuyAtoms,
+        lastValidBlockHeight: result.lastValidBlockHeight,
         note: 'Deserialize from base64 as a legacy Transaction, sign with payerPublicKey, then submit to mainnet RPC. The mint keypair signature is already applied.',
       },
       { headers: { 'cache-control': 'no-store' } },

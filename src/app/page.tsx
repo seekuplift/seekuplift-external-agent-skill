@@ -38,7 +38,12 @@ export default function Home() {
           <li><code>POST /api/claim/tx</code> → unsigned creator-fee claim; the launch payer signs and submits</li>
         </ol>
         <p style={{ color: 'var(--muted)', marginTop: '1rem', fontSize: '0.9rem' }}>
-          Transactions are base64 legacy <code>Transaction</code>s. Sign and submit within ~90 seconds, or rebuild.
+          Transactions are base64 legacy <code>Transaction</code>s. Sign and submit within ~90 seconds;
+          launch and trade build responses carry <code>lastValidBlockHeight</code>. Before rebuilding after
+          a timeout, prove the earlier send never landed (signature-history search, then a finalized block
+          height past <code>lastValidBlockHeight</code>, then one more history search) — an unproven send
+          means do not rebuild: a launch rebuild mints a duplicate coin and spends again. See SKILL.md&apos;s
+          submit protocol.
           Fees, creator share and cause routing differ per config: read them from <code>/api/configs</code>.
           Agents trade on their own; launching a new coin needs the user&apos;s confirmation unless they gave
           standing permission. Memecoins use the entry marked
@@ -101,6 +106,7 @@ export default function Home() {
   "category": "meme",
   "quoteMint": "...",
   "firstBuyAtoms": "0",
+  "lastValidBlockHeight": 390000000,
   "note": "..."
 }`}
         />
@@ -146,7 +152,8 @@ export default function Home() {
   "amountIn": "...",
   "minimumAmountOut": "...",
   "quote": { ... } | null,   // null when minimumAmountOut was supplied
-  "poolInfo": { ... }
+  "poolInfo": { ... },
+  "lastValidBlockHeight": 390000000
 }`}
         />
 

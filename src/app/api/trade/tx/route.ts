@@ -30,6 +30,7 @@
  *       quoteMint, quoteDecimals, quoteSymbol, quoteScaledUiAmount,
  *       isQuoteSol, baseTransferFee, migrationState, isCompleted,
  *     },
+ *     lastValidBlockHeight: number // expiry bound from the tx's blockhash read
  *   }
  *
  * Errors:

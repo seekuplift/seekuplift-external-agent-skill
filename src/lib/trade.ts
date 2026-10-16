@@ -281,6 +281,9 @@ export type TradeTxResult = {
   /** Present when the tx route quoted internally (minimumAmountOut omitted). */
   quote: Omit<TradeQuoteResult, 'poolInfo'> | null
   poolInfo: ReturnType<typeof poolInfoForApi>
+  /** Expiry bound from the tx's getLatestBlockhash read — see SKILL.md's
+   *  submit protocol (prove an unlanded send before rebuilding). */
+  lastValidBlockHeight: number
 }
 
 /** `POST /api/trade/tx` — the unsigned-by-owner swap transaction. */
@@ -322,7 +325,7 @@ export async function prepareTradeTx(
     }
   }
 
-  const { transaction } = await buildDbcSwapTx(
+  const { transaction, lastValidBlockHeight } = await buildDbcSwapTx(
     {
       poolAddress: read.poolInfo.poolAddress,
       ownerAddress,
@@ -338,5 +341,6 @@ export async function prepareTradeTx(
     minimumAmountOut: minimumAmountOut.toString(),
     quote,
     poolInfo: poolInfoForApi(read),
+    lastValidBlockHeight,
   }
 }

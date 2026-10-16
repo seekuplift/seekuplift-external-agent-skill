@@ -144,7 +144,12 @@ function stubDeps(log: CallLog): Required<Pick<LaunchDeps, 'uploadImage' | 'uplo
     buildTx: async (params) => {
       log.builds += 1
       log.lastTx = params
-      return { transaction: 'AAAAbase64tx', mintAddress: PAYER, poolAddress: PAYER }
+      return {
+        transaction: 'AAAAbase64tx',
+        mintAddress: PAYER,
+        poolAddress: PAYER,
+        lastValidBlockHeight: 42,
+      }
     },
   }
 }
@@ -244,6 +249,7 @@ describe('POST /api/launch — happy path', () => {
     assert.equal(result.category, 'meme')
     assert.equal(result.quoteMint, SKR_MINT)
     assert.equal(result.metadataUrl, 'https://ipfs.filebase.io/ipfs/bafymeta')
+    assert.equal(result.lastValidBlockHeight, 42, 'the build seam\'s expiry bound must pass through')
     const txParams = log.lastTx as { firstBuyAtoms?: bigint; metadataUrl: string }
     assert.equal(txParams.firstBuyAtoms, undefined)
     assert.equal(txParams.metadataUrl, 'https://ipfs.filebase.io/ipfs/bafymeta')

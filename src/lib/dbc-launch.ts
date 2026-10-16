@@ -65,6 +65,10 @@ export type LaunchTxResult = {
   transaction: string
   mintAddress: string
   poolAddress: string
+  /** Expiry bound from the same `getLatestBlockhash` read that supplied the
+   *  blockhash — the agent needs it to prove a sent tx can no longer land
+   *  before rebuilding (a rebuild mints a NEW mint + pool). */
+  lastValidBlockHeight: number
 }
 
 /**
@@ -121,7 +125,8 @@ export async function buildLaunchTx(
   }
 
   tx.feePayer = payer
-  const { blockhash } = await connection.getLatestBlockhash('confirmed')
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash('confirmed')
   tx.recentBlockhash = blockhash
 
   // Estimate AFTER feePayer + recentBlockhash are set so the simulation sees
@@ -148,5 +153,6 @@ export async function buildLaunchTx(
     transaction: serialized.toString('base64'),
     mintAddress: mintKeypair.publicKey.toBase58(),
     poolAddress,
+    lastValidBlockHeight,
   }
 }

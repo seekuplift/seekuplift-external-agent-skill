@@ -52,7 +52,7 @@
         "firstBuy": "only on supportsFirstBuy configs; firstBuyAtoms = raw quote-atom string, firstBuyAmount = display units (converted via quote.decimals + scaledUiAmountMultiplier — never assume 1e9)",
         "buyAmountSol": "v1 compatibility field — SOL display units, only on a wrapped-SOL-quoted config; a nonzero amount on any other quote mint is rejected before any upload with 400 { error: \"unsupported_buyAmountSol\", migrateTo: [\"firstBuyAtoms\",\"firstBuyAmount\"] }"
       },
-      "returns": ["transaction", "mintAddress", "poolAddress", "metadataUrl", "imageUrl", "configKey", "category", "quoteMint", "firstBuyAtoms", "note"]
+      "returns": ["transaction", "mintAddress", "poolAddress", "metadataUrl", "imageUrl", "configKey", "category", "quoteMint", "firstBuyAtoms", "lastValidBlockHeight", "note"]
     },
     {
       "id": "trade_quote",
@@ -75,7 +75,7 @@
       "requiredFields": ["poolAddress", "ownerPublicKey", "side", "amountIn"],
       "optionalFields": ["minimumAmountOut", "slippageBps"],
       "sideValues": ["buy", "sell"],
-      "returns": ["transaction", "amountIn", "minimumAmountOut", "quote", "poolInfo"]
+      "returns": ["transaction", "amountIn", "minimumAmountOut", "quote", "poolInfo", "lastValidBlockHeight"]
     },
     {
       "id": "list_pools",
@@ -111,7 +111,9 @@
   "signing": {
     "launch": "mint keypair already partially signed — add only the payer signature (tx.partialSign)",
     "trade": "unsigned — ownerPublicKey signs and pays fees",
-    "expiry": "blockhash set at build time — sign and submit within ~90 seconds or rebuild"
+    "beforeSigning": "Show the user the spend and confirm: the amount and the quote asset it is denominated in (a trade's amountIn vs poolInfo.quoteSymbol/quoteMint; a launch's firstBuyAtoms vs quoteMint) — the same amounts the response returns.",
+    "expiry": "blockhash set at build time — sign and submit within ~90 seconds or the transaction expires; launch/trade build responses carry lastValidBlockHeight (optional), the block height the tx can no longer land past, from the same getLatestBlockhash read",
+    "submitProtocol": "Prove the last send before any rebuild, in order: 1) before broadcasting persist the signature (on a launch the response's mintAddress too); 2) after broadcasting poll the signature status with transaction-history search (getSignatureStatuses([sig], { searchTransactionHistory: true })); 3) finalized success → done — on a launch reuse the recorded mintAddress, never relaunch; 4) finalized failure → landed and failed, a rebuild is safe; 5) absent status is 'not landed yet' only once a finalized getBlockHeight exceeds the response's lastValidBlockHeight AND one more history search after that read still finds nothing, in that order; 6) an RPC error at any step leaves the outcome unknown. Without a lastValidBlockHeight (older cached docs, or a response that lacks it) the outcome cannot be proven — do not rebuild automatically: report the signature to the user and wait. A launch rebuild creates a new mint and pool and spends the creation fee plus any first buy again — a rebuild after an unknown outcome is a duplicate-token hazard."
   },
   "submitTo": "https://api.mainnet-beta.solana.com",
   "geo": {

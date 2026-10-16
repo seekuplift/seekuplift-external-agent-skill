@@ -26,7 +26,7 @@
       "fieldNotes": {
         "buyAmountSol": "v1 first-buy field: a SOL display amount (0.001 = 0.001 SOL). Only spendable on a wrapped-SOL-quoted config — the default poolConfig is SKR-quoted, so a nonzero buyAmountSol returns 400 { error: \"unsupported_buyAmountSol\", quoteMint, migrateTo: [\"firstBuyAtoms\", \"firstBuyAmount\"], docs: \"/v2/skill.md\" } before any upload. Migrate to v2's firstBuyAtoms/firstBuyAmount; 0 or omitted = no first buy."
       },
-      "returns": ["transaction", "mintAddress", "metadataUrl", "imageUrl"]
+      "returns": ["transaction", "mintAddress", "metadataUrl", "imageUrl", "lastValidBlockHeight"]
     },
     {
       "id": "trade_quote",
@@ -49,7 +49,7 @@
       },
       "requiredFields": ["poolAddress", "side", "amountIn", "minimumAmountOut", "ownerPublicKey"],
       "sideValues": ["buy", "sell"],
-      "returns": ["transaction"]
+      "returns": ["transaction", "lastValidBlockHeight"]
     },
     {
       "id": "list_pools",
@@ -71,7 +71,9 @@
     "seekerFriendly": "Designed for self-custodied Seeker wallets; supports SKR."
   },
   "notes": [
-    "Transactions expire after ~90 seconds — sign and submit promptly.",
+    "Transactions expire after ~90 seconds — sign and submit promptly. Build responses carry lastValidBlockHeight (optional): the block height the transaction can no longer land past, from the same getLatestBlockhash read as the blockhash.",
+    "Before signing, show the user the spend and confirm: the amount and the quote asset it is denominated in — on a launch, the buyAmountSol first buy (a SOL amount) too.",
+    "Submit protocol — prove the last send before any rebuild, in order: 1) before broadcasting persist the signature (on a launch the response's mintAddress too); 2) after broadcasting poll the signature status with transaction-history search (getSignatureStatuses([sig], { searchTransactionHistory: true })); 3) finalized success → done — on a launch reuse the recorded mintAddress, never relaunch; 4) finalized failure → landed and failed, a rebuild is safe; 5) absent status is 'not landed yet' only once a finalized block-height read exceeds the response's lastValidBlockHeight AND one more history search after that read still finds nothing, in that order; 6) an RPC error at any step leaves the outcome unknown. Without a lastValidBlockHeight (older cached docs, or a response that lacks it) the outcome cannot be proven — do not rebuild automatically: report the signature to the user and wait. A launch rebuild creates a new mint and pool and spends the creation fee plus any first buy again — a rebuild after an unknown outcome is a duplicate-token hazard.",
     "Launch transactions are partially signed by the mint keypair. Add only the payer signature.",
     "Trade transactions are unsigned. The owner must sign.",
     "If poolInfo.isCompleted is true, the pool graduated — use Jupiter for trading."

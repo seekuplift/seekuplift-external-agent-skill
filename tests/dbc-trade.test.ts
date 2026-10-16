@@ -344,6 +344,27 @@ describe('buildDbcSwapTx', () => {
     assert.equal(units, DBC_SWAP_FALLBACK_COMPUTE_UNITS)
     assert.equal(microLamports, 1_000n, 'price must be the floor when no samples are available')
   })
+
+  it('returns lastValidBlockHeight from the same getLatestBlockhash read as the blockhash (IV-S-1)', async () => {
+    patchBudgetRpc()
+    patch('getLatestBlockhash', async () => ({
+      blockhash: '4uQeVj5tqViQh7yWWGStvkEG1RgTksVZc8k1q1iT1c1k',
+      lastValidBlockHeight: 350_000_042,
+    }))
+    const { transaction, lastValidBlockHeight } = await buildDbcSwapTx(
+      {
+        poolAddress: POOL_ADDRESS,
+        ownerAddress: OWNER_ADDRESS,
+        swapBaseForQuote: false,
+        amountIn: 2_000_000n,
+        minimumAmountOut: 950_000n,
+      },
+      deps(),
+    )
+    assert.equal(lastValidBlockHeight, 350_000_042)
+    const tx = Transaction.from(Buffer.from(transaction, 'base64'))
+    assert.equal(tx.recentBlockhash, '4uQeVj5tqViQh7yWWGStvkEG1RgTksVZc8k1q1iT1c1k')
+  })
 })
 
 // ─── SQ-APP-4: scaled (Token-2022) quote mints ───────────────────────────────
