@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "cluster": "mainnet-beta",
+  "dbcProgramId": "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
+  "updated": "2026-10-16",
+  "description": "Canonical record of every DBC PoolConfig key that exists on mainnet for Seek Uplift (TB-D-1). Consumers (backend env, app featured/production manifests, external agent skill) vendor or compare against this file; `npm run verify:config-record` re-reads every key at finalized commitment and fails on drift. Add a key here BEFORE wiring it anywhere (deployment-plan.md step 9). Roles are as deployed, not as older docs stated.",
+  "productionQuoteAllowlist": [
+    { "mint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3", "symbol": "SKR", "decimals": 6, "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" },
+    { "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "symbol": "USDC", "decimals": 6, "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" }
+  ],
+  "keys": [
+    {
+      "key": "61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv",
+      "role": "production",
+      "default": true,
+      "indexed": true,
+      "summary": "SKR cheap-grad (~$5) config; the judge-period production default since 2026-10-12 (history). Creator metadata authority.",
+      "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+      "quoteSymbol": "SKR",
+      "quoteDecimals": 6,
+      "quoteTokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "feeClaimer": "FdrDZPcYEjdB3nQGUgL7muXj4SBTzbAMMvMosufdtun1",
+      "leftoverReceiver": "FdrDZPcYEjdB3nQGUgL7muXj4SBTzbAMMvMosufdtun1",
+      "migrationFeeOption": 0,
+      "tokenUpdateAuthority": 0,
+      "version": 0,
+      "fullTree": { "isTest": true },
+      "doc": "configs/mainnet/dbc-config-mainnet-61UBwyZf.md"
+    },
+    {
+      "key": "4w9Rs2ewNJte2c4FGmQHM8fycv8vWzkjv3qzANuJ2rPT",
+      "role": "production",
+      "default": false,
+      "indexed": false,
+      "summary": "USDC production config (the April 2026 default). Not indexed by the production backend; the app's .env.example marks it retired (2026-09-27). Partner metadata authority.",
+      "quoteMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "quoteSymbol": "USDC",
+      "quoteDecimals": 6,
+      "quoteTokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "feeClaimer": "FdrDZPcYEjdB3nQGUgL7muXj4SBTzbAMMvMosufdtun1",
+      "leftoverReceiver": "FdrDZPcYEjdB3nQGUgL7muXj4SBTzbAMMvMosufdtun1",
+      "migrationFeeOption": 0,
+      "tokenUpdateAuthority": 2,
+      "version": 0,
+      "fullTree": null,
+      "doc": "configs/mainnet/dbc-config-mainnet-4w9Rs2ew.md"
+    },
+    {
+      "key": "BDGSUathNvyQTrHvE6VWdDnCLZSdLJn2hbFsRFTG1mWV",
+      "role": "retired",
+      "default": false,
+      "indexed": false,
+      "summary": "First SKR cheap-grad testing key (2026-07-02), superseded by 61UBwyZf…. Partner metadata authority.",
+      "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+      "quoteSymbol": "SKR",
+      "quoteDecimals": 6,
+      "quoteTokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "feeClaimer": "FdrDZPcYEjdB3nQGUgL7muXj4SBTzbAMMvMosufdtun1",
+      "leftoverReceiver": "FdrDZPcYEjdB3nQGUgL7muXj4SBTzbAMMvMosufdtun1",
+      "migrationFeeOption": 0,
+      "tokenUpdateAuthority": 2,
+      "version": 0,
+      "fullTree": null,
+      "doc": "configs/mainnet/dbc-config-mainnet-BDGSUath.md"
+    }
+  ],
+  "proposed": [
+    { "set": "skr-production-magnitude", "keys": null, "doc": "configs/mainnet/dbc-config-mainnet-skr-proposal.md", "note": "Not on chain; no key exists." },
+    { "set": "cause-only", "keys": null, "doc": "configs/mainnet/dbc-config-mainnet-cause-only-proposal.md", "note": ".config-batches rows are 'prepared' only; no key exists." },
+    { "set": "tf-bootstrap", "keys": null, "doc": "configs/mainnet/dbc-config-mainnet-tf-bootstrap-proposal.md", "note": "Unsigned plan prepared, blocked on the owner; no key exists." },
+    { "set": "aaplx-draft", "keys": null, "doc": "configs/mainnet/dbc-config-mainnet-AAPLx-draft.md", "note": "Draft stock-quote config; no key exists." }
+  ],
+  "history": [
+    {
+      "date": "2026-07-02",
+      "event": "BDGSUathNvyQTrHvE6VWdDnCLZSdLJn2hbFsRFTG1mWV created (SKR cheap-grad testing).",
+      "source": "configs/mainnet/dbc-config-mainnet-BDGSUath.md (creation signature CAbMTfhS…)"
+    },
+    {
+      "date": "2026-07-20",
+      "event": "61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv created as the ACTIVE SKR cheap-grad testing key (CreatorUpdateAuthority); docs then said never ship it to production users.",
+      "source": "configs/mainnet/dbc-config-mainnet-61UBwyZf.md (creation signature 16bDruzo…)"
+    },
+    {
+      "date": "2026-09-27",
+      "event": "The app's .env.example retired the legacy USDC config 4w9Rs2ew… (do not launch on it).",
+      "source": "redesign/launchpad-mobile-redesign commit 7d346cfd"
+    },
+    {
+      "date": "2026-10-12",
+      "event": "61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv marked the production default for the hackathon judge period (user-requested; the SKR test config is the watched/launch config and its claimer FdrDZ… the donation claim authority until the owner's production keys replace it). 4w9Rs2ew… stays the un-indexed USDC production config. The post-judging role of the two keys is an open owner decision (TB-D-1 plan-review marker); if the owner restores 4w9Rs2ew… as default, change this record first.",
+      "source": "backend-rs-sql commit a58af8d (ops/deploy/backend.env.template, 'ops(prod): plan 2 hackathon variant live on A and B (dev SKR config, ROLE=all)') and redesign/launchpad-mobile-redesign commit b6dc7f7e ('release: judge APK on the dev SKR config'; config/production-manifest.json approvedBy 'owner (instructed in a Claude Code session)', approvedAt 2026-10-12). No named person in either source."
+    },
+    {
+      "date": "2026-10-16",
+      "event": "Record created (TB-D-1 phase 1). Roles written as deployed; field values read from finalized mainnet, which agreed with the per-key docs.",
+      "source": "dbc-config tickets/tickets-trust-boundary-2026-10-15.md TB-D-1"
+    }
+  ]
+}

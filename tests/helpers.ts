@@ -73,3 +73,28 @@ export const LEGACY_CONFIG_ACCOUNT = 'pool-config-4w9Rs2ewNJte2c4FGmQHM8fycv8vWz
 
 /** The production donation claim authority (app production manifest). */
 export const DONATION_CLAIM_AUTHORITY = 'FdrDZPcYEjdB3nQGUgL7muXj4SBTzbAMMvMosufdtun1'
+
+/**
+ * The vendored dbc-config production config record (TB-D-1), byte-for-byte.
+ * Shared by every test that checks a config key against the record
+ * (tests/config-record.test.ts; TB-S-4 reuses it for document claims).
+ */
+export type ConfigRecordKey = {
+  key: string
+  role: 'production' | 'partner' | 'test' | 'retired'
+  default: boolean
+  indexed: boolean
+  quoteMint: string
+  quoteSymbol: string
+  quoteDecimals: number
+  quoteTokenProgram: string
+}
+export type ConfigRecord = {
+  schemaVersion: number
+  dbcProgramId: string
+  productionQuoteAllowlist: { mint: string; symbol: string; decimals: number; tokenProgram: string }[]
+  keys: ConfigRecordKey[]
+}
+export function configRecord(): ConfigRecord {
+  return loadFixture<ConfigRecord>('config-record.json')
+}
