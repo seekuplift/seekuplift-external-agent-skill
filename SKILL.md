@@ -36,7 +36,7 @@ X-Api-Key: <key-id>:<secret>
 
 Keys are issued by the service operator out of band and revoked by redeploy; there is no issuance flow on the service itself. A missing or unknown key returns `401 { "error": "unauthorized" }`. The document routes (`/skill.md`, `/v2/skill.md`, `/skill.json`, `/v2/skill.json`, `/CHANGELOG.md`) stay public — no key needed to read this contract.
 
-The service also rate-limits builders **per key** (60/minute) and **per caller network** (240/minute; IPv6 callers share one bucket per /64). Over the limit: `429 { "error": "rate_limited", "retryAfter": <seconds> }` plus a `Retry-After` header — wait and retry; do not rotate source addresses to evade it.
+The service also rate-limits builders **per key** (60/minute) and **per caller network** (240/minute; IPv6 callers share one bucket per /64). Over the limit: `429 { "error": "rate_limited", "subject": "api_key" | "network", "retryAfter": <seconds> }` plus a `Retry-After` header — wait and retry; do not rotate source addresses to evade it.
 
 ## Flow at a glance
 

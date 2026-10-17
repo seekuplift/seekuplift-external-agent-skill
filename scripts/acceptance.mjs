@@ -183,7 +183,7 @@ const args = parseArgs(process.argv.slice(2))
 if (args.help) {
   console.log(
     'Usage: node scripts/acceptance.mjs [--dry-run|--send] [--base-url URL] ' +
-      '[--rpc URL] [--report PATH] [--approval PATH] [--resume REPORT] [--image PATH] [--no-launch-build]',
+      '[--api-key <id>:<secret>] [--rpc URL] [--report PATH] [--approval PATH] [--resume REPORT] [--image PATH] [--no-launch-build]',
   )
   process.exit(0)
 }
