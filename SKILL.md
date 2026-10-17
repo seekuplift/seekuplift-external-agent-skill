@@ -15,15 +15,28 @@ Launch options are served as a live catalog of on-chain pool configs (`GET /api/
 
 - **Network**: Solana mainnet-beta
 - **DBC program**: `dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN`
-- **Base URL**: the same host that served this document
-- **Contract version**: `2.2.0` — this document is served at `/v2/skill.md`, its machine-readable form at `GET /v2/skill.json`
+- **Base URL**: `https://skill.seekuplift.com` — the pinned public service origin, **https only** (the document routes are also served on the host you fetched this file from, but the public contract origin is the pinned one)
+- **Contract version**: `2.3.0` — this document is served at `/v2/skill.md`, its machine-readable form at `GET /v2/skill.json`
 - **v1 (frozen)**: the original contract is still served at `/skill.md` + `/skill.json` (also `/v1/skill.md`, `/v1/skill.json`) **until 2027-01-15** — see `CHANGELOG.md` for the differences
 
 ## Prerequisites
 
 - A funded Solana wallet keypair — the **payer** on launches, the **owner** on trades.
+- An **API key** issued by the operator out of band (see **Authentication** below).
 - ~0.02 SOL for rent + fees on launch, plus the config's `poolCreationFeeLamports` and any first buy. ~0.001 SOL+ for trades.
 - On a config whose quote asset is not SOL (`quote.mint` ≠ `So1111…1112`), the payer/owner must hold that token.
+
+## Authentication
+
+Every `/api/*` endpoint — the config catalog, pool list/search, quotes and all transaction builders — requires an API key on **every** request:
+
+```
+X-Api-Key: <key-id>:<secret>
+```
+
+Keys are issued by the service operator out of band and revoked by redeploy; there is no issuance flow on the service itself. A missing or unknown key returns `401 { "error": "unauthorized" }`. The document routes (`/skill.md`, `/v2/skill.md`, `/skill.json`, `/v2/skill.json`, `/CHANGELOG.md`) stay public — no key needed to read this contract.
+
+The service also rate-limits builders **per key** (60/minute) and **per caller network** (240/minute; IPv6 callers share one bucket per /64). Over the limit: `429 { "error": "rate_limited", "subject": "api_key" | "network", "retryAfter": <seconds> }` plus a `Retry-After` header — wait and retry; do not rotate source addresses to evade it.
 
 ## Flow at a glance
 
@@ -223,7 +236,7 @@ Off-chain swap quote for a live curve pool.
 ```
 
 - `side`: `"buy"` (quote → base) or `"sell"` (base → quote).
-- `amountIn`: base-10 integer atom **string**. Buy → **quote** atoms (lamports for SOL-quoted pools, `quoteDecimals` otherwise — check `poolInfo.quoteDecimals`/`quoteScaledUiAmount`, never assume 1e9). Sell → **base** atoms (`baseDecimals`).
+- `amountIn`: base-10 integer atom **string**, ≤ `18446744073709551615` (u64 max — larger is a `400`). Buy → **quote** atoms (lamports for SOL-quoted pools, `quoteDecimals` otherwise — check `poolInfo.quoteDecimals`/`quoteScaledUiAmount`, never assume 1e9). Sell → **base** atoms (`baseDecimals`).
 - `slippageBps`: optional, 0–10000, default 50.
 
 **Response**:
@@ -256,7 +269,7 @@ Off-chain swap quote for a live curve pool.
 - `quoteScaledUiAmount`: `{ multiplier, newMultiplier, newMultiplierEffectiveTimestamp }` when the quote mint is a scaled Token-2022 mint — needed for display math on non-SOL quotes.
 - `migrationState` / `isCompleted`: see **Migration states** below.
 
-**Errors**: `400`, `403 geo_restricted`, `404 { error: "pool_not_found" }`, `409` (below), `5xx` upstream/RPC failure.
+**Errors**: `400`, `401 unauthorized` (missing/unknown `X-Api-Key`), `403 geo_restricted`, `404 { error: "pool_not_found" }`, `409` (below), `429 rate_limited`, `5xx` upstream/RPC failure.
 
 ---
 
@@ -277,8 +290,9 @@ Builds the unsigned swap transaction.
 }
 ```
 
-- `minimumAmountOut` of `"0"` **disables slippage protection** — agents should not send it. Pass the quote's value or omit the field.
-- `minimumAmountOut` is taken **verbatim**. Omit it and the service quotes internally at `slippageBps` (default 50) — a one-call agent still gets the app's floor math, and the response's `quote` carries what was used.
+- `amountIn` is bounded by u64 max (`18446744073709551615`) — larger is a `400`.
+- `minimumAmountOut` may only **tighten** the floor. The service **always recomputes the floor from a fresh quote** at `slippageBps` (default 50) — a supplied value below that floor (including `"0"`, which once disabled slippage protection) is rejected with `400 { "error": "min_out_below_floor", "minimumAmountOutFloor": "…" }` naming the floor. A value ≥ the floor is accepted as a tighter bound. Simplest correct use: pass the quote's `minimumAmountOut` verbatim or omit the field.
+- The response's `quote` is **always** populated — it is the fresh quote the floor was computed from.
 
 **Response**:
 
@@ -293,7 +307,7 @@ Builds the unsigned swap transaction.
 }
 ```
 
-`quote` is `null` when `minimumAmountOut` was supplied. `lastValidBlockHeight` (optional) bounds the transaction's validity — see the **submit protocol** below.
+`quote` is always populated — the fresh quote behind the floor. `lastValidBlockHeight` (optional) bounds the transaction's validity — see the **submit protocol** below.
 
 **Errors**: same set as the quote endpoint.
 
@@ -385,6 +399,7 @@ The service forwards the caller's IP to the backend, which resolves a fresh geo 
 
 ## Limits
 
+- **Service level**: every builder call counts against a per-key bucket (60/minute) and a per-caller-network bucket (240/minute — IPv6 callers share one bucket per /64). Over the limit: `429 { "error": "rate_limited", "subject": "api_key" | "network", "retryAfter" }` + `Retry-After` header.
 - **Uploads**: **10 per hour per caller IP**, shared by image + metadata uploads — one launch consumes 2. Exceeding it returns `429` from the backend. Validation and geo refusals happen before uploads, so they do not consume budget.
 - Pool list/search calls share a per-IP read bucket on the backend.
 - Image inputs: ≤10 MB, PNG/JPEG/GIF/WEBP (magic-byte sniffed, never the declared type).
@@ -397,6 +412,25 @@ The service forwards the caller's IP to the backend, which resolves a fresh geo 
 - **Before signing**, show your user the spend and confirm: the amount and the quote asset it is denominated in — a trade's `amountIn` against `poolInfo.quoteSymbol`/`quoteMint`; on a launch, `firstBuyAtoms` against `quoteMint` — the same amounts the response returns.
 - The blockhash is fetched at build time — **sign and submit within ~90 seconds** or the transaction expires. Launch, trade and claim build responses carry `lastValidBlockHeight` (optional): the block height the transaction can no longer land past, taken from the same `getLatestBlockhash` read as the blockhash.
 - Submit to a Solana mainnet RPC (e.g. `https://api.mainnet-beta.solana.com`; a private RPC avoids rate limits).
+
+### Review before signing — required
+
+Never sign the returned transaction blind. Before signing, **decode it** (`Transaction.from(Buffer.from(b64, 'base64'))`) and verify all of:
+
+1. **Program ids** — every instruction's `programId` is one of the only programs this service's builders emit:
+   - `dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN` — Meteora Dynamic Bonding Curve
+   - `11111111111111111111111111111111` — System Program
+   - `ComputeBudget111111111111111111111111111111` — Compute Budget
+   - `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` — SPL Token
+   - `TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb` — Token-2022
+   - `ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL` — Associated Token
+
+   Any other program id → **do not sign**; the response did not come from this service's builders.
+2. **Fee payer** — `tx.feePayer` is exactly the wallet key you sent (`payerPublicKey` on a launch, `ownerPublicKey` on a trade, `creatorPublicKey` on a claim).
+3. **Existing signatures** — a launch carries only the fresh mint keypair's partial signature; trade and claim transactions carry **no** signatures. Anything else pre-signed → do not sign.
+4. **Simulate before signing**: `connection.simulateTransaction(tx, { sigVerify: false })` must return `err: null`. A simulation error → do not sign; rebuild or report it.
+
+Only then sign with your own key and submit, following the submit protocol below.
 
 ### Submit protocol — prove the last send before any rebuild
 
@@ -420,6 +454,7 @@ import { Connection, Keypair, Transaction } from '@solana/web3.js'
 import { readFileSync } from 'node:fs'
 
 const BASE = 'https://skill.seekuplift.com'
+const API_KEY = process.env.AGENT_API_KEY // '<key-id>:<secret>' issued by the operator
 const wallet = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(readFileSync(process.env.KEYPAIR_PATH, 'utf8'))))
 const connection = new Connection(process.env.SOLANA_RPC_URL ?? 'https://api.mainnet-beta.solana.com', 'confirmed')
 
@@ -439,7 +474,7 @@ async function signAndSend(base64Tx) {
 // Buy 10 SKR: amountIn = 10 × 10^poolInfo.quoteDecimals (SKR has 6 → '10000000'; SOL has 9).
 const res = await fetch(`${BASE}/api/trade/tx`, {
   method: 'POST',
-  headers: { 'content-type': 'application/json' },
+  headers: { 'content-type': 'application/json', 'x-api-key': API_KEY },
   body: JSON.stringify({ poolAddress: '<pool id>', ownerPublicKey: wallet.publicKey.toBase58(), side: 'buy', amountIn: '10000000' }),
 })
 if (!res.ok) throw new Error(`${res.status} ${await res.text()}`)
@@ -456,7 +491,9 @@ A launch's `payerPublicKey` is recorded as the coin's creator; only that wallet 
 
 | Status | Body | Meaning |
 |---|---|---|
-| `400` | `{ error }` | Invalid request — message names the field. `error: "donation_required"` adds `causesOffered`; `unsupported_<field>` errors list `allowed`. |
+| `400` | `{ error }` | Invalid request — message names the field. `error: "donation_required"` adds `causesOffered`; `unsupported_<field>` errors list `allowed`; `min_out_below_floor` names `minimumAmountOutFloor`. |
+| `401` | `{ error: "unauthorized" }` | Missing or unknown `X-Api-Key` — get a key from the operator. |
+| `429` | `{ error: "rate_limited", subject, retryAfter }` | Service limit — `subject` is `"api_key"` or `"network"` — wait `retryAfter` seconds. |
 | `403` | `{ error: "geo_restricted", region, regionName, feature, message }` | The caller's geo verdict blocks this launch or trade — relay `message` (names the jurisdiction) to your user. |
 | `404` | `{ error: "pool_not_found" }` | No DBC pool at that address. |
 | `409` | `{ error: "pool_not_tradeable", migrationState, retryable }` | See **Migration states**. |

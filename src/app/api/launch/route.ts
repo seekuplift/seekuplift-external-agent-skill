@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { checkAgentAccess } from '@/lib/agent-auth'
 import { BackendHttpError, clientIpFromHeaders } from '@/lib/backend'
 import { LaunchError, prepareLaunch } from '@/lib/launch'
 
@@ -45,6 +46,13 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(req: NextRequest) {
   const clientIp = clientIpFromHeaders(req.headers)
+  const access = checkAgentAccess(req.headers, clientIp)
+  if (!access.ok) {
+    return NextResponse.json(access.body, {
+      status: access.status,
+      headers: { 'cache-control': 'no-store', ...access.headers },
+    })
+  }
   try {
     const body = await req.json().catch(() => null)
     const result = await prepareLaunch(body, clientIp)

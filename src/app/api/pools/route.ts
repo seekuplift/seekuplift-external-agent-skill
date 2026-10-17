@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { checkAgentAccess } from '@/lib/agent-auth'
 import { clientIpFromHeaders } from '@/lib/backend'
 import { LaunchError } from '@/lib/launch'
 import { listPools } from '@/lib/pools'
@@ -33,6 +34,13 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(req: NextRequest) {
   const clientIp = clientIpFromHeaders(req.headers)
+  const access = checkAgentAccess(req.headers, clientIp)
+  if (!access.ok) {
+    return NextResponse.json(access.body, {
+      status: access.status,
+      headers: { 'cache-control': 'no-store', ...access.headers },
+    })
+  }
   try {
     const { searchParams } = new URL(req.url)
     const result = await listPools(

@@ -215,3 +215,55 @@ describe('versioning + sunset', () => {
     }
   })
 })
+
+/** The exact program ids the builders can emit — the signing-review list. */
+const BUILDER_PROGRAM_IDS = [
+  'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN',
+  '11111111111111111111111111111111',
+  'ComputeBudget111111111111111111111111111111',
+  'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+  'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
+  'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL',
+]
+
+describe('TB-S-3: signing review + auth in the contract documents', () => {
+  it('SKILL.md (v2) carries the review-before-signing section with every program id', () => {
+    const md = V2_MD()
+    assert.match(md, /Review before signing/)
+    assert.match(md, /simulateTransaction\(tx, \{ sigVerify: false \}\)/)
+    assert.match(md, /tx\.feePayer/)
+    for (const id of BUILDER_PROGRAM_IDS) {
+      assert.ok(md.includes(id), `SKILL.md does not list program id ${id}`)
+    }
+  })
+
+  it('public/v2/skill.json carries the same review instructions and program ids', () => {
+    const json = JSON.stringify(V2_JSON())
+    assert.ok(json.includes('reviewBeforeSigning'))
+    assert.ok(json.includes('sigVerify'))
+    assert.ok(json.includes('feePayer'))
+    for (const id of BUILDER_PROGRAM_IDS) {
+      assert.ok(json.includes(id), `skill.json does not list program id ${id}`)
+    }
+  })
+
+  it('both v2 documents state the API-key requirement and pinned https origin', () => {
+    const md = V2_MD()
+    const json = JSON.stringify(V2_JSON())
+    for (const text of [md, json]) {
+      assert.ok(text.includes('X-Api-Key'), 'missing X-Api-Key')
+      assert.ok(text.includes('unauthorized'), 'missing the 401 shape')
+      assert.ok(text.includes('rate_limited'), 'missing the 429 shape')
+      assert.ok(text.includes('https://skill.seekuplift.com'), 'missing the pinned origin')
+    }
+  })
+
+  it('the frozen v1 documents carry the same service-level changes (unversioned endpoints)', () => {
+    const md = V1_MD()
+    const json = JSON.stringify(V1_JSON())
+    for (const text of [md, json]) {
+      assert.ok(text.includes('X-Api-Key'), 'v1 doc does not state the key requirement')
+      assert.ok(text.includes('min_out_below_floor'), 'v1 doc does not state the floor')
+    }
+  })
+})

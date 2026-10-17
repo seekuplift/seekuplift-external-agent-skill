@@ -6,8 +6,8 @@
  * Request body (JSON):
  *   poolAddress  — required base58 pool address (validated client-side)
  *   side         — "buy" (quote → base) or "sell" (base → quote), required
- *   amountIn     — required input atoms as a base-10 string
- *   slippageBps  — optional (default 50)
+ *   amountIn     — required input atoms as a base-10 string (≤ u64 max)
+ *   slippageBps  — optional (default 50); 0–10000
  *
  * 200 response:
  *   {
@@ -27,12 +27,15 @@
  *
  * Errors:
  *   400 invalid request body     — { error: string }
+ *   401 unauthorized             — missing/unknown X-Api-Key (AGENT_API_KEYS)
  *   403 geo_restricted           — { error: "geo_restricted", region, feature }
  *   404 pool_not_found           — { error: "pool_not_found" }
  *   409 pool_not_tradeable       — { error, migrationState, retryable }
+ *   429 rate_limited             — { error: "rate_limited", retryAfter }
  *   500 upstream/Solana failures — { error: string }
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { checkAgentAccess } from '@/lib/agent-auth'
 import { BackendHttpError, clientIpFromHeaders } from '@/lib/backend'
 import { LaunchError } from '@/lib/launch'
 import { prepareTradeQuote } from '@/lib/trade'
@@ -44,6 +47,13 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
   const clientIp = clientIpFromHeaders(req.headers)
+  const access = checkAgentAccess(req.headers, clientIp)
+  if (!access.ok) {
+    return NextResponse.json(access.body, {
+      status: access.status,
+      headers: { 'cache-control': 'no-store', ...access.headers },
+    })
+  }
   try {
     const body = await req.json().catch(() => null)
     return NextResponse.json(await prepareTradeQuote(body, clientIp), {

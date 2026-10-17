@@ -39,6 +39,14 @@ const NON_CONFIG_ADDRESSES = new Set<string>([
   record.dbcProgramId,
   NATIVE_MINT,
   ...record.productionQuoteAllowlist.flatMap((q) => [q.mint, q.tokenProgram]),
+  // Well-known Solana program ids named by the TB-S-3 review-before-signing
+  // sections (SKILL.md, SKILL.v1.md, both skill.json) — programs, not configs.
+  '11111111111111111111111111111111', // System Program
+  'ComputeBudget111111111111111111111111111111', // Compute Budget
+  'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL', // Associated Token
+  // Token-2022 is named by the review sections but is not in the record's
+  // production quote allowlist (every production quote mint is SPL Token).
+  'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
 ])
 
 /** Assert `key` is a production config in the record (the default, when `asDefault`). */

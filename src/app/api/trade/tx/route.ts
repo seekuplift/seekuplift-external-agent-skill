@@ -8,23 +8,23 @@
  *   ownerPublicKey   — required base58 owner wallet (becomes the fee payer)
  *   side             — "buy" (quote → base) or "sell" (base → quote), required
  *   amountIn         — required input atoms as a base-10 string
- *   minimumAmountOut — optional output atoms as a base-10 string; omitted →
- *                      the service quotes internally at `slippageBps`
- *                      (default 50), so a one-call agent still gets the app's
- *                      floor math
- *   slippageBps      — optional (default 50); only used for that internal
- *                      quote — the transaction itself takes minimumAmountOut
- *                      verbatim
+ *                      (≤ u64 max)
+ *   minimumAmountOut — optional output atoms as a base-10 string; the
+ *                      service ALWAYS recomputes the floor from a fresh
+ *                      quote at `slippageBps` — a supplied value may only
+ *                      TIGHTEN it (≥ the computed floor); a looser value
+ *                      (incl. "0") is a 400 naming the floor
+ *   slippageBps      — optional (default 50); 0–10000
  *
  * 200 response:
  *   {
  *     transaction: string          // base64 legacy transaction, unsigned
  *     amountIn: string             // the request's input atoms
  *     minimumAmountOut: string     // the floor the transaction was built with
- *     quote: {                     // present only when the route quoted internally
+ *     quote: {                     // the fresh quote behind the floor
  *       amountOut, minimumAmountOut, baseTransferFeeAtomics,
  *       consumedInput, amountLeft, amountIn, slippageBps,
- *     } | null,
+ *     },
  *     poolInfo: {                  // the pool facts the tx was built against
  *       poolAddress, configKey, baseMint, baseDecimals,
  *       quoteMint, quoteDecimals, quoteSymbol, quoteScaledUiAmount,
@@ -35,12 +35,15 @@
  *
  * Errors:
  *   400 invalid request body     — { error: string }
+ *   401 unauthorized             — missing/unknown X-Api-Key (AGENT_API_KEYS)
  *   403 geo_restricted           — { error: "geo_restricted", region, feature }
  *   404 pool_not_found           — { error: "pool_not_found" }
  *   409 pool_not_tradeable       — { error, migrationState, retryable }
+ *   429 rate_limited             — { error: "rate_limited", retryAfter }
  *   500 upstream/Solana failures — { error: string }
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { checkAgentAccess } from '@/lib/agent-auth'
 import { BackendHttpError, clientIpFromHeaders } from '@/lib/backend'
 import { LaunchError } from '@/lib/launch'
 import { prepareTradeTx } from '@/lib/trade'
@@ -52,6 +55,13 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
   const clientIp = clientIpFromHeaders(req.headers)
+  const access = checkAgentAccess(req.headers, clientIp)
+  if (!access.ok) {
+    return NextResponse.json(access.body, {
+      status: access.status,
+      headers: { 'cache-control': 'no-store', ...access.headers },
+    })
+  }
   try {
     const body = await req.json().catch(() => null)
     return NextResponse.json(await prepareTradeTx(body, clientIp), {

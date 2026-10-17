@@ -25,6 +25,7 @@
  *   502 upstream/Solana failures   — { error: "upstream_error" }
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { checkAgentAccess } from '@/lib/agent-auth'
 import { clientIpFromHeaders } from '@/lib/backend'
 import { prepareClaimTx } from '@/lib/claim'
 import { LaunchError } from '@/lib/launch'
@@ -35,6 +36,13 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
   const clientIp = clientIpFromHeaders(req.headers)
+  const access = checkAgentAccess(req.headers, clientIp)
+  if (!access.ok) {
+    return NextResponse.json(access.body, {
+      status: access.status,
+      headers: { 'cache-control': 'no-store', ...access.headers },
+    })
+  }
   try {
     const body = await req.json().catch(() => null)
     return NextResponse.json(await prepareClaimTx(body, clientIp), {
