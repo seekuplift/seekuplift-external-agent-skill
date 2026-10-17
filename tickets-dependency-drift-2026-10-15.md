@@ -25,7 +25,7 @@ Done when:
 
 ## DD-S-2: Agent skill pinned to the app's SDK and fails loudly
 
-**Category:** enhancement. **Status:** done 2026-10-16 (main `46dd315`; anchor `0.31.1`/web3.js `1.98.4` exact (SDK `1.5.13` already pinned by DD-S-1), single anchor+bn.js in lockfile, `DbcQuoteShapeError` on missing quote fields, first-buy min-out via `firstBuySlippageBps` (v2 contract → 2.4.0, additive), `engines.node: "24"`, docker image digest-pinned, new CI workflow runs `npm ci`+`npm test`). **Priority:** P2. **Blocked by:** DD-S-1 (same files; land the contract change first).
+**Category:** enhancement. **Status:** done 2026-10-16 (main `46dd315`; anchor `0.31.1`/web3.js `1.98.4` exact (SDK `1.5.13` already pinned by DD-S-1), single anchor+bn.js in lockfile, `DbcQuoteShapeError` on missing quote fields, first-buy min-out via `firstBuySlippageBps` (v2 contract → 2.4.0, additive), `engines.node: "24"`, docker image digest-pinned, new CI workflow runs `npm ci`+`npm test`; `next` pinned at 14.2.30 left open as out of scope — closed 2026-10-17 by moving to `next` 15.5.28 exact, see DD-S-2 follow-up below). **Priority:** P2. **Blocked by:** DD-S-1 (same files; land the contract change first).
 
 The DBC SDK is a caret range resolving to 1.5.7 while the app pins 1.5.13; two anchor copies (0.30.1 top-level, 0.31.1 nested in the SDK) interoperate only because they share one bn.js; the quote reads `outputAmount ?? amountOut ?? '0'` so a renamed SDK field returns a zero quote without error; the launch first-buy has no slippage floor; Node is unpinned and the documented image tag is floating and end-of-life. Evidence: `package.json`, `src/lib/dbc.ts`, `DEPLOY.md`, `next.config.js`.
 
@@ -34,3 +34,4 @@ Done when:
 - [x] The quote throws a typed error when the SDK result has neither expected field; the first-buy passes a minimum-out derived from the quote and a documented slippage parameter.
 - [x] `engines` pins the Node major, the deploy image is referenced by digest, and the Next.js config flags that change meaning across majors carry a comment with the migration note.
 - [x] A CI job runs the contract tests from DD-S-1 on the pinned tree.
+- [x] Follow-up 2026-10-17: `next` 14.2.30 carried 27 advisories (2 critical RCE, 10 high) and no 14.x release fixes the post-14.2.35 set (fixed only in 15.5.16–15.5.24+); exact-pinned `next` 15.5.28 (React 18 still supported), moved `serverComponentsExternalPackages` to `serverExternalPackages`; `npm audit` shows no remaining `next` advisory.

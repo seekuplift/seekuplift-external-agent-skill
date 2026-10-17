@@ -16,7 +16,7 @@
     "@meteora-ag/dynamic-bonding-curve-sdk": "1.5.13",
     "@solana/web3.js": "1.98.4",
     "bn.js": "^5.2.3",
-    "next": "14.2.30",
+    "next": "15.5.28",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
