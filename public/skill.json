@@ -16,7 +16,7 @@
   "capabilities": [
     {
       "id": "launch_token",
-      "description": "Upload metadata to IPFS and create a new token on the bonding curve.",
+      "description": "Upload metadata through the backend upload proxy (IPFS-pinned) and create a new token on the bonding curve.",
       "endpoint": {
         "method": "POST",
         "path": "/api/launch"
