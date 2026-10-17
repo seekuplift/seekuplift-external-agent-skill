@@ -77,6 +77,9 @@
  *   ACCEPTANCE_RPC           Solana mainnet RPC (default SOLANA_RPC_URL or
  *                            https://api.mainnet-beta.solana.com); logged and
  *                            reported as scheme+host only
+ *   AGENT_API_KEY            X-Api-Key credential (<id>:<secret>) for the
+ *                            builder endpoints (or --api-key); required when
+ *                            the target service has AGENT_API_KEYS set
  *   ACCEPTANCE_POOL          resume from this pool address (see --resume)
  *   ACCEPTANCE_DONATION_CAUSE  pin the donation cause slug instead of
  *                            auto-picking causesOffered[0] (part of the plan)
@@ -150,6 +153,7 @@ function parseArgs(argv) {
     approval: null,
     resume: null,
     image: null,
+    apiKey: null,
     launchBuild: true,
     help: false,
   }
@@ -158,6 +162,7 @@ function parseArgs(argv) {
     const a = argv[i]
     const take = () => argv[++i]
     if (a === '--base-url') args.baseUrl = take()
+    else if (a === '--api-key') args.apiKey = take()
     else if (a === '--dry-run') args.dryRun = true
     else if (a === '--send') args.send = true
     else if (a === '--rpc') args.rpc = take()
@@ -188,6 +193,9 @@ const BASE_URL = (
   process.env.ACCEPTANCE_BASE_URL ||
   'https://skill.seekuplift.com'
 ).replace(/\/+$/, '')
+// TB-S-3: every /api/* endpoint requires X-Api-Key: <id>:<secret> when the
+// service has AGENT_API_KEYS configured (production does).
+const API_KEY = args.apiKey || process.env.AGENT_API_KEY || null
 const RPC_URL =
   args.rpc ||
   process.env.ACCEPTANCE_RPC ||
@@ -243,7 +251,10 @@ async function apiFetch(route, { method = 'GET', body, timeoutMs = 120_000 } = {
   try {
     const res = await fetch(`${BASE_URL}${route}`, {
       method,
-      headers: body ? { 'content-type': 'application/json' } : undefined,
+      headers: {
+        ...(body ? { 'content-type': 'application/json' } : {}),
+        ...(API_KEY ? { 'x-api-key': API_KEY } : {}),
+      },
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
     })
