@@ -49,10 +49,10 @@
         "ideaFunding": "idea only: {mode, address?, handle?, redditUserId?} — typically direct|tbd|x|reddit; direct address must be on-curve",
         "idea": "problem + useCases(1-3) + prototype required",
         "startup": "problem + useCases(1-3) + deck required; compliance fields recorded only when startupComplianceAcknowledged=true",
-        "firstBuy": "only on supportsFirstBuy configs; firstBuyAtoms = raw quote-atom string, firstBuyAmount = display units (converted via quote.decimals + scaledUiAmountMultiplier — never assume 1e9)",
-        "buyAmountSol": "v1 compatibility field — SOL display units, only on a wrapped-SOL-quoted config; a nonzero amount on any other quote mint is rejected before any upload with 400 { error: \"unsupported_buyAmountSol\", migrateTo: [\"firstBuyAtoms\",\"firstBuyAmount\"] }"
+        "firstBuy": "only on supportsFirstBuy configs; firstBuyAtoms = raw quote-atom string, firstBuyAmount = display units (converted via quote.decimals + scaledUiAmountMultiplier — never assume 1e9; fraction digits beyond quote.decimals rejected; converted atoms must fit a u64 — max 18446744073709551615)",
+        "buyAmountSol": "v1 compatibility field — SOL display units, only on a wrapped-SOL-quoted config; a nonzero amount on any other quote mint is rejected before any upload with 400 { error: \"unsupported_buyAmountSol\", quoteMint, quoteSymbol, migrateTo: [\"firstBuyAtoms\",\"firstBuyAmount\"] } naming the config's quote asset"
       },
-      "returns": ["transaction", "mintAddress", "poolAddress", "metadataUrl", "imageUrl", "configKey", "category", "quoteMint", "firstBuyAtoms", "lastValidBlockHeight", "note"]
+      "returns": ["transaction", "mintAddress", "poolAddress", "metadataUrl", "imageUrl", "configKey", "category", "quoteMint", "quoteSymbol", "quoteDecimals", "firstBuyAtoms", "lastValidBlockHeight", "note"]
     },
     {
       "id": "trade_quote",
