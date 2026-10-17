@@ -119,7 +119,7 @@ export default function Home() {
   "poolAddress": "<pool id>",
   "side": "buy",                 // buy | sell
   "amountIn": "1000000",         // atoms: quote for buy, base for sell
-  "slippageBps": 50              // optional, 0-10000
+  "slippageBps": 50              // optional, 0-1000 (5000 with allowHighSlippage)
 }`}
           response={`{
   "amountOut": "...",

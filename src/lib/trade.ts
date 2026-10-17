@@ -118,6 +118,11 @@ async function defaultFetchPoolMetadata(
   return { launchType: typeof launchType === 'string' ? launchType : null }
 }
 
+/** Default slippage ceiling (10%) for both trade endpoints. */
+export const MAX_SLIPPAGE_BPS = 1_000
+/** Ceiling with `allowHighSlippage: true` (50%) — the floor is never zero. */
+export const HIGH_SLIPPAGE_MAX_BPS = 5_000
+
 type TradeBody = {
   poolAddress: string
   side: 'buy' | 'sell'
@@ -147,8 +152,23 @@ function parseTradeBody(rawBody: unknown): TradeBody {
   let slippageBps = 50
   if (body.slippageBps != null) {
     const parsed = Number(body.slippageBps)
-    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 10_000) {
-      throw new TradeError('slippageBps must be a number between 0 and 10000')
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      throw new TradeError('slippageBps must be a finite number >= 0')
+    }
+    // The floor is `output × (10_000 − bps) / 10_000`, so an uncapped
+    // slippage reopens the zero-floor trade `min_out_below_floor` refuses.
+    // Above MAX_SLIPPAGE_BPS needs an explicit `allowHighSlippage: true`,
+    // and even then the floor stays at least half the quoted output.
+    const max = body.allowHighSlippage === true ? HIGH_SLIPPAGE_MAX_BPS : MAX_SLIPPAGE_BPS
+    if (parsed > max) {
+      throw new TradeError(
+        `slippageBps ${parsed} exceeds the ${max} bps maximum` +
+          (max === MAX_SLIPPAGE_BPS
+            ? ` — pass "allowHighSlippage": true to go up to ${HIGH_SLIPPAGE_MAX_BPS}`
+            : ''),
+        400,
+        { error: 'slippage_too_high', maxSlippageBps: max },
+      )
     }
     slippageBps = parsed
   }

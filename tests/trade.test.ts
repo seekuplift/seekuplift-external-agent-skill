@@ -204,7 +204,7 @@ describe('prepareTradeQuote — request validation', () => {
     ['amountIn above u64 max', { poolAddress: POOL_ADDRESS, side: 'buy', amountIn: '18446744073709551616' }],
     ['zero amountIn', { poolAddress: POOL_ADDRESS, side: 'buy', amountIn: '0' }],
     ['bad slippage', { poolAddress: POOL_ADDRESS, side: 'buy', amountIn: '1', slippageBps: -1 }],
-    ['slippage above the 0–10000 bound', { poolAddress: POOL_ADDRESS, side: 'buy', amountIn: '1', slippageBps: 10001 }],
+    ['slippage above every cap', { poolAddress: POOL_ADDRESS, side: 'buy', amountIn: '1', slippageBps: 10001 }],
     ['not an object', null],
   ] as const) {
     it(`rejects ${label} as a 400`, async () => {
@@ -292,16 +292,41 @@ describe('prepareTradeQuote — sides', () => {
     assert.equal(result.amountLeft, '0')
   })
 
-  it('the slippage bound edges 0 and 10000 are accepted', async () => {
-    for (const slippageBps of [0, 10_000]) {
+  it('the slippage bound edges are accepted: 0 and 1000, 5000 with allowHighSlippage', async () => {
+    for (const [slippageBps, allowHighSlippage] of [[0, false], [1_000, false], [5_000, true]] as const) {
       const result = await prepareTradeQuote(
-        { poolAddress: POOL_ADDRESS, side: 'buy', amountIn: '100', slippageBps },
+        { poolAddress: POOL_ADDRESS, side: 'buy', amountIn: '100', slippageBps, allowHighSlippage },
         null,
         makeDeps(),
       )
       assert.equal(result.slippageBps, slippageBps)
     }
   })
+
+  for (const [label, slippageBps, allowHighSlippage, max] of [
+    ['above 1000 without the opt-in', 1_001, false, 1_000],
+    ['10000 (zero floor) without the opt-in', 10_000, false, 1_000],
+    ['above 5000 even with the opt-in', 5_001, true, 5_000],
+    ['10000 (zero floor) even with the opt-in', 10_000, true, 5_000],
+    ['far above the old 0–10000 range', 20_000, false, 1_000],
+  ] as const) {
+    it(`rejects slippage ${label} as 400 slippage_too_high`, async () => {
+      await assert.rejects(
+        prepareTradeQuote(
+          { poolAddress: POOL_ADDRESS, side: 'buy', amountIn: '100', slippageBps, allowHighSlippage },
+          null,
+          makeDeps(),
+        ),
+        (err: unknown) => {
+          assert.ok(err instanceof TradeError)
+          assert.equal(err.status, 400)
+          assert.equal(err.fields.error, 'slippage_too_high')
+          assert.equal(err.fields.maxSlippageBps, max)
+          return true
+        },
+      )
+    })
+  }
 })
 
 // ─── TF-APP-1 through the orchestration ──────────────────────────────────────
@@ -433,6 +458,29 @@ describe('prepareTradeTx — transfer-fee mint (TF-APP-1)', () => {
         },
       )
     }
+    assert.equal(swapCalls.length + swap2Calls.length, 0, 'no transaction was built')
+  })
+
+  it('slippageBps 10000 cannot zero the floor — 400 slippage_too_high, no tx', async () => {
+    await assert.rejects(
+      prepareTradeTx(
+        {
+          poolAddress: POOL_ADDRESS,
+          ownerPublicKey: OWNER_ADDRESS,
+          side: 'sell',
+          amountIn: '1000000',
+          slippageBps: 10_000,
+          allowHighSlippage: true,
+        },
+        null,
+        makeDeps(),
+      ),
+      (err: unknown) => {
+        assert.ok(err instanceof TradeError)
+        assert.equal(err.fields.error, 'slippage_too_high')
+        return true
+      },
+    )
     assert.equal(swapCalls.length + swap2Calls.length, 0, 'no transaction was built')
   })
 })

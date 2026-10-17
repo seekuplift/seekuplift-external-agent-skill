@@ -67,6 +67,7 @@
   "serviceChangesSinceFreeze": {
     "auth": "every /api/* endpoint requires X-Api-Key: <key-id>:<secret> (operator-issued, out of band) — 401 { error: \"unauthorized\" } without it; per-key (60/min) and per-caller-network (240/min, IPv6 /64) limits — 429 { error: \"rate_limited\", retryAfter }",
     "minimumAmountOut": "/api/trade/tx always recomputes the floor from a fresh quote at slippageBps; a supplied value may only tighten — \"0\" or below-floor is 400 { error: \"min_out_below_floor\", minimumAmountOutFloor }",
+    "slippageBps": "capped at 1000 on /api/trade/quote and /api/trade/tx (5000 with allowHighSlippage: true); above the cap is 400 { error: \"slippage_too_high\", maxSlippageBps }",
     "donation": "the documented config is cause-capable, so a meme /api/launch (v1-shaped calls included) must carry the v2 donation pick while /api/causes offers causes — omitting it is 400 { error: \"donation_required\", causesOffered } before any upload",
     "reviewBeforeSigning": "decode the transaction; every instruction's programId must be one of dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN, 11111111111111111111111111111111, ComputeBudget111111111111111111111111111111, TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA, TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb, ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL; tx.feePayer must be your own key; simulate with sigVerify:false before signing"
   },

@@ -237,7 +237,7 @@ Off-chain swap quote for a live curve pool.
 
 - `side`: `"buy"` (quote → base) or `"sell"` (base → quote).
 - `amountIn`: base-10 integer atom **string**, ≤ `18446744073709551615` (u64 max — larger is a `400`). Buy → **quote** atoms (lamports for SOL-quoted pools, `quoteDecimals` otherwise — check `poolInfo.quoteDecimals`/`quoteScaledUiAmount`, never assume 1e9). Sell → **base** atoms (`baseDecimals`).
-- `slippageBps`: optional, 0–10000, default 50.
+- `slippageBps`: optional, 0–1000, default 50. Above 1000 needs `"allowHighSlippage": true`, which raises the cap to 5000; anything over the cap is `400 { "error": "slippage_too_high", "maxSlippageBps": … }`. The floor is never zero. Same rule on `/api/trade/tx`.
 
 **Response**:
 
@@ -292,6 +292,7 @@ Builds the unsigned swap transaction.
 
 - `amountIn` is bounded by u64 max (`18446744073709551615`) — larger is a `400`.
 - `minimumAmountOut` may only **tighten** the floor. The service **always recomputes the floor from a fresh quote** at `slippageBps` (default 50) — a supplied value below that floor (including `"0"`, which once disabled slippage protection) is rejected with `400 { "error": "min_out_below_floor", "minimumAmountOutFloor": "…" }` naming the floor. A value ≥ the floor is accepted as a tighter bound. Simplest correct use: pass the quote's `minimumAmountOut` verbatim or omit the field.
+- `slippageBps` is capped as on `/api/trade/quote` (1000, or 5000 with `allowHighSlippage: true`) — it cannot zero the floor.
 - The response's `quote` is **always** populated — it is the fresh quote the floor was computed from.
 
 **Response**:

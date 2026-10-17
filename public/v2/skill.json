@@ -70,11 +70,12 @@
       "description": "Get an off-chain swap quote from the bonding curve (partial-fill buys, transfer-fee net outputs).",
       "endpoint": { "method": "POST", "path": "/api/trade/quote" },
       "requiredFields": ["poolAddress", "side", "amountIn"],
-      "optionalFields": ["slippageBps"],
+      "optionalFields": ["slippageBps", "allowHighSlippage"],
       "sideValues": ["buy", "sell"],
       "fieldNotes": {
         "amountIn": "base-10 atom string; buy = quote atoms, sell = base atoms — use poolInfo decimals, never assume SOL/1e9",
-        "slippageBps": "0-10000, default 50"
+        "slippageBps": "0-1000, default 50; up to 5000 with allowHighSlippage: true; above the cap is 400 { error: \"slippage_too_high\", maxSlippageBps }",
+        "allowHighSlippage": "optional boolean; raises the slippageBps cap from 1000 to 5000 — the floor is never zero"
       },
       "returns": ["amountOut", "minimumAmountOut", "baseTransferFeeAtomics", "consumedInput", "amountLeft", "amountIn", "slippageBps", "poolInfo"],
       "poolInfoFields": ["poolAddress", "configKey", "baseMint", "baseDecimals", "quoteMint", "quoteDecimals", "quoteSymbol", "quoteScaledUiAmount", "isQuoteSol", "baseTransferFee", "migrationState", "isCompleted"]
@@ -84,12 +85,13 @@
       "description": "Build the unsigned swap transaction for the bonding curve. The output floor is always recomputed from a fresh quote at slippageBps; minimumAmountOut may only tighten it.",
       "endpoint": { "method": "POST", "path": "/api/trade/tx" },
       "requiredFields": ["poolAddress", "ownerPublicKey", "side", "amountIn"],
-      "optionalFields": ["minimumAmountOut", "slippageBps"],
+      "optionalFields": ["minimumAmountOut", "slippageBps", "allowHighSlippage"],
       "sideValues": ["buy", "sell"],
       "fieldNotes": {
         "amountIn": "base-10 atom string, <= 18446744073709551615 (u64 max)",
         "minimumAmountOut": "may only TIGHTEN the recomputed floor (fresh quote at slippageBps); a looser value — including \"0\" — is 400 { error: \"min_out_below_floor\", minimumAmountOutFloor }; pass the quote's value or omit",
-        "slippageBps": "0-10000, default 50",
+        "slippageBps": "0-1000, default 50; up to 5000 with allowHighSlippage: true; above the cap is 400 { error: \"slippage_too_high\", maxSlippageBps }",
+        "allowHighSlippage": "optional boolean; raises the slippageBps cap from 1000 to 5000 — the floor is never zero",
         "quote": "always populated — the fresh quote the floor was computed from"
       },
       "returns": ["transaction", "amountIn", "minimumAmountOut", "quote", "poolInfo", "lastValidBlockHeight"]

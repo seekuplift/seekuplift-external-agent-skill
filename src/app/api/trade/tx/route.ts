@@ -14,7 +14,8 @@
  *                      quote at `slippageBps` — a supplied value may only
  *                      TIGHTEN it (≥ the computed floor); a looser value
  *                      (incl. "0") is a 400 naming the floor
- *   slippageBps      — optional (default 50); 0–10000
+ *   slippageBps      — optional (default 50); 0–1000, or up to 5000 with
+ *                      allowHighSlippage: true (else 400 slippage_too_high)
  *
  * 200 response:
  *   {

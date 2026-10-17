@@ -59,6 +59,11 @@ since this contract froze" block describing the same rules).
   `400 { "error": "min_out_below_floor", "minimumAmountOutFloor" }`. The
   response's `quote` is now always populated. `amountIn` is bounded by u64
   max (documented; always enforced).
+- **Slippage cap (both trade endpoints)**: `slippageBps` above 1000 needs
+  `"allowHighSlippage": true`, which raises the cap to 5000; over the cap
+  returns `400 { "error": "slippage_too_high", "maxSlippageBps" }`. The floor
+  is `output × (10000 − bps) / 10000`, so the old 0–10000 range let
+  `slippageBps: 10000` zero it.
 - **Signing review**: the documents now require decoding the returned
   transaction, checking every instruction's `programId` against the
   documented six-program list, verifying `tx.feePayer` is the agent's own

@@ -7,7 +7,8 @@
  *   poolAddress  — required base58 pool address (validated client-side)
  *   side         — "buy" (quote → base) or "sell" (base → quote), required
  *   amountIn     — required input atoms as a base-10 string (≤ u64 max)
- *   slippageBps  — optional (default 50); 0–10000
+ *   slippageBps  — optional (default 50); 0–1000, or up to 5000 with
+ *                  allowHighSlippage: true (else 400 slippage_too_high)
  *
  * 200 response:
  *   {
