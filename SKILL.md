@@ -179,7 +179,7 @@ Uploads image + metadata through the backend proxy and builds the launch transac
 - `ideaFunding` — **idea launches only**. `{ mode, address?, handle?, redditUserId? }`. Modes come from the backend's launch-enabled registry (`managed` and `realms` are never selectable; typically `direct`, `tbd`, `x`, `reddit`): `direct` takes `address` — an **on-curve** Solana address (no PDAs) that becomes the coin's entitled signer; `x` takes `handle`; `reddit` takes `handle` + `redditUserId`, or just `handle` and the service resolves the `t2_` id.
 - **Idea extras** — required: `problem` (the use-case statement), `useCases` (1–3 slugs from the idea catalog: climate, education, inclusion, local, depin, desci, public-goods, infrastructure, payments, governance, social, art, gaming, defi, privacy, identity, health, energy, food, housing, mobility, other), `prototype` (URL). Optional: `whitepaper` (URI).
 - **Startup extras** — required: `problem` (the pitch), `useCases` (1–3 slugs from the startup catalog: saas, consumer, fintech, ai, infrastructure, defi, payments, depin, gaming, rwa, social, data, creator, climate, education, health, security, wallet, marketplace, media, stablecoins, other), `deck` (URL). Optional: `whitepaper` (recorded as roadmap), plus the compliance fields `legalFramework`, `legalFrameworkNote`, `tokenUtility`, `decentralizationEfforts`, `entityJurisdiction` — recorded only when `startupComplianceAcknowledged: true`.
-- `firstBuyAtoms` **or** `firstBuyAmount` — optional creator first buy, only on `supportsFirstBuy` configs. `firstBuyAtoms` is a bare integer string of raw **quote** atoms; `firstBuyAmount` is display units converted with the config's `quote.decimals` + `quote.scaledUiAmountMultiplier`. `0`/omitted = no first buy. (`buyAmountSol`, the v1 field, is a SOL display amount accepted only on wrapped-SOL-quoted configs — on any other quote mint a nonzero value is rejected before any upload with `400 { error: "unsupported_buyAmountSol", migrateTo: ["firstBuyAtoms", "firstBuyAmount"] }`.)
+- `firstBuyAtoms` **or** `firstBuyAmount` — optional creator first buy, only on `supportsFirstBuy` configs. `firstBuyAtoms` is a bare integer string of raw **quote** atoms; `firstBuyAmount` is display units converted with the config's `quote.decimals` + `quote.scaledUiAmountMultiplier` (fraction digits beyond `quote.decimals` are rejected). The converted atom count must fit a u64 (`≤ 18446744073709551615`) — larger requests are a `400`. `0`/omitted = no first buy. (`buyAmountSol`, the v1 field, is a SOL display amount accepted only on wrapped-SOL-quoted configs — on any other quote mint a nonzero value is rejected before any upload with `400 { error: "unsupported_buyAmountSol", quoteMint, quoteSymbol, migrateTo: ["firstBuyAtoms", "firstBuyAmount"] }` naming the config's quote asset.)
 
 **Response**:
 
@@ -193,13 +193,15 @@ Uploads image + metadata through the backend proxy and builds the launch transac
   "configKey": "…",
   "category": "meme",
   "quoteMint": "<base58>",
+  "quoteSymbol": "SKR",
+  "quoteDecimals": 6,
   "firstBuyAtoms": "100000000",
   "lastValidBlockHeight": 390000000,
   "note": "Deserialize from base64 as a legacy Transaction, sign with payerPublicKey, then submit to mainnet RPC. The mint keypair signature is already applied."
 }
 ```
 
-`firstBuyAtoms` is `null` when the launch has no first buy. `lastValidBlockHeight` (optional) is the expiry bound from the same blockhash read — keep it for the **submit protocol** below.
+`firstBuyAtoms` is `null` when the launch has no first buy. `quoteMint`/`quoteSymbol`/`quoteDecimals` are the chosen config's quote asset — `firstBuyAtoms` (and the first-buy amount in the transaction) is denominated in it. `lastValidBlockHeight` (optional) is the expiry bound from the same blockhash read — keep it for the **submit protocol** below.
 
 **Errors**: `400 { error }` validation (incl. `donation_required` with `causesOffered`); `403 { error: "geo_restricted", region, regionName, feature, message }`; `429` upload rate limit (see **Limits**); `502 { error: "upstream_error" }` upstream failure; `503 { error: "causes_unavailable" }` the cause list could not be loaded for a meme launch that needs a donation — retry later.
 

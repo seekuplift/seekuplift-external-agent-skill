@@ -669,11 +669,15 @@ export async function getConfigCatalogWithGeo(
     const record = served ?? builtin ?? null
     const isStock = !!served && !isBuiltinQuoteMint(quoteMint)
 
-    // Resolve mint facts we cannot take from a record: Token-2022 mints may
-    // carry the ScaledUiAmount extension; unregistered mints need an
-    // on-chain read for decimals/program.
+    // The quote mint is ALWAYS read on-chain: its live decimals drive the
+    // first-buy conversion (TB-S-2 — chain facts, never a constant) and a
+    // Token-2022 mint may carry the ScaledUiAmount extension. A failed read
+    // fails closed only when the record cannot stand on its own — an
+    // unregistered mint needs the read for everything, and a non-SPL record
+    // needs it to prove the mint unscaled; a recorded SPL-token mint cannot
+    // carry extensions, so its record decimals survive a failed read.
     let mintInfoResult: MintTokenInfo | null = null
-    if (quoteMint && (!record || record.tokenProgram !== SPL_TOKEN_PROGRAM_ID)) {
+    if (quoteMint) {
       try {
         mintInfoResult = await mintInfo(quoteMint)
       } catch (err) {
@@ -685,7 +689,8 @@ export async function getConfigCatalogWithGeo(
       // a failed or decimal-less read cannot prove the mint is unscaled — fail
       // closed rather than silently converting a display-units first buy with
       // multiplier 1 on a mint that may carry ScaledUiAmount.
-      if (mintInfoResult == null || mintInfoResult.decimals == null) {
+      const needsChainRead = !record || record.tokenProgram !== SPL_TOKEN_PROGRAM_ID
+      if (needsChainRead && (mintInfoResult == null || mintInfoResult.decimals == null)) {
         decodeError ??= `Unable to resolve mint info for quote mint ${quoteMint}`
       }
     }
@@ -717,8 +722,10 @@ export async function getConfigCatalogWithGeo(
         symbol:
           record?.symbol ??
           (quoteMint ? `${quoteMint.slice(0, 4)}…${quoteMint.slice(-4)}` : null),
-        decimals: record?.decimals ?? mintInfoResult?.decimals ?? null,
-        tokenProgram: record?.tokenProgram ?? mintInfoResult?.tokenProgram ?? null,
+        // The on-chain read wins over any record (served or built-in) — the
+        // first-buy conversion uses the live mint facts, not a constant.
+        decimals: mintInfoResult?.decimals ?? record?.decimals ?? null,
+        tokenProgram: mintInfoResult?.tokenProgram ?? record?.tokenProgram ?? null,
         issuer: record?.issuer ?? null,
         firstBuyDefault: record?.firstBuyDefault ?? null,
         scaledUiAmountMultiplier: scaledUiMultiplierString(

@@ -62,6 +62,7 @@ Launch a new token on the bonding curve.
   in wrapped SOL (`So11111111111111111111111111111111111111112`). The pool
   config above is **SKR-quoted**, so a **nonzero** `buyAmountSol` is rejected
   with `400 { "error": "unsupported_buyAmountSol", "quoteMint": "…",
+  "quoteSymbol": "SKR",
   "migrateTo": ["firstBuyAtoms", "firstBuyAmount"], "docs": "/v2/skill.md" }`
   **before** any upload — a SOL amount can never be silently reinterpreted
   as SKR atoms. Migration: on v2 the equivalent fields are `firstBuyAtoms`
@@ -77,6 +78,9 @@ Launch a new token on the bonding curve.
   "mintAddress": "<base58>",
   "metadataUrl": "https://ipfs.filebase.io/ipfs/...",
   "imageUrl": "https://ipfs.filebase.io/ipfs/...",
+  "quoteMint": "<base58 — the config's quote asset>",
+  "quoteSymbol": "SKR",
+  "quoteDecimals": 6,
   "lastValidBlockHeight": 390000000
 }
 ```

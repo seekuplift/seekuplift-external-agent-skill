@@ -248,6 +248,10 @@ export type PreparedLaunch = LaunchTxResult & {
   configKey: string
   category: LaunchCategory
   quoteMint: string
+  /** The quote asset's served/registered symbol ("SKR"), null when unresolved. */
+  quoteSymbol: string | null
+  /** The quote mint's decimals read on-chain (record fallback) — TB-S-2. */
+  quoteDecimals: number | null
   firstBuyAtoms: string | null
   metadata: LaunchMetadataShape
 }
@@ -573,6 +577,7 @@ export async function prepareLaunch(
             {
               error: 'unsupported_buyAmountSol',
               quoteMint,
+              quoteSymbol: entry.quote.symbol,
               migrateTo: ['firstBuyAtoms', 'firstBuyAmount'],
               docs: '/v2/skill.md',
               v1Sunset: V1_CONTRACT_SUNSET,
@@ -582,8 +587,13 @@ export async function prepareLaunch(
         // Explicit zero on a non-SOL config: no first buy.
         firstBuyAtoms = undefined
       } else {
-        // wSOL quote: v1 semantics — SOL display units × 10^9 lamports.
-        const atoms = parseFirstBuyUiAmount(String(amount), KNOWN_MINTS[NATIVE_MINT].decimals)
+        // wSOL quote: v1 semantics — SOL display units in lamports, using
+        // the chain-read decimals (wSOL is 9; the record stands in only when
+        // the chain read failed).
+        const atoms = parseFirstBuyUiAmount(
+          String(amount),
+          entry.quote.decimals ?? KNOWN_MINTS[NATIVE_MINT].decimals,
+        )
         if (atoms == null) {
           throw new LaunchError(`buyAmountSol "${String(amount)}" is not a valid non-negative decimal`)
         }
@@ -706,6 +716,8 @@ export async function prepareLaunch(
     configKey,
     category,
     quoteMint,
+    quoteSymbol: entry.quote.symbol,
+    quoteDecimals: entry.quote.decimals,
     firstBuyAtoms: firstBuyAtoms != null && firstBuyAtoms > 0n ? firstBuyAtoms.toString() : null,
     metadata,
   }

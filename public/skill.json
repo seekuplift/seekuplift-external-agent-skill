@@ -24,9 +24,9 @@
       "requiredFields": ["name", "symbol", "description", "imageUrl", "payerPublicKey"],
       "optionalFields": ["buyAmountSol"],
       "fieldNotes": {
-        "buyAmountSol": "v1 first-buy field: a SOL display amount (0.001 = 0.001 SOL). Only spendable on a wrapped-SOL-quoted config — the default poolConfig is SKR-quoted, so a nonzero buyAmountSol returns 400 { error: \"unsupported_buyAmountSol\", quoteMint, migrateTo: [\"firstBuyAtoms\", \"firstBuyAmount\"], docs: \"/v2/skill.md\" } before any upload. Migrate to v2's firstBuyAtoms/firstBuyAmount; 0 or omitted = no first buy."
+        "buyAmountSol": "v1 first-buy field: a SOL display amount (0.001 = 0.001 SOL). Only spendable on a wrapped-SOL-quoted config — the default poolConfig is SKR-quoted, so a nonzero buyAmountSol returns 400 { error: \"unsupported_buyAmountSol\", quoteMint, quoteSymbol, migrateTo: [\"firstBuyAtoms\", \"firstBuyAmount\"], docs: \"/v2/skill.md\" } before any upload. Migrate to v2's firstBuyAtoms/firstBuyAmount; 0 or omitted = no first buy."
       },
-      "returns": ["transaction", "mintAddress", "metadataUrl", "imageUrl", "lastValidBlockHeight"]
+      "returns": ["transaction", "mintAddress", "metadataUrl", "imageUrl", "quoteMint", "quoteSymbol", "quoteDecimals", "lastValidBlockHeight"]
     },
     {
       "id": "trade_quote",
