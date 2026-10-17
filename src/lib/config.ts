@@ -25,7 +25,43 @@ export const KNOWN_MINTS: Record<string, { symbol: string; decimals: number }> =
 export const V1_CONTRACT_SUNSET = '2027-01-15'
 
 export const RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com'
-export const BACKEND_URL = (process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '')
+
+/**
+ * TB-S-3 transport rule: a REMOTE backend URL must be https — plain-http to
+ * a remote host would let a MITM rewrite the unsigned transactions this
+ * service builds. The only allowed http transport is the colocated loopback
+ * deployment (plan §Hosting: this service calls the backend on 127.0.0.1
+ * and the backend trusts `X-Forwarded-For` only from loopback). Anything
+ * else fails closed at startup.
+ */
+export function assertBackendTransport(url: string): string {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    throw new Error(`BACKEND_URL is not a valid URL: ${url}`)
+  }
+  if (parsed.protocol === 'https:') return url
+  if (parsed.protocol === 'http:') {
+    const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+    const octets = host.split('.').map(Number)
+    const isLoopback =
+      host === 'localhost' ||
+      host.endsWith('.localhost') ||
+      host === '::1' ||
+      (octets.length === 4 &&
+        octets.every((o) => Number.isInteger(o) && o >= 0 && o <= 255) &&
+        octets[0] === 127)
+    if (isLoopback) return url
+  }
+  throw new Error(
+    `BACKEND_URL must be https for a remote backend, or the colocated loopback (http://127.0.0.1:3000) — got ${url}`,
+  )
+}
+
+export const BACKEND_URL = assertBackendTransport(
+  (process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, ''),
+)
 
 /**
  * No storage credentials live here: uploads go through the backend proxy

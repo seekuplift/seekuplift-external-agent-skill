@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { checkAgentAccess } from '@/lib/agent-auth'
 import { clientIpFromHeaders } from '@/lib/backend'
 import { getConfigCatalog } from '@/lib/config-catalog'
 
@@ -8,8 +9,15 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
+  const clientIp = clientIpFromHeaders(req.headers)
+  const access = checkAgentAccess(req.headers, clientIp)
+  if (!access.ok) {
+    return NextResponse.json(access.body, {
+      status: access.status,
+      headers: { 'cache-control': 'no-store', ...access.headers },
+    })
+  }
   try {
-    const clientIp = clientIpFromHeaders(req.headers)
     const catalog = await getConfigCatalog(clientIp)
     return NextResponse.json(catalog, {
       headers: { 'cache-control': 'no-store' },
