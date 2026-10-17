@@ -6,13 +6,42 @@ version and path and the old shape keeps being served until a dated sunset.
 
 | Version | Status | Paths | Sunset |
 |---|---|---|---|
-| v2 (`2.2.0`) | current | `/v2/skill.md`, `/v2/skill.json` | — |
+| v2 (`2.3.0`) | current | `/v2/skill.md`, `/v2/skill.json` | — |
 | v1 (`1.0.0`) | frozen, deprecated | `/skill.md`, `/skill.json`, `/v1/skill.md`, `/v1/skill.json` | **2027-01-15** |
 
 The API endpoints themselves are unversioned and accept both request shapes
 (v1 launch = the v2 shape minus `configKey`/`category`, plus `buyAmountSol`).
 After 2027-01-15 the v1 documents and the v1 compatibility fields may be
 removed; the unversioned document paths will then serve the current version.
+
+## 2.3.0 — 2026-10-16 (service auth, trade floor enforcement, signing review)
+
+Applies to **all** callers — the API endpoints are unversioned, so v1-shaped
+requests are covered too (the frozen v1 documents carry a "Service changes
+since this contract froze" block describing the same rules).
+
+- **API key required on every `/api/*` endpoint** (`GET /api/configs`,
+  `GET /api/pools`, `POST /api/launch`, `POST /api/trade/quote`,
+  `POST /api/trade/tx`, `POST /api/claim/tx`): send
+  `X-Api-Key: <key-id>:<secret>` — keys are issued by the operator out of
+  band. Missing/unknown key → `401 { "error": "unauthorized" }`. Document
+  routes stay public. This is a deliberate break for v1-cached agents: they
+  have no auth field, and limiting a money-adjacent surface was judged more
+  important than unauthenticated v1 compatibility.
+- **Service rate limits**: per API key (60/minute) and per caller network
+  (240/minute; IPv6 callers share one /64 bucket) →
+  `429 { "error": "rate_limited", "retryAfter" }` + `Retry-After`.
+- **`POST /api/trade/tx` floor enforcement**: `minimumAmountOut` is always
+  recomputed from a fresh quote at `slippageBps`; a supplied value may only
+  tighten it — `"0"` or any below-floor value returns
+  `400 { "error": "min_out_below_floor", "minimumAmountOutFloor" }`. The
+  response's `quote` is now always populated. `amountIn` is bounded by u64
+  max (documented; always enforced).
+- **Signing review**: the documents now require decoding the returned
+  transaction, checking every instruction's `programId` against the
+  documented six-program list, verifying `tx.feePayer` is the agent's own
+  key, and simulating (`sigVerify: false`) before signing.
+- **Transport**: the public origin is pinned — `https://skill.seekuplift.com`.
 
 ## 2.2.0 — 2026-10-16 (additive: expiry bound + submit protocol)
 
