@@ -88,6 +88,8 @@ export type ConfigRecordKey = {
   quoteSymbol: string
   quoteDecimals: number
   quoteTokenProgram: string
+  /** The on-chain `feeClaimer` of this config, as recorded by TB-D-1. */
+  feeClaimer: string
 }
 export type ConfigRecord = {
   schemaVersion: number
