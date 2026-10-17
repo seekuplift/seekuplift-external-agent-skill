@@ -156,6 +156,7 @@ describe('fetchRemoteImage — refused targets', () => {
       'file:///etc/passwd',
       'data:image/png;base64,AAAA',
       'gopher://127.0.0.1/x',
+      'ipfs://bafkreiexample/x.png', // ipfs:// is not fetched — a gateway URL is required
       'not a url',
     ]) {
       await expectRefused(() => fetchRemoteImage(u, deps), /http\(s\)|not a valid URL/, 400)

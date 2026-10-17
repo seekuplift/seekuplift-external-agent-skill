@@ -23,6 +23,7 @@ import {
   type MobileConfigResponse,
 } from '../src/lib/config-catalog.ts'
 import {
+  buildLaunchMetadata,
   classifyUploadClaimKind,
   normalizeUseCaseSlugs,
   useCaseSlugsInCatalog,
@@ -281,6 +282,20 @@ describe('POST /api/launch — happy path', () => {
     assert.equal(meta.donationProject, undefined)
     assert.equal(typeof meta.createdAt, 'string')
   })
+
+  it('always declares launchType = the chosen category (the backend fails closed on a missing type)', () => {
+    for (const category of ['meme', 'idea', 'startup'] as const) {
+      const meta = buildLaunchMetadata({
+        name: 'Coin',
+        symbol: 'COIN',
+        description: 'd',
+        imageUrl: 'https://gw.example/img.png',
+        category,
+        creatorAddress: PAYER,
+      })
+      assert.equal(meta.launchType, category)
+    }
+  })
 })
 
 // ─── Request/config rejections ────────────────────────────────────────────────
@@ -347,6 +362,39 @@ describe('POST /api/launch — request rejections', () => {
     assert.equal(log.imageUploads, 1)
     assert.equal(log.builds, 1)
     assert.equal(result.imageUrl, 'https://ipfs.filebase.io/ipfs/bafyimage')
+  })
+
+  it('re-pins a pre-existing /ipfs/ URL instead of passing it through', async () => {
+    const log: CallLog = { imageUploads: 0, metadataUploads: 0, builds: 0 }
+    let fetched: string | null = null
+    let uploadedMeta: Record<string, unknown> | null = null
+    const deps = launchDeps(await catalogDeps(), log, {
+      fetchImage: async (url) => {
+        fetched = url
+        return {
+          bytes: Buffer.from(PNG_1PX, 'base64'),
+          contentType: 'image/png',
+          fileName: 'image.png',
+        }
+      },
+      uploadMetadata: async (metadata) => {
+        log.metadataUploads += 1
+        uploadedMeta = metadata
+        return { cid: 'bafymeta', url: 'https://ipfs.filebase.io/ipfs/bafymeta' }
+      },
+    })
+    const result = await prepareLaunch(
+      baseBody({ image: undefined, imageUrl: 'https://ipfs.filebase.io/ipfs/bafyold' }),
+      '203.0.113.10',
+      deps,
+    )
+    // The /ipfs/ input is fetched through the guard like any other URL…
+    assert.equal(fetched, 'https://ipfs.filebase.io/ipfs/bafyold')
+    assert.equal(log.imageUploads, 1)
+    // …and the caller's URL never reaches the metadata — only the proxy's
+    // re-pinned URL does.
+    assert.equal(result.imageUrl, 'https://ipfs.filebase.io/ipfs/bafyimage')
+    assert.equal(uploadedMeta!.image, 'https://ipfs.filebase.io/ipfs/bafyimage')
   })
 
   it('surfaces an imageUrl guard refusal as a LaunchError before any upload', async () => {
