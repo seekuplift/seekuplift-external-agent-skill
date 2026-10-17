@@ -27,12 +27,20 @@ const SKR_MINT = 'SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3'
 const SPL_TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
 
+/** Hermetic quote-mint read — the quote mint is always read on-chain now. */
+const SPL_MINT_INFO: CatalogDeps['fetchMintInfo'] = async () => ({
+  decimals: 6,
+  tokenProgram: SPL_TOKEN_PROGRAM,
+  scaledUiAmount: null,
+})
+
 /** Default deps: real mobile-config fixture + real decoded pool config. */
 async function defaultDeps(overrides: Partial<CatalogDeps> = {}): Promise<CatalogDeps> {
   const liveConfig = await decodePoolConfigFixture(LIVE_CONFIG_ACCOUNT)
   return {
     fetchMobileConfig: async () => mobileConfigFixture(),
     fetchPoolConfig: async (key) => (key === LIVE_CONFIG_KEY ? liveConfig : null),
+    fetchMintInfo: SPL_MINT_INFO,
     donationClaimAuthorities: [DONATION_CLAIM_AUTHORITY],
     ...overrides,
   }
@@ -111,6 +119,7 @@ describe('GET /api/configs catalog', () => {
         })
       },
       fetchPoolConfig: async (key) => (key === LIVE_CONFIG_KEY ? liveConfig : null),
+      fetchMintInfo: SPL_MINT_INFO,
       donationClaimAuthorities: [DONATION_CLAIM_AUTHORITY],
     }
     const a = await getConfigCatalog('198.51.100.7', deps)
@@ -151,6 +160,7 @@ describe('GET /api/configs catalog', () => {
           : fixture
       },
       fetchPoolConfig: async (key) => (key === LIVE_CONFIG_KEY ? liveConfig : null),
+      fetchMintInfo: SPL_MINT_INFO,
       donationClaimAuthorities: [DONATION_CLAIM_AUTHORITY],
     }
     const first = await getConfigCatalog('203.0.113.10', deps)
@@ -169,6 +179,7 @@ describe('GET /api/configs catalog', () => {
     const empty = await getConfigCatalog('203.0.113.10', {
       fetchMobileConfig: async () => mobileConfigFixture(),
       fetchPoolConfig: async () => liveConfig,
+      fetchMintInfo: SPL_MINT_INFO,
       donationClaimAuthorities: [],
     })
     assert.equal(empty.configs[0].supportsCause, false)
@@ -180,6 +191,7 @@ describe('GET /api/configs catalog', () => {
     const noClaimer = await getConfigCatalog('203.0.113.10', {
       fetchMobileConfig: async () => mobileConfigFixture(),
       fetchPoolConfig: async () => ({ ...liveConfig, feeClaimer: undefined }),
+      fetchMintInfo: SPL_MINT_INFO,
       donationClaimAuthorities: [DONATION_CLAIM_AUTHORITY],
     })
     assert.equal(noClaimer.configs[0].supportsCause, false)
@@ -192,6 +204,7 @@ describe('GET /api/configs catalog', () => {
     const cause = await getConfigCatalog('203.0.113.10', {
       fetchMobileConfig: async () => mobileConfigFixture(),
       fetchPoolConfig: async () => zeroShare,
+      fetchMintInfo: SPL_MINT_INFO,
       donationClaimAuthorities: [DONATION_CLAIM_AUTHORITY],
     })
     assert.equal(cause.configs[0].fees.creatorSharePct, 0)
@@ -205,6 +218,7 @@ describe('GET /api/configs catalog', () => {
     const notCapable = await getConfigCatalog('203.0.113.10', {
       fetchMobileConfig: async () => mobileConfigFixture(),
       fetchPoolConfig: async () => ({ ...zeroShare, feeClaimer: 'So11111111111111111111111111111111111111112' }),
+      fetchMintInfo: SPL_MINT_INFO,
       donationClaimAuthorities: [DONATION_CLAIM_AUTHORITY],
     })
     assert.equal(notCapable.configs[0].fees.allFeesToCause, false)
@@ -227,6 +241,7 @@ describe('GET /api/configs catalog', () => {
       fetchMobileConfig: async () => ({ ...fixture, launchConfigOptions: options, version: 'v-multi' }),
       fetchPoolConfig: async (key) =>
         key === LIVE_CONFIG_KEY ? liveConfig : key === LEGACY_CONFIG_KEY ? causeOnlyConfig : null,
+      fetchMintInfo: SPL_MINT_INFO,
       donationClaimAuthorities: [DONATION_CLAIM_AUTHORITY],
     })
     assert.equal(configs.length, 2)
@@ -247,6 +262,7 @@ describe('GET /api/configs catalog', () => {
         version: 'v-geo1',
       }),
       fetchPoolConfig: async () => liveConfig,
+      fetchMintInfo: SPL_MINT_INFO,
       donationClaimAuthorities: [DONATION_CLAIM_AUTHORITY],
     })
     const entry = memeRestricted.configs[0]
@@ -333,6 +349,7 @@ describe('GET /api/configs catalog', () => {
     const { configs } = await getConfigCatalog('203.0.113.10', {
       fetchMobileConfig: async () => mobileConfigFixture(),
       fetchPoolConfig: async () => null,
+      fetchMintInfo: SPL_MINT_INFO,
       donationClaimAuthorities: [DONATION_CLAIM_AUTHORITY],
     })
     const entry = configs[0]
@@ -365,6 +382,7 @@ describe('GET /api/configs catalog', () => {
         if (calls === 1) throw new Error('RPC down')
         return liveConfig
       },
+      fetchMintInfo: SPL_MINT_INFO,
       donationClaimAuthorities: [DONATION_CLAIM_AUTHORITY],
     }
     const first = await getConfigCatalog('203.0.113.10', deps)

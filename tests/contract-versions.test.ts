@@ -73,8 +73,9 @@ async function catalogDeps(
   return {
     fetchMobileConfig: async () => mobileConfigFixture(mobileConfig),
     fetchPoolConfig: async (key) => base[key] ?? null,
-    fetchMintInfo: async () => ({
-      decimals: 6,
+    // The quote mint is always read on-chain — answer per mint (wSOL is 9).
+    fetchMintInfo: async (mint) => ({
+      decimals: mint === NATIVE_MINT ? 9 : 6,
       tokenProgram: SPL_TOKEN_PROGRAM,
       scaledUiAmount: null,
     }),
@@ -227,6 +228,7 @@ describe('contract v1 — launch (no configKey/category, buyAmountSol)', () => {
     )
     assert.equal(err.fields.error, 'unsupported_buyAmountSol')
     assert.equal(err.fields.quoteMint, SKR_MINT)
+    assert.equal(err.fields.quoteSymbol, 'SKR')
     assert.deepEqual(err.fields.migrateTo, ['firstBuyAtoms', 'firstBuyAmount'])
     assert.match(String(err.fields.docs ?? ''), /\/v2\/skill\.md/)
     // The refusal happened before any upload or tx build.
@@ -306,6 +308,8 @@ describe('contract v2 — launch (configKey + firstBuyAtoms)', () => {
     const result = await prepareLaunch(v2Body({ firstBuyAtoms: '100000000' }), '203.0.113.10', deps)
     assert.equal(result.configKey, LIVE_CONFIG_KEY)
     assert.equal(result.quoteMint, SKR_MINT)
+    assert.equal(result.quoteSymbol, 'SKR')
+    assert.equal(result.quoteDecimals, 6)
     assert.equal(result.firstBuyAtoms, '100000000')
     assert.equal((captured.createPoolParam!.config as PublicKey).toBase58(), LIVE_CONFIG_KEY)
     assert.deepEqual(captured.badgeLookups, [SKR_MINT])

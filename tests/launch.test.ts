@@ -15,6 +15,8 @@
 import { strict as assert } from 'node:assert'
 import { readFileSync } from 'node:fs'
 import { describe, it, beforeEach, afterEach } from 'node:test'
+import { Connection, PublicKey, Transaction } from '@solana/web3.js'
+import { DynamicBondingCurveClient } from '@meteora-ag/dynamic-bonding-curve-sdk'
 import {
   getConfigCatalogWithGeo,
   resetConfigCatalogCachesForTests,
@@ -46,8 +48,10 @@ import {
 } from '../src/lib/launch.ts'
 import { OPEN_GEO_VERDICT } from '../src/lib/geo.ts'
 import { ImageFetchError } from '../src/lib/image-fetch.ts'
+import { DBC_PROGRAM_ID, NATIVE_MINT } from '../src/lib/config.ts'
 import {
   decodePoolConfigFixture,
+  loadFixture,
   mobileConfigFixture,
   DONATION_CLAIM_AUTHORITY,
   LEGACY_CONFIG_ACCOUNT,
@@ -99,8 +103,9 @@ async function catalogDeps(scenario: CatalogScenario = {}): Promise<CatalogDeps>
     fetchPoolConfig: async (key) => base[key] ?? null,
     fetchMintInfo:
       scenario.mintInfo ??
-      (async () => ({
-        decimals: 6,
+      (async (mint) => ({
+        // The quote mint is always read on-chain — answer per mint (wSOL 9).
+        decimals: mint === NATIVE_MINT ? 9 : 6,
         tokenProgram: SPL_TOKEN_PROGRAM,
         scaledUiAmount: null,
       })),
@@ -1012,7 +1017,126 @@ describe('POST /api/launch — first buy', () => {
     await prepareLaunch(baseBody({ firstBuyAtoms: '18446744073709551615' }), null, deps)
     assert.equal(log.builds, 1)
   })
+
+  it('rejects a display first buy whose converted atoms exceed u64, and non-numeric input', async () => {
+    const log: CallLog = { imageUploads: 0, metadataUploads: 0, builds: 0 }
+    const deps = launchDeps(await catalogDeps(), log)
+    // 99,999,999,999,999 × 10^6 overflows the documented u64 bound — refused
+    // before any upload or build.
+    await expectLaunchError(
+      () => prepareLaunch(baseBody({ firstBuyAmount: '99999999999999' }), null, deps),
+      400,
+      /u64/,
+    )
+    await expectLaunchError(
+      () => prepareLaunch(baseBody({ firstBuyAmount: 'abc' }), null, deps),
+      400,
+      /firstBuyAmount/,
+    )
+    assert.equal(log.imageUploads, 0)
+    assert.equal(log.builds, 0)
+  })
+
+  it('converts with the mint decimals read on-chain — the record never wins over the live read', async () => {
+    const log: CallLog = { imageUploads: 0, metadataUploads: 0, builds: 0 }
+    // The on-chain read reports 8 decimals where the built-in SKR record
+    // says 6 — the chain read must drive the conversion (TB-S-2: the live
+    // quote mint's decimals, not a constant).
+    const catDeps = await catalogDeps({
+      mintInfo: async () => ({
+        decimals: 8,
+        tokenProgram: SPL_TOKEN_PROGRAM,
+        scaledUiAmount: null,
+      }),
+    })
+    await prepareLaunch(baseBody({ firstBuyAmount: '1.5' }), null, launchDeps(catDeps, log))
+    assert.equal((log.lastTx as { firstBuyAtoms?: bigint }).firstBuyAtoms, 150_000_000n)
+  })
+
+  it('recorded simulation: the built transaction carries the quote atoms in the first-buy swap instruction', async () => {
+    const log: CallLog = { imageUploads: 0, metadataUploads: 0, builds: 0 }
+    const simLog = { calls: 0 }
+    // The REAL SDK client over recorded on-chain accounts: the production
+    // pool config and the SKR mint (SPL, 6 decimals). Every other account —
+    // the buyer's ATAs, the token badge — resolves absent, as on chain.
+    const accountInfo = (name: string) => {
+      const value = loadFixture<{
+        result: {
+          value: {
+            data: [string, string]
+            executable: boolean
+            lamports: number
+            owner: string
+            rentEpoch: number
+          } | null
+        }
+      }>(name).result.value
+      return (
+        value && {
+          data: Buffer.from(value.data[0], 'base64'),
+          executable: value.executable,
+          lamports: value.lamports,
+          owner: new PublicKey(value.owner),
+          rentEpoch: value.rentEpoch,
+        }
+      )
+    }
+    const configInfo = accountInfo(LIVE_CONFIG_ACCOUNT)
+    const skrMintInfo = accountInfo('skr-mint.getAccountInfo.json')
+    const serve = (key: string) =>
+      key === LIVE_CONFIG_KEY ? configInfo : key === SKR_MINT ? skrMintInfo : null
+    const connection = {
+      getAccountInfo: async (pk: PublicKey) => serve(pk.toBase58()),
+      getAccountInfoAndContext: async (pk: PublicKey) => ({
+        context: { slot: 1 },
+        value: serve(pk.toBase58()),
+      }),
+      getLatestBlockhash: async () => ({
+        blockhash: '11111111111111111111111111111111',
+        lastValidBlockHeight: 7,
+      }),
+      // The recorded clean simulation — sigVerify is false by construction:
+      // a legacy `simulateTransaction` never verifies signatures.
+      simulateTransaction: async () => {
+        simLog.calls += 1
+        return {
+          context: { slot: 1 },
+          value: { err: null, unitsConsumed: 144_259, logs: [] },
+        }
+      },
+      getRecentPrioritizationFees: async () => [],
+      getSlot: async () => 1,
+      getBlockTime: async () => 1_700_000_000,
+    } as unknown as Connection
+    const client = new DynamicBondingCurveClient(connection as never, 'confirmed')
+    // `buildTx: undefined` drops the stub so prepareLaunch runs the REAL
+    // buildLaunchTx (SDK createPoolWithFirstBuy + compute estimation).
+    const deps = launchDeps(await catalogDeps(), log, {
+      buildTx: undefined,
+      buildTxDeps: { connection, client },
+    })
+    const result = await prepareLaunch(baseBody({ firstBuyAmount: '1.5' }), null, deps)
+
+    assert.equal(result.firstBuyAtoms, '1500000')
+    assert.equal(result.quoteDecimals, 6)
+    // The builder's compute estimation simulated the finished transaction.
+    assert.ok(simLog.calls >= 1, 'expected the recorded simulation to run')
+    // The DBC `swap` instruction's amountIn (u64 at offset 8 after the
+    // anchor discriminator) is exactly the converted quote atoms.
+    const tx = Transaction.from(Buffer.from(result.transaction, 'base64'))
+    const swapIx = tx.instructions.find(
+      (ix) =>
+        ix.programId.toBase58() === DBC_PROGRAM_ID &&
+        ix.data.subarray(0, 8).equals(SWAP_IX_DISCRIMINATOR),
+    )
+    assert.ok(swapIx, 'expected the DBC first-buy swap instruction')
+    assert.equal(swapIx.data.readBigUInt64LE(8), 1_500_000n)
+    assert.equal(swapIx.data.readBigUInt64LE(16), 1n) // minimumAmountOut floor
+  })
 })
+
+/** Anchor discriminator of the DBC `swap` instruction (IDL). */
+const SWAP_IX_DISCRIMINATOR = Buffer.from([248, 198, 158, 145, 225, 117, 135, 200])
 
 describe('POST /api/launch — causes unavailable', () => {
   it('fails closed with 503 for a cause-capable meme without donation', async () => {
