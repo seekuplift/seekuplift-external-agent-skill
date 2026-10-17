@@ -16,7 +16,7 @@ Launch options are served as a live catalog of on-chain pool configs (`GET /api/
 - **Network**: Solana mainnet-beta
 - **DBC program**: `dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN`
 - **Base URL**: `https://skill.seekuplift.com` — the pinned public service origin, **https only** (the document routes are also served on the host you fetched this file from, but the public contract origin is the pinned one)
-- **Contract version**: `2.3.0` — this document is served at `/v2/skill.md`, its machine-readable form at `GET /v2/skill.json`
+- **Contract version**: `2.4.0` — this document is served at `/v2/skill.md`, its machine-readable form at `GET /v2/skill.json`
 - **v1 (frozen)**: the original contract is still served at `/skill.md` + `/skill.json` (also `/v1/skill.md`, `/v1/skill.json`) **until 2027-01-15** — see `CHANGELOG.md` for the differences
 
 ## Prerequisites
@@ -193,6 +193,7 @@ Uploads image + metadata through the backend proxy and builds the launch transac
 - **Idea extras** — required: `problem` (the use-case statement), `useCases` (1–3 slugs from the idea catalog: climate, education, inclusion, local, depin, desci, public-goods, infrastructure, payments, governance, social, art, gaming, defi, privacy, identity, health, energy, food, housing, mobility, other), `prototype` (URL). Optional: `whitepaper` (URI).
 - **Startup extras** — required: `problem` (the pitch), `useCases` (1–3 slugs from the startup catalog: saas, consumer, fintech, ai, infrastructure, defi, payments, depin, gaming, rwa, social, data, creator, climate, education, health, security, wallet, marketplace, media, stablecoins, other), `deck` (URL). Optional: `whitepaper` (recorded as roadmap), plus the compliance fields `legalFramework`, `legalFrameworkNote`, `tokenUtility`, `decentralizationEfforts`, `entityJurisdiction` — recorded only when `startupComplianceAcknowledged: true`.
 - `firstBuyAtoms` **or** `firstBuyAmount` — optional creator first buy, only on `supportsFirstBuy` configs. `firstBuyAtoms` is a bare integer string of raw **quote** atoms; `firstBuyAmount` is display units converted with the config's `quote.decimals` + `quote.scaledUiAmountMultiplier` (fraction digits beyond `quote.decimals` are rejected). The converted atom count must fit a u64 (`≤ 18446744073709551615`) — larger requests are a `400`. `0`/omitted = no first buy. (`buyAmountSol`, the v1 field, is a SOL display amount accepted only on wrapped-SOL-quoted configs — on any other quote mint a nonzero value is rejected before any upload with `400 { error: "unsupported_buyAmountSol", quoteMint, quoteSymbol, migrateTo: ["firstBuyAtoms", "firstBuyAmount"] }` naming the config's quote asset.)
+- `firstBuySlippageBps` — optional, 0–1000, default 50; only meaningful with a first buy. The service quotes the buy against the pool's opening curve and writes `minimumAmountOut = floor(output × (10000 − bps) / 10000)` into the transaction — the floor is never zero. Above 1000 needs `"allowHighSlippage": true` (cap 5000); over the cap is `400 { "error": "slippage_too_high", "maxSlippageBps": … }` — same rule as the trade endpoints. A buy the opening curve cannot fill fails the build with an error rather than shipping a transaction that would revert.
 
 **Response**:
 

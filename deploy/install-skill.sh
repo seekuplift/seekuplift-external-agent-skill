@@ -8,7 +8,7 @@
 # (0600 skill), the systemd unit and the Caddy site (/etc/caddy/conf.d/skill.caddy),
 # restarts, and waits for /skill.json on 127.0.0.1:3010. Idempotent.
 #
-# Host prerequisites (DEPLOY.md, one-time): Node.js 20 LTS; the skill Origin CA
+# Host prerequisites (DEPLOY.md, one-time): Node.js 24 LTS; the skill Origin CA
 # cert at /etc/caddy/skill-origin.{pem,key}; the backend's Caddyfile deployed
 # FIRST (it carries `import /etc/caddy/conf.d/*.caddy`); backend up on
 # 127.0.0.1:3000. Builds into /opt/skill.new and swaps, keeping the previous
@@ -29,7 +29,11 @@ scp "${ssh_opts[@]}" -q "$pkg" "$envf" "$here/skill.service" "$here/Caddyfile.sk
 ssh "${ssh_opts[@]}" "ops@$host" sudo bash -s -- "$stage" "$(basename "$pkg")" "$(basename "$envf")" <<'REMOTE'
 set -euo pipefail
 stage="$1"; pkg="$2"; envf="$3"
-command -v node >/dev/null || { echo "node missing — install Node.js 20 LTS first (DEPLOY.md)" >&2; exit 1; }
+command -v node >/dev/null || { echo "node missing — install Node.js 24 LTS first (DEPLOY.md)" >&2; exit 1; }
+# engines.node pins the major — a wrong major ships a different toolchain than
+# the lockfile was generated against.
+[ "$(node -p 'process.versions.node.split(".")[0]')" = "24" ] \
+  || { echo "node $(node --version) — package.json engines require major 24" >&2; exit 1; }
 
 # Preflight (nothing on the host has changed yet).
 [ -d /etc/caddy/conf.d ] && grep -q '^import /etc/caddy/conf.d/' /etc/caddy/Caddyfile \

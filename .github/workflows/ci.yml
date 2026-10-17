@@ -1,0 +1,24 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # package.json engines pins this major; the lockfile + tests assume it.
+          node-version: 24
+          cache: npm
+      # Exact-lockfile install — the SDK/web3.js/anchor pins are load-bearing
+      # (DD-S-2): a drifted tree is a different quoting/building client.
+      - run: npm ci
+      # Unit + contract tests (tests/**/*.test.ts via node --test; Node 24
+      # strips the TypeScript types natively). Includes the DD-S-1 contract
+      # tests in tests/contract-versions.test.ts against recorded fixtures.
+      - run: npm test

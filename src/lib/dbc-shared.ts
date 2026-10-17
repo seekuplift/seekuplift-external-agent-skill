@@ -136,6 +136,36 @@ export function extractFeeClaimer(config: {
   return null
 }
 
+/**
+ * Thrown when an SDK quote result lacks the fields the callers read. A
+ * renamed/removed field must fail loudly — never degrade to a zero quote
+ * that builds an unprotected or mis-sized transaction.
+ */
+export class DbcQuoteShapeError extends Error {
+  constructor(detail: string) {
+    super(`Unexpected DBC quote result shape: ${detail}`)
+    this.name = 'DbcQuoteShapeError'
+  }
+}
+
+/**
+ * The quote's output atoms from an SDK swap-quote result. The SDK has used
+ * both `outputAmount` (current) and `amountOut` (older shape); when NEITHER
+ * is present the result is unrecognized and throws — a missing field used
+ * to fall through to `'0'`, which read as a legitimate zero quote.
+ */
+export function quoteAmountOut(result: Record<string, unknown> | null | undefined): bigint {
+  const raw = result?.outputAmount ?? result?.amountOut
+  if (raw == null) {
+    throw new DbcQuoteShapeError('neither outputAmount nor amountOut is present')
+  }
+  const amount = toBigIntish(raw)
+  if (amount == null) {
+    throw new DbcQuoteShapeError(`unparseable output amount: ${String(raw)}`)
+  }
+  return amount
+}
+
 export function toBigIntish(value: unknown): bigint | null {
   if (value == null) return null
   if (typeof value === 'bigint') return value

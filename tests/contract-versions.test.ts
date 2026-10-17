@@ -92,6 +92,7 @@ type Captured = {
   badgeLookups: string[]
   createPoolParam: Record<string, unknown> | null
   firstBuyParam: Record<string, unknown> | null
+  firstBuyQuoteArgs: Record<string, unknown> | null
 }
 
 function realBuildDeps(captured: Captured): NonNullable<LaunchDeps['buildTxDeps']> {
@@ -106,6 +107,16 @@ function realBuildDeps(captured: Captured): NonNullable<LaunchDeps['buildTxDeps'
       getTokenBadge: async (mint: PublicKey) => {
         captured.badgeLookups.push(mint.toBase58())
         return null
+      },
+      // DD-S-2: the first-buy path reads the config for the simulated
+      // opening-curve quote — serve a minimal slot-based, first-buy-enabled
+      // config; the quote itself is stubbed on `pool` below.
+      getPoolConfig: async () => ({ activationType: 0, enableFirstSwapWithMinFee: 1 }),
+    },
+    pool: {
+      getQuoteFromInputAmount: (args: Record<string, unknown>) => {
+        captured.firstBuyQuoteArgs = args
+        return { outputAmount: { toString: () => '2000000' } }
       },
     },
     creator: {
@@ -124,6 +135,8 @@ function realBuildDeps(captured: Captured): NonNullable<LaunchDeps['buildTxDeps'
     },
   } as unknown as DynamicBondingCurveClient
   const connection = {
+    // getCurrentPoint reads the slot for the (slot-based) quoted config.
+    getSlot: async () => 1,
     getLatestBlockhash: async () => ({
       blockhash: '11111111111111111111111111111111',
       lastValidBlockHeight: 1,
@@ -181,7 +194,7 @@ function v2Body(overrides: Record<string, unknown> = {}): Record<string, unknown
 }
 
 function newCaptured(): Captured {
-  return { badgeLookups: [], createPoolParam: null, firstBuyParam: null }
+  return { badgeLookups: [], createPoolParam: null, firstBuyParam: null, firstBuyQuoteArgs: null }
 }
 
 async function expectLaunchError(
@@ -314,6 +327,13 @@ describe('contract v2 — launch (configKey + firstBuyAtoms)', () => {
     assert.equal((captured.createPoolParam!.config as PublicKey).toBase58(), LIVE_CONFIG_KEY)
     assert.deepEqual(captured.badgeLookups, [SKR_MINT])
     assert.equal((captured.firstBuyParam!.buyAmount as { toString(): string }).toString(), '100000000')
+    // DD-S-2: the first buy carries a real output floor — the stubbed quote's
+    // 2_000_000 output at the default 50 bps → floor 1_990_000, not the old 1.
+    assert.equal(captured.firstBuyQuoteArgs!.slippageBps, 50)
+    assert.equal(
+      (captured.firstBuyParam!.minimumAmountOut as { toString(): string }).toString(),
+      '1990000',
+    )
   })
 })
 

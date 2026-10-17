@@ -18,6 +18,7 @@
  */
 import { PublicKey } from '@solana/web3.js'
 import { U64_MAX } from './first-buy.ts'
+import { HIGH_SLIPPAGE_MAX_BPS, MAX_SLIPPAGE_BPS } from './config.ts'
 import { backendGetJson } from './backend.ts'
 import {
   getMobileConfigContext,
@@ -118,10 +119,10 @@ async function defaultFetchPoolMetadata(
   return { launchType: typeof launchType === 'string' ? launchType : null }
 }
 
-/** Default slippage ceiling (10%) for both trade endpoints. */
-export const MAX_SLIPPAGE_BPS = 1_000
-/** Ceiling with `allowHighSlippage: true` (50%) — the floor is never zero. */
-export const HIGH_SLIPPAGE_MAX_BPS = 5_000
+// The ceilings live in ./config.ts (a leaf module) so launch.ts can apply
+// the same cap without a launch ↔ trade import cycle; re-exported here so
+// existing trade.ts consumers keep their import path.
+export { MAX_SLIPPAGE_BPS, HIGH_SLIPPAGE_MAX_BPS } from './config.ts'
 
 type TradeBody = {
   poolAddress: string

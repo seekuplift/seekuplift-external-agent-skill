@@ -35,6 +35,9 @@ export const dynamic = 'force-dynamic'
  *                   configs with supportsFirstBuy (display amounts convert
  *                   with fresh quote decimals + the ScaledUiAmount
  *                   multiplier — never a fixed 1e9)
+ *   firstBuySlippageBps — optional (default 50): slippage on the first
+ *                   buy's quoted output floor; same cap as the trade
+ *                   endpoints (0–1000, 5000 with allowHighSlippage: true)
  *   buyAmountSol    v1 contract's first-buy field — a SOL display amount;
  *                   only spendable on a wrapped-SOL-quoted config. On any
  *                   other quote mint a nonzero amount is rejected BEFORE

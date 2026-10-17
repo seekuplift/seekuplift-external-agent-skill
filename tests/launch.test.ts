@@ -16,7 +16,7 @@ import { strict as assert } from 'node:assert'
 import { readFileSync } from 'node:fs'
 import { describe, it, beforeEach, afterEach } from 'node:test'
 import { Connection, PublicKey, Transaction } from '@solana/web3.js'
-import { DynamicBondingCurveClient } from '@meteora-ag/dynamic-bonding-curve-sdk'
+import { DynamicBondingCurveClient, getCurrentPoint } from '@meteora-ag/dynamic-bonding-curve-sdk'
 import {
   getConfigCatalogWithGeo,
   resetConfigCatalogCachesForTests,
@@ -47,6 +47,7 @@ import {
   type LaunchDeps,
 } from '../src/lib/launch.ts'
 import { OPEN_GEO_VERDICT } from '../src/lib/geo.ts'
+import { toBN, unwrapConfig } from '../src/lib/dbc-shared.ts'
 import { ImageFetchError } from '../src/lib/image-fetch.ts'
 import { DBC_PROGRAM_ID, NATIVE_MINT } from '../src/lib/config.ts'
 import {
@@ -923,6 +924,69 @@ describe('POST /api/launch — first buy', () => {
     assert.equal((log.lastTx as { firstBuyAtoms?: bigint }).firstBuyAtoms, 1500000n)
   })
 
+  it('forwards firstBuySlippageBps to the builder (DD-S-2)', async () => {
+    const log: CallLog = { imageUploads: 0, metadataUploads: 0, builds: 0 }
+    const deps = launchDeps(await catalogDeps(), log)
+    await prepareLaunch(
+      baseBody({ firstBuyAtoms: '1000', firstBuySlippageBps: 250 }),
+      null,
+      deps,
+    )
+    const tx = log.lastTx as { firstBuySlippageBps?: number }
+    assert.equal(tx.firstBuySlippageBps, 250)
+  })
+
+  it('omits firstBuySlippageBps when unset (builder default applies)', async () => {
+    const log: CallLog = { imageUploads: 0, metadataUploads: 0, builds: 0 }
+    const deps = launchDeps(await catalogDeps(), log)
+    await prepareLaunch(baseBody({ firstBuyAtoms: '1000' }), null, deps)
+    const tx = log.lastTx as { firstBuySlippageBps?: number }
+    assert.equal(tx.firstBuySlippageBps, undefined)
+  })
+
+  it('caps firstBuySlippageBps at 1000 unless allowHighSlippage lifts it to 5000 (DD-S-2)', async () => {
+    const log: CallLog = { imageUploads: 0, metadataUploads: 0, builds: 0 }
+    const deps = launchDeps(await catalogDeps(), log)
+    const err = await expectLaunchError(
+      () =>
+        prepareLaunch(
+          baseBody({ firstBuyAtoms: '1000', firstBuySlippageBps: 1500 }),
+          null,
+          deps,
+        ),
+      400,
+      /firstBuySlippageBps/,
+    )
+    assert.equal(err.fields.error, 'slippage_too_high')
+    assert.equal(err.fields.maxSlippageBps, 1000)
+    assert.equal(log.builds, 0)
+    // The escape hatch works but never lets the floor hit zero.
+    await prepareLaunch(
+      baseBody({ firstBuyAtoms: '1000', firstBuySlippageBps: 2000, allowHighSlippage: true }),
+      null,
+      deps,
+    )
+    assert.equal(
+      (log.lastTx as { firstBuySlippageBps?: number }).firstBuySlippageBps,
+      2000,
+    )
+    const over = await expectLaunchError(
+      () =>
+        prepareLaunch(
+          baseBody({
+            firstBuyAtoms: '1000',
+            firstBuySlippageBps: 5001,
+            allowHighSlippage: true,
+          }),
+          null,
+          deps,
+        ),
+      400,
+      /firstBuySlippageBps/,
+    )
+    assert.equal(over.fields.maxSlippageBps, 5000)
+  })
+
   it('floor-divides by a non-unit ScaledUiAmount multiplier', async () => {
     const log: CallLog = { imageUploads: 0, metadataUploads: 0, builds: 0 }
     const stockOptions: Partial<MobileConfigResponse> = {
@@ -1131,7 +1195,25 @@ describe('POST /api/launch — first buy', () => {
     )
     assert.ok(swapIx, 'expected the DBC first-buy swap instruction')
     assert.equal(swapIx.data.readBigUInt64LE(8), 1_500_000n)
-    assert.equal(swapIx.data.readBigUInt64LE(16), 1n) // minimumAmountOut floor
+    // DD-S-2: minimumAmountOut is the real opening-curve quote output
+    // discounted by the default 50 bps — recompute it through the SDK's own
+    // simulated-quote path rather than pinning a number.
+    const decodedConfig = unwrapConfig(
+      await client.state.getPoolConfig(new PublicKey(LIVE_CONFIG_KEY)),
+    )
+    const expectedQuote = client.pool.getQuoteFromInputAmount({
+      config: decodedConfig as never,
+      swapBaseForQuote: false,
+      amountIn: toBN(1_500_000n),
+      slippageBps: 50,
+      hasReferral: false,
+      eligibleForFirstSwapWithMinFee: true,
+      currentPoint: await getCurrentPoint(connection, 0),
+    })
+    const expectedFloor =
+      (BigInt(expectedQuote.outputAmount.toString()) * 9_950n) / 10_000n
+    assert.ok(expectedFloor > 1n, 'expected a real quoted output, not a dust floor')
+    assert.equal(swapIx.data.readBigUInt64LE(16), expectedFloor)
   })
 })
 

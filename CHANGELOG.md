@@ -6,13 +6,32 @@ version and path and the old shape keeps being served until a dated sunset.
 
 | Version | Status | Paths | Sunset |
 |---|---|---|---|
-| v2 (`2.3.0`) | current | `/v2/skill.md`, `/v2/skill.json` | — |
+| v2 (`2.4.0`) | current | `/v2/skill.md`, `/v2/skill.json` | — |
 | v1 (`1.0.0`) | frozen, deprecated | `/skill.md`, `/skill.json`, `/v1/skill.md`, `/v1/skill.json` | **2027-01-15** |
 
 The API endpoints themselves are unversioned and accept both request shapes
 (v1 launch = the v2 shape minus `configKey`/`category`, plus `buyAmountSol`).
 After 2027-01-15 the v1 documents and the v1 compatibility fields may be
 removed; the unversioned document paths will then serve the current version.
+
+## 2.4.0 — 2026-10-17 (additive: launch first-buy output floor)
+
+Applies to **all** callers — the API endpoints are unversioned, so v1-shaped
+requests are covered too (the frozen v1 documents carry a "Service changes
+since this contract froze" block describing the same rule).
+
+- **`POST /api/launch` first-buy floor**: a launch carrying a creator first
+  buy previously shipped `minimumAmountOut: 1` — no slippage protection at
+  all. The service now quotes the buy against the pool's opening curve
+  (ExactIn, same math the on-chain first swap runs) and writes
+  `minimumAmountOut = floor(output × (10000 − bps) / 10000)`, never zero;
+  a quoted-zero buy builds a floor of 1 atom so it reverts rather than
+  silently buying nothing. A buy the opening curve cannot fill fails the
+  build instead of shipping a transaction that would revert on-chain.
+- **Optional `firstBuySlippageBps` on `/api/launch`**: 0–1000, default 50;
+  up to 5000 with `"allowHighSlippage": true`; over the cap returns
+  `400 { "error": "slippage_too_high", "maxSlippageBps" }` — the same rule
+  the trade endpoints apply to `slippageBps`.
 
 ## Document corrections — 2026-10-16 (no contract change, versions unchanged)
 

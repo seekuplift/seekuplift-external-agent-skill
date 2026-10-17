@@ -25,9 +25,11 @@ import {
 import { NATIVE_MINT } from './config.ts'
 import {
   applyEstimatedComputeBudget,
+  DbcQuoteShapeError,
   getConnection,
   getDbcClient,
   getPoolAndConfig,
+  quoteAmountOut,
   readMintTokenInfo,
   SPL_TOKEN_PROGRAM_ID,
   toBN,
@@ -361,9 +363,13 @@ async function quoteFromState(
   const consumedInput = consumedCurveInput + inputTransferFee
   const amountLeftNet = BigInt((quoteAny.amountLeft ?? '0').toString())
   const amountLeft = amountIn >= consumedInput ? amountIn - consumedInput : 0n
-  const curveAmountOut = BigInt(
-    (quoteAny.outputAmount ?? quoteAny.amountOut ?? '0').toString(),
-  )
+  // DD-S-2: fail loudly on an unrecognized result shape — the old
+  // `?? '0'` fallback read a renamed field as a legitimate zero quote.
+  const curveAmountOut = quoteAmountOut(quoteAny)
+  const rawMinimumAmountOut = quoteAny.minimumAmountOut
+  if (rawMinimumAmountOut == null) {
+    throw new DbcQuoteShapeError('no minimumAmountOut on the quote result')
+  }
   // TF-APP-1: on a buy the vault→trader transfer withholds the fee in the
   // TRADER's account — the wallet receives `outputAmount − fee`, and
   // `minimum_amount_out` is checked on that fee-excluded amount, so the floor
@@ -375,7 +381,7 @@ async function quoteFromState(
   const minimumAmountOut =
     outputTransferFee > 0n
       ? minimumAmountOutWithSlippage(amountOut, slippageBps)
-      : BigInt(quoteAny.minimumAmountOut.toString())
+      : BigInt(rawMinimumAmountOut.toString())
   return {
     amountOut,
     minimumAmountOut,

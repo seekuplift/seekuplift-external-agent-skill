@@ -5,7 +5,7 @@
 ```bash
 cd agent
 cp .env.example .env.local   # already pre-filled if you ran setup
-npm install
+npm ci                        # exact-lockfile install — never npm install
 npm run dev                   # http://localhost:3001
 ```
 
@@ -58,15 +58,16 @@ Deploy artifacts live in `deploy/` in this repo:
 They are recorded here exactly; the actual deploy and DNS change are
 owner-run.
 
-### One-time per host: Node.js 20 LTS
+### One-time per host: Node.js 24 LTS
 
-The backend hosts ship no Node runtime:
+The backend hosts ship no Node runtime. `engines.node` pins major 24 —
+`install-skill.sh` refuses a host on any other major.
 
 ```bash
 ssh -i ~/.ssh/uplift_deploy ops@<HOST>
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
 sudo apt-get install -y nodejs
-node --version   # v20.x
+node --version   # v24.x
 ```
 
 `install-skill.sh` builds on the host inside `systemd-run --scope -p
@@ -125,7 +126,7 @@ $EDITOR /tmp/skill.env
 Generate one `<id>:<secret>` per external agent — `id` is a label (agent or
 operator name), `secret` a random token (e.g. `openssl rand -hex 32`).
 Distribute the pair out of band; agents send it as
-`X-Api-Key: <id>:<secret>` on every `/api/*` call (contract v2.3.0). Rotate
+`X-Api-Key: <id>:<secret>` on every `/api/*` call (contract v2.4.0). Rotate
 or revoke by editing the list and redeploying both hosts — revocation is a
 redeploy, there is no key store to drain. The document routes
 (`/skill.md`, `/v2/*`, `/CHANGELOG.md`) never require a key so the contract
@@ -224,14 +225,16 @@ railway variables set SOLANA_RPC_URL=... BACKEND_URL=...
 ## Docker (alternative self-hosted)
 
 ```dockerfile
-FROM node:20-alpine AS builder
+# Image pinned by digest: the floating `node:24-alpine` tag drifts under you;
+# refresh the digest deliberately when bumping Node (engines pins major 24).
+FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM node:20-alpine AS runner
+FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=builder /app/.next/standalone ./

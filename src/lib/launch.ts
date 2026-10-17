@@ -56,7 +56,14 @@ import {
 import { fetchRemoteImage, ImageFetchError } from './image-fetch.ts'
 import { U64_MAX, isZeroAmountInput, parseFirstBuyAtoms, parseFirstBuyUiAmount } from './first-buy.ts'
 import { parseScaledUiMultiplier } from './dbc-shared.ts'
-import { DEFAULT_DBC_CONFIG_KEY, KNOWN_MINTS, NATIVE_MINT, V1_CONTRACT_SUNSET } from './config.ts'
+import {
+  DEFAULT_DBC_CONFIG_KEY,
+  HIGH_SLIPPAGE_MAX_BPS,
+  KNOWN_MINTS,
+  MAX_SLIPPAGE_BPS,
+  NATIVE_MINT,
+  V1_CONTRACT_SUNSET,
+} from './config.ts'
 
 /** A refusal with an HTTP status and optional structured error fields. */
 export class LaunchError extends Error {
@@ -635,6 +642,31 @@ export async function prepareLaunch(
     if (firstBuyAtoms != null && firstBuyAtoms > U64_MAX) {
       throw new LaunchError('first buy exceeds the maximum u64 atom amount (18446744073709551615)')
     }
+  }
+  // DD-S-2: the first-buy output floor is quoted against the pool's opening
+  // curve at this slippage (see buildLaunchTx) — the floor is never zero.
+  // Same cap rule as the trade endpoints (src/lib/trade.ts): >1000 bps needs
+  // `allowHighSlippage: true`, hard ceiling 5000.
+  let firstBuySlippageBps: number | undefined
+  if (body.firstBuySlippageBps != null) {
+    const parsed = Number(body.firstBuySlippageBps)
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      throw new LaunchError('firstBuySlippageBps must be a finite number >= 0')
+    }
+    const max = body.allowHighSlippage === true ? HIGH_SLIPPAGE_MAX_BPS : MAX_SLIPPAGE_BPS
+    if (parsed > max) {
+      throw new LaunchError(
+        `firstBuySlippageBps ${parsed} exceeds the ${max} bps maximum` +
+          (max === MAX_SLIPPAGE_BPS
+            ? ` — pass "allowHighSlippage": true to go up to ${HIGH_SLIPPAGE_MAX_BPS}`
+            : ''),
+        400,
+        { error: 'slippage_too_high', maxSlippageBps: max },
+      )
+    }
+    firstBuySlippageBps = parsed
+  }
+  if (hasFirstBuyInput) {
     // An explicit zero (SKILL.md: "0/omitted = no first buy") means no first
     // buy; a non-zero request that floors to 0 atoms is rejected (app: "tooSmall").
     if (firstBuyAtoms != null && firstBuyAtoms <= 0n) {
@@ -707,6 +739,7 @@ export async function prepareLaunch(
     configKey,
     quoteMint,
     firstBuyAtoms,
+    firstBuySlippageBps,
   })
 
   return {

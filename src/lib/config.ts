@@ -24,6 +24,11 @@ export const KNOWN_MINTS: Record<string, { symbol: string; decimals: number }> =
  */
 export const V1_CONTRACT_SUNSET = '2027-01-15'
 
+/** Default slippage ceiling (10%) for the trade endpoints and the launch first buy. */
+export const MAX_SLIPPAGE_BPS = 1_000
+/** Ceiling with `allowHighSlippage: true` (50%) — the floor is never zero. */
+export const HIGH_SLIPPAGE_MAX_BPS = 5_000
+
 export const RPC_URL = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com'
 
 /**

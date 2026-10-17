@@ -26,7 +26,11 @@ import {
   fetchDbcPoolRead,
   fetchDbcSwapQuote,
 } from '../src/lib/dbc-trade.ts'
-import { parseScaledUiAmountConfigFromRaw, ScaledUiDecodeError } from '../src/lib/dbc-shared.ts'
+import {
+  DbcQuoteShapeError,
+  parseScaledUiAmountConfigFromRaw,
+  ScaledUiDecodeError,
+} from '../src/lib/dbc-shared.ts'
 import { loadFixture } from './helpers.ts'
 
 const POOL_ADDRESS = '9uFg8xPfLVVn92qeiNoBSURZdtSYYsByfp7id1WFVj3b'
@@ -67,6 +71,7 @@ let mockAmountLeft: bigint | null = null
 let mockConsumedInput: bigint | null = null
 let mockOutputAmount: bigint | null = null
 let mockMinOut: bigint | null = null
+let mockOmitOutputFields = false
 let mockQuoteMint = QUOTE_MINT
 let mockTokenType = 0
 let mockQuoteReserve: bigint | number = 0
@@ -97,6 +102,14 @@ function makeMockClient(): DynamicBondingCurveClient {
       swapQuote: (args: Record<string, unknown>) => {
         swapQuoteCalls.push(args)
         const requested = (args.amountIn as { toString(): string }).toString()
+        if (mockOmitOutputFields) {
+          // DD-S-2: a result shape where the output field was renamed away.
+          return {
+            minimumAmountOut: bnLike(950_000n),
+            includedFeeInputAmount: bnLike(requested),
+            amountLeft: bnLike(0),
+          }
+        }
         return {
           outputAmount: bnLike(mockOutputAmount ?? 1_000_000n),
           minimumAmountOut: bnLike(mockMinOut ?? 950_000n),
@@ -109,6 +122,13 @@ function makeMockClient(): DynamicBondingCurveClient {
       swapQuote2: (args: Record<string, unknown>) => {
         swapQuote2Calls.push(args)
         const requested = (args.amountIn as { toString(): string }).toString()
+        if (mockOmitOutputFields) {
+          return {
+            minimumAmountOut: bnLike(855_000n),
+            includedFeeInputAmount: bnLike(requested),
+            amountLeft: bnLike(mockAmountLeft == null ? 0n : mockAmountLeft),
+          }
+        }
         return {
           outputAmount: bnLike(mockOutputAmount ?? 900_000n),
           minimumAmountOut: bnLike(mockMinOut ?? 855_000n),
@@ -156,6 +176,7 @@ beforeEach(() => {
   mockConsumedInput = null
   mockOutputAmount = null
   mockMinOut = null
+  mockOmitOutputFields = false
   mockQuoteMint = QUOTE_MINT
   mockTokenType = 0
   mockQuoteReserve = 0
@@ -265,6 +286,24 @@ describe('fetchDbcSwapQuote', () => {
     assert.equal(swapQuote2Calls.length, 0, 'sell quote must NOT use swapQuote2')
     assert.equal(result.consumedInput, 1_000_000n)
     assert.equal(result.amountLeft, 0n)
+  })
+
+  it('throws DbcQuoteShapeError when the result carries neither output field (DD-S-2)', async () => {
+    mockOmitOutputFields = true
+    for (const swapBaseForQuote of [false, true]) {
+      await assert.rejects(
+        () =>
+          fetchDbcSwapQuote(
+            { poolAddress: POOL_ADDRESS, swapBaseForQuote, amountIn: 1_000_000n },
+            deps(),
+          ),
+        (err: unknown) => {
+          assert.ok(err instanceof DbcQuoteShapeError, `expected DbcQuoteShapeError, got ${err}`)
+          assert.match(err.message, /outputAmount|amountOut/)
+          return true
+        },
+      )
+    }
   })
 })
 

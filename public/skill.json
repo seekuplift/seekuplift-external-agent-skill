@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "status": "deprecated",
   "sunset": "2027-01-15",
-  "successor": { "version": "2.3.0", "markdown": "/v2/skill.md", "json": "/v2/skill.json", "changelog": "/CHANGELOG.md" },
+  "successor": { "version": "2.4.0", "markdown": "/v2/skill.md", "json": "/v2/skill.json", "changelog": "/CHANGELOG.md" },
   "description": "Launch tokens and trade on Meteora Dynamic Bonding Curve (DBC) on Solana mainnet. The pool config sets the trading-fee schedule and the creator share (a percent of each trading fee); on the documented config the platform share routes to a cause — its on-chain feeClaimer is a recorded donation claim authority.",
   "docs": {
     "markdown": "/skill.md",
@@ -69,6 +69,7 @@
     "minimumAmountOut": "/api/trade/tx always recomputes the floor from a fresh quote at slippageBps; a supplied value may only tighten — \"0\" or below-floor is 400 { error: \"min_out_below_floor\", minimumAmountOutFloor }",
     "slippageBps": "capped at 1000 on /api/trade/quote and /api/trade/tx (5000 with allowHighSlippage: true); above the cap is 400 { error: \"slippage_too_high\", maxSlippageBps }",
     "donation": "the documented config is cause-capable, so a meme /api/launch (v1-shaped calls included) must carry the v2 donation pick while /api/causes offers causes — omitting it is 400 { error: \"donation_required\", causesOffered } before any upload",
+    "firstBuyFloor": "a creator first buy (v1: buyAmountSol on a wrapped-SOL-quoted config) now carries a real output floor — the service quotes the buy against the pool's opening curve and writes minimumAmountOut = floor(output × (10000 − firstBuySlippageBps) / 10000); optional firstBuySlippageBps is 0-1000, default 50 (5000 with allowHighSlippage: true)",
     "reviewBeforeSigning": "decode the transaction; every instruction's programId must be one of dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN, 11111111111111111111111111111111, ComputeBudget111111111111111111111111111111, TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA, TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb, ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL; tx.feePayer must be your own key; simulate with sigVerify:false before signing"
   },
   "whyUseThis": {

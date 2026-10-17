@@ -18,13 +18,18 @@ import { Keypair, PublicKey, Transaction } from '@solana/web3.js'
 import {
   deriveDbcPoolAddress,
   deriveTokenBadgeAddress,
+  getCurrentPoint,
 } from '@meteora-ag/dynamic-bonding-curve-sdk'
 import {
   applyEstimatedComputeBudget,
   getConnection,
   getDbcClient,
+  quoteAmountOut,
   toBN,
+  toFiniteNumber,
+  unwrapConfig,
 } from './dbc-shared.ts'
+import { minimumAmountOutWithSlippage } from './transfer-fee.ts'
 
 /**
  * Static worst-case CU limit for a DBC `createPool` (app constant
@@ -38,6 +43,13 @@ export const DBC_CREATE_POOL_FALLBACK_COMPUTE_UNITS = 110_000
  * remeasured 144,259 CU SKR-quoted / 138,089 CU badged-quote on a fork).
  */
 export const DBC_CREATE_POOL_WITH_FIRST_BUY_FALLBACK_COMPUTE_UNITS = 200_000
+
+/**
+ * Default slippage on the creator first-buy output floor, in bps — the same
+ * 50 bps default the trade endpoints use. The launch request can override it
+ * with `firstBuySlippageBps` (see src/lib/launch.ts; contract: SKILL.md).
+ */
+export const FIRST_BUY_DEFAULT_SLIPPAGE_BPS = 50
 
 /** Test seam — the network-facing collaborators of `buildLaunchTx`. */
 export type BuildLaunchTxDeps = {
@@ -58,6 +70,15 @@ export type BuildLaunchTxParams = {
   /** Raw quote atoms for the bundled creator first buy; omitted/0 → plain
    *  `createPool`. Never pass ≤ 0 to the SDK. */
   firstBuyAtoms?: bigint
+  /**
+   * Slippage budget for the first-buy output floor, in bps — the built
+   * transaction's `minimumAmountOut` is the simulated opening-curve quote
+   * discounted by this (`floor(out × (10_000 − bps) / 10_000)`, ≥ 1 atom).
+   * Default `FIRST_BUY_DEFAULT_SLIPPAGE_BPS` (50). Callers cap the range —
+   * the launch route applies the same 0–1000 (5000 with allowHighSlippage)
+   * ceiling as the trade endpoints.
+   */
+  firstBuySlippageBps?: number
 }
 
 export type LaunchTxResult = {
@@ -85,11 +106,74 @@ async function resolveTokenBadgeAddress(
   return badge ? deriveTokenBadgeAddress(quoteMint) : undefined
 }
 
+/**
+ * The first-buy output floor: a simulated ExactIn quote against the pool's
+ * opening state — `client.pool.getQuoteFromInputAmount` builds a virtual
+ * pool at `sqrtStartPrice` with zeroed reserves, the same curve math the
+ * on-chain first buy executes. The result's output, discounted by
+ * `slippageBps` (`minimumAmountOutWithSlippage`), becomes the swap's
+ * `minimumAmountOut`.
+ *
+ * Fail-loud by construction:
+ *   - the on-chain first buy is an ExactIn FULL fill, so an amount the
+ *     opening curve cannot fill throws here — at build time — instead of
+ *     reverting when the transaction lands;
+ *   - an unrecognized quote result shape throws `DbcQuoteShapeError` (a
+ *     renamed SDK field must never read as a zero quote);
+ *   - the derived floor is clamped ≥ 1 atom: a quoted-zero buy buys nothing,
+ *     and reverting beats funding a pool whose first buy yields no tokens.
+ */
+async function quoteFirstBuyMinimumOut(
+  client: ReturnType<typeof getDbcClient>,
+  connection: ReturnType<typeof getConnection>,
+  config: PublicKey,
+  buyAmountAtoms: bigint,
+  slippageBps: number,
+): Promise<bigint> {
+  const rawConfig = await client.state.getPoolConfig(config)
+  if (rawConfig == null) {
+    throw new Error(`DBC pool config not found for first-buy quote: ${config.toBase58()}`)
+  }
+  const poolConfig = unwrapConfig(rawConfig)
+  const activationType = toFiniteNumber(poolConfig.activationType) ?? 0
+  const currentPoint = await getCurrentPoint(connection, activationType)
+  const quote = (
+    client.pool as unknown as {
+      getQuoteFromInputAmount(args: Record<string, unknown>): Record<string, unknown>
+    }
+  ).getQuoteFromInputAmount({
+    config: poolConfig,
+    swapBaseForQuote: false, // buy: quote atoms in, base tokens out
+    amountIn: toBN(buyAmountAtoms),
+    slippageBps,
+    hasReferral: false,
+    // The on-chain first swap pays the config's minimum base fee when the
+    // flag is set — quote under the same fee or the floor is oversized. The
+    // anchor decode yields `1`/`0` (verified against the recorded mainnet
+    // config); the boolean arm covers bool-shaped decoders/stubs.
+    eligibleForFirstSwapWithMinFee:
+      poolConfig.enableFirstSwapWithMinFee === true ||
+      toFiniteNumber(poolConfig.enableFirstSwapWithMinFee) === 1,
+    currentPoint,
+  })
+  const floor = minimumAmountOutWithSlippage(quoteAmountOut(quote), slippageBps)
+  return floor > 0n ? floor : 1n
+}
+
 export async function buildLaunchTx(
   params: BuildLaunchTxParams,
   deps: BuildLaunchTxDeps = {},
 ): Promise<LaunchTxResult> {
-  const { name, symbol, metadataUrl, payerAddress, configKey, quoteMint, firstBuyAtoms } = params
+  const {
+    name,
+    symbol,
+    metadataUrl,
+    payerAddress,
+    configKey,
+    quoteMint,
+    firstBuyAtoms,
+    firstBuySlippageBps = FIRST_BUY_DEFAULT_SLIPPAGE_BPS,
+  } = params
   const connection = deps.connection ?? getConnection()
   const client = deps.client ?? getDbcClient()
   const payer = new PublicKey(payerAddress)
@@ -111,12 +195,22 @@ export async function buildLaunchTx(
 
   let tx: Transaction
   if (firstBuyAtoms && firstBuyAtoms > 0n) {
+    // DD-S-2: the first buy used to ship `minimumAmountOut: 1` — no floor at
+    // all. Now the floor comes from a simulated quote on the pool's opening
+    // state, discounted by firstBuySlippageBps.
+    const minimumAmountOut = await quoteFirstBuyMinimumOut(
+      client,
+      connection,
+      config,
+      firstBuyAtoms,
+      firstBuySlippageBps,
+    )
     tx = await client.creator.createPoolWithFirstBuy({
       createPoolParam,
       firstBuyParam: {
         buyer: payer,
         buyAmount: toBN(firstBuyAtoms),
-        minimumAmountOut: toBN(1n),
+        minimumAmountOut: toBN(minimumAmountOut),
         referralTokenAccount: null,
       },
     })
