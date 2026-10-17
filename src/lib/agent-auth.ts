@@ -10,7 +10,9 @@
  *     scan). Missing or unknown key → 401. Keys are distributed out of band
  *     and revoked by redeploy; the service is stateless — there is no key
  *     store or issuance flow. Unset/empty `AGENT_API_KEYS` disables auth
- *     (with a startup-warning log): the in-process limits below still apply.
+ *     only outside production (with a warning log; the limits below still
+ *     apply) — under `NODE_ENV=production` (`next start`) every builder call
+ *     is refused with 503 `auth_not_configured` instead of failing open.
  *   - **Rate limits** — sliding-window, in-process (per `next start`
  *     instance — a two-host deployment roughly doubles the allowance), keyed
  *     per API key AND per caller network (TB-B-8 semantics: IPv6 callers
@@ -175,7 +177,7 @@ export type AgentAccess =
   | { ok: true; keyId: string | null }
   | {
       ok: false
-      status: 401 | 429
+      status: 401 | 429 | 503
       body: Record<string, unknown>
       /** Extra response headers (`retry-after` on 429). */
       headers: Record<string, string>
@@ -184,6 +186,8 @@ export type AgentAccess =
 export type AgentAccessOptions = {
   /** Raw `AGENT_API_KEYS` value — defaults to the env at call time. */
   agentApiKeys?: string | null
+  /** `NODE_ENV` — defaults to the env at call time. */
+  nodeEnv?: string
   /** Test seams — the shared in-process store and limits are the defaults. */
   store?: RateLimitStore
   limits?: { perKey: RateLimitRule; perNetwork: RateLimitRule }
@@ -219,6 +223,20 @@ export function checkAgentAccess(
 
   const keys = parseAgentApiKeys(options.agentApiKeys ?? process.env.AGENT_API_KEYS)
   if (keys.length === 0) {
+    if ((options.nodeEnv ?? process.env.NODE_ENV) === 'production') {
+      if (!warnedAuthDisabled) {
+        warnedAuthDisabled = true
+        console.error(
+          '[agent-auth] AGENT_API_KEYS is unset in production — refusing every builder call (503 auth_not_configured)',
+        )
+      }
+      return {
+        ok: false,
+        status: 503,
+        body: { error: 'auth_not_configured' },
+        headers: {},
+      }
+    }
     if (!warnedAuthDisabled) {
       warnedAuthDisabled = true
       console.warn(

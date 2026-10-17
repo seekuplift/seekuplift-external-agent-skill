@@ -92,12 +92,13 @@ describe('checkAgentAccess — auth', () => {
     assert.deepEqual(res, { ok: true, keyId: 'alice' })
   })
 
-  it('unset/empty AGENT_API_KEYS disables auth but keeps the network limit', () => {
+  it('unset/empty AGENT_API_KEYS outside production disables auth but keeps the network limit', () => {
     const store: RateLimitStore = new Map()
     const limits = { perKey: { limit: 5, windowMs: 60_000 }, perNetwork: { limit: 2, windowMs: 60_000 } }
     for (let i = 0; i < 2; i++) {
       const res = checkAgentAccess(hdrs({}), '203.0.113.7', {
         agentApiKeys: '',
+        nodeEnv: 'development',
         store,
         limits,
         now: 1_000,
@@ -106,6 +107,7 @@ describe('checkAgentAccess — auth', () => {
     }
     const res = checkAgentAccess(hdrs({}), '203.0.113.8', {
       agentApiKeys: '',
+        nodeEnv: 'development',
       store,
       limits,
       now: 1_000,
@@ -113,12 +115,28 @@ describe('checkAgentAccess — auth', () => {
     assert.equal(res.ok, true, 'a different network has its own bucket')
     const res2 = checkAgentAccess(hdrs({}), '203.0.113.7', {
       agentApiKeys: '',
+        nodeEnv: 'development',
       store,
       limits,
       now: 1_000,
     })
     assert.equal(res2.ok, false)
     if (!res2.ok) assert.equal(res2.status, 429)
+  })
+
+  it('unset/empty AGENT_API_KEYS in production refuses every call with 503', () => {
+    for (const agentApiKeys of ['', null]) {
+      const res = checkAgentAccess(hdrs({ 'x-api-key': 'alice:s3cret-one' }), '203.0.113.7', {
+        agentApiKeys,
+        nodeEnv: 'production',
+        store: new Map(),
+      })
+      assert.equal(res.ok, false)
+      if (!res.ok) {
+        assert.equal(res.status, 503)
+        assert.deepEqual(res.body, { error: 'auth_not_configured' })
+      }
+    }
   })
 })
 
