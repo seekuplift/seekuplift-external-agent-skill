@@ -198,9 +198,13 @@ describe('prepareTradeQuote — request validation', () => {
     ['bad side', { poolAddress: POOL_ADDRESS, side: 'hold', amountIn: '100' }],
     ['missing amountIn', { poolAddress: POOL_ADDRESS, side: 'buy' }],
     ['non-integer amountIn', { poolAddress: POOL_ADDRESS, side: 'buy', amountIn: '1.5' }],
+    ['non-numeric amountIn', { poolAddress: POOL_ADDRESS, side: 'buy', amountIn: 'abc' }],
+    ['negative amountIn (string)', { poolAddress: POOL_ADDRESS, side: 'buy', amountIn: '-5' }],
+    ['negative amountIn (number)', { poolAddress: POOL_ADDRESS, side: 'buy', amountIn: -5 }],
     ['amountIn above u64 max', { poolAddress: POOL_ADDRESS, side: 'buy', amountIn: '18446744073709551616' }],
     ['zero amountIn', { poolAddress: POOL_ADDRESS, side: 'buy', amountIn: '0' }],
     ['bad slippage', { poolAddress: POOL_ADDRESS, side: 'buy', amountIn: '1', slippageBps: -1 }],
+    ['slippage above the 0–10000 bound', { poolAddress: POOL_ADDRESS, side: 'buy', amountIn: '1', slippageBps: 10001 }],
     ['not an object', null],
   ] as const) {
     it(`rejects ${label} as a 400`, async () => {
@@ -287,6 +291,17 @@ describe('prepareTradeQuote — sides', () => {
     assert.equal(result.amountOut, '1000000')
     assert.equal(result.amountLeft, '0')
   })
+
+  it('the slippage bound edges 0 and 10000 are accepted', async () => {
+    for (const slippageBps of [0, 10_000]) {
+      const result = await prepareTradeQuote(
+        { poolAddress: POOL_ADDRESS, side: 'buy', amountIn: '100', slippageBps },
+        null,
+        makeDeps(),
+      )
+      assert.equal(result.slippageBps, slippageBps)
+    }
+  })
 })
 
 // ─── TF-APP-1 through the orchestration ──────────────────────────────────────
@@ -350,23 +365,75 @@ describe('prepareTradeTx — transfer-fee mint (TF-APP-1)', () => {
     )
   })
 
-  it('a caller-supplied minimumAmountOut passes through verbatim (no internal quote)', async () => {
+  it('a caller-supplied minimumAmountOut at/above the fresh-quote floor is used (tighten-only)', async () => {
     const result = await prepareTradeTx(
       {
         poolAddress: POOL_ADDRESS,
         ownerPublicKey: OWNER_ADDRESS,
         side: 'sell',
         amountIn: '1000000',
-        minimumAmountOut: '123',
+        minimumAmountOut: '990000', // mock sell floor is 950000 — tightened
       },
       null,
       makeDeps(),
     )
     const args = swapCalls[0]
-    assert.equal((args.minimumAmountOut as { toString(): string }).toString(), '123')
-    assert.equal(swapQuoteCalls.length + swapQuote2Calls.length, 0, 'no internal quote ran')
+    assert.equal((args.minimumAmountOut as { toString(): string }).toString(), '990000')
+    // TB-S-3: the internal quote ALWAYS runs — it is the floor source — and
+    // is always reported.
+    assert.equal(swapQuoteCalls.length, 1)
+    assert.ok(result.quote)
+    assert.equal(result.quote.minimumAmountOut, '950000')
     // IV-S-1: the response carries the expiry bound the tx was built with.
     assert.equal(result.lastValidBlockHeight, 1)
+  })
+
+  it('a minimumAmountOut equal to the fresh floor is accepted verbatim', async () => {
+    await prepareTradeTx(
+      {
+        poolAddress: POOL_ADDRESS,
+        ownerPublicKey: OWNER_ADDRESS,
+        side: 'sell',
+        amountIn: '1000000',
+        minimumAmountOut: '950000',
+      },
+      null,
+      makeDeps(),
+    )
+    assert.equal(
+      (swapCalls[0].minimumAmountOut as { toString(): string }).toString(),
+      '950000',
+    )
+  })
+
+  it('a looser minimumAmountOut is a 400 naming the floor — never loosened', async () => {
+    for (const [label, supplied] of [
+      ['just below the floor', '949999'],
+      ['zero (old slippage-disable escape)', '0'],
+      ['one atom', '1'],
+    ] as const) {
+      await assert.rejects(
+        prepareTradeTx(
+          {
+            poolAddress: POOL_ADDRESS,
+            ownerPublicKey: OWNER_ADDRESS,
+            side: 'sell',
+            amountIn: '1000000',
+            minimumAmountOut: supplied,
+          },
+          null,
+          makeDeps(),
+        ),
+        (err: unknown) => {
+          assert.ok(err instanceof TradeError, `${label}: ${err}`)
+          assert.equal(err.status, 400, label)
+          assert.equal(err.fields.error, 'min_out_below_floor', label)
+          assert.equal(err.fields.minimumAmountOutFloor, '950000', label)
+          return true
+        },
+      )
+    }
+    assert.equal(swapCalls.length + swap2Calls.length, 0, 'no transaction was built')
   })
 })
 

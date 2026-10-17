@@ -278,8 +278,8 @@ export type TradeTxResult = {
   transaction: string
   amountIn: string
   minimumAmountOut: string
-  /** Present when the tx route quoted internally (minimumAmountOut omitted). */
-  quote: Omit<TradeQuoteResult, 'poolInfo'> | null
+  /** The fresh quote the floor was computed from — always present. */
+  quote: Omit<TradeQuoteResult, 'poolInfo'>
   poolInfo: ReturnType<typeof poolInfoForApi>
   /** Expiry bound from the tx's getLatestBlockhash read — see SKILL.md's
    *  submit protocol (prove an unlanded send before rebuilding). */
@@ -301,28 +301,43 @@ export async function prepareTradeTx(
   } catch {
     throw new TradeError('ownerPublicKey is not a valid Solana address')
   }
-  let minimumAmountOut: bigint | null = null
-  if (body.minimumAmountOut != null) {
-    minimumAmountOut = parseAtoms(body.minimumAmountOut, 'minimumAmountOut')
-  }
+  const requestedMinOut =
+    body.minimumAmountOut != null
+      ? parseAtoms(body.minimumAmountOut, 'minimumAmountOut')
+      : null
 
   const { read } = await loadTradeContext(poolAddress, clientIp, deps)
   const swapBaseForQuote = side === 'sell'
-  // `minimumAmountOut` omitted → quote internally at the request's slippage
-  // (default 50 bps) so a one-call agent still gets the app's floor math.
-  let quote: TradeTxResult['quote'] = null
-  if (minimumAmountOut == null) {
-    const result = await read.quote({ swapBaseForQuote, amountIn, slippageBps })
-    minimumAmountOut = result.minimumAmountOut
-    quote = {
-      amountOut: result.amountOut.toString(),
-      minimumAmountOut: result.minimumAmountOut.toString(),
-      baseTransferFeeAtomics: result.baseTransferFeeAtomics.toString(),
-      consumedInput: result.consumedInput.toString(),
-      amountLeft: result.amountLeft.toString(),
-      amountIn: amountIn.toString(),
-      slippageBps,
+  // TB-S-3: the output floor is ALWAYS recomputed from a fresh quote at the
+  // request's slippage — never taken verbatim from the caller. A supplied
+  // `minimumAmountOut` may only TIGHTEN the floor (higher = the caller
+  // demands more output); anything below the computed floor — including "0",
+  // which used to disable slippage protection — is a 400 naming the floor.
+  const result = await read.quote({ swapBaseForQuote, amountIn, slippageBps })
+  const floor = result.minimumAmountOut
+  let minimumAmountOut = floor
+  if (requestedMinOut != null) {
+    if (requestedMinOut < floor) {
+      throw new TradeError(
+        `minimumAmountOut ${requestedMinOut} is below the slippage floor ${floor} quoted at ${slippageBps} bps — pass a value >= the floor or omit the field`,
+        400,
+        {
+          error: 'min_out_below_floor',
+          minimumAmountOutFloor: floor.toString(),
+          slippageBps,
+        },
+      )
     }
+    minimumAmountOut = requestedMinOut
+  }
+  const quote: TradeTxResult['quote'] = {
+    amountOut: result.amountOut.toString(),
+    minimumAmountOut: result.minimumAmountOut.toString(),
+    baseTransferFeeAtomics: result.baseTransferFeeAtomics.toString(),
+    consumedInput: result.consumedInput.toString(),
+    amountLeft: result.amountLeft.toString(),
+    amountIn: amountIn.toString(),
+    slippageBps,
   }
 
   const { transaction, lastValidBlockHeight } = await buildDbcSwapTx(
