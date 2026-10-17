@@ -57,7 +57,7 @@ Each `GET /api/configs` entry is one launch option. Pick by:
 - **Memecoins**: use the entry marked `defaultFor: ["meme"]`. It is a creator-fee config (`fees.creatorSharePct > 0`) — never an all-fees-to-cause config. Switch to an `fees.allFeesToCause: true` config **only when the user explicitly asks** for every fee to go to the cause.
   - **No usable default?** If no config has `defaultFor: ["meme"]`, or it is geo-unavailable for the caller (`geo.byCategory.meme.allowed: false`), pick another meme-capable config with `fees.creatorSharePct > 0` (and `decodeError: null`, geo-allowed). **Never fall back to an `allFeesToCause` config** unless the user explicitly asked for all fees to go to the cause. If no such config exists, tell the user instead of launching.
 - **Category**: the config must list your launch's `category` in `categories`. Pass it verbatim as `/api/launch`'s `category`.
-- **`supportsCause`**: donation routing is available — a meme launch on such a config must include a `donation` pick while causes are offered.
+- **`supportsCause`** — cause routing, plainly: `supportsCause: true` means the config's on-chain `feeClaimer` is a recorded donation claim authority, so the platform share of trading fees routes to a cause — a meme launch on such a config must include a `donation` pick while causes are offered. **`supportsCause: false` means the config does not route to a cause** — no `donation` pick applies. `fees.allFeesToCause: true` adds that the creator share is 0 — every fee after Meteora's protocol cut goes to the cause. Routing is decoded per config from the chain, never from the option name: on the recorded production set every config (including the default `61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv`) is cause-capable with `allFeesToCause: false` — a creator share of 16% of the trading fee — but a newly served config may differ: read the entry's own fields.
 - **`supportsFirstBuy`**: a creator first buy may be bundled into the launch transaction.
 - **`isStock`**: the quote mint is a stock quote asset — `stock.create`/`stock.trade` geo keys apply.
 - **`geo`**: the caller's create verdict (see **Geo** below). `geo.byCategory[category].allowed: false` means the launch will be refused for this caller. Top-level `geo.allowed` is true only when **every** category the config serves is allowed — decide per category from `byCategory`.
@@ -73,7 +73,7 @@ Act on your own. Browsing, quoting, buying and selling need no confirmation from
 
 Fee data is for your own decisions (and for answering your user if asked). Read live figures from `GET /api/configs` — they differ per config and can change; never use numbers from this document.
 
-- Every trade pays the config's trading fee. **Meteora takes 20% of that fee first**; the remaining 80% splits between the creator, the platform partner share, and — on cause-capable configs — the picked project or cause.
+- Every trade pays the config's trading fee. **Meteora takes 20% of that fee first**; the remaining 80% of the fee splits between the creator, the platform partner share, and — on cause-capable configs — the picked project or cause.
 - `fees.curve` is the on-curve schedule. When `curve.kind` is `"decay"` the fee **opens at `openingBps` — an anti-sniper opening fee** — and decays to `floorBps` over `decayPeriods × decayPeriodLength` `decayUnit` (`decaySecondsEstimate` is the approximate wall-clock window). Trades inside that window pay the elevated rate — avoid buying a fresh coin until the window has passed unless you accept that fee.
 - `fees.postGraduation` is the schedule after the coin graduates to a DAMM pool (`"marketCapDecay"` decays toward `floorBps` as market cap grows).
 - `fees.creatorSharePct` is the percent of trading fees routed to the creator share. On an `allFeesToCause` config it is 0 — every fee left after Meteora's protocol cut goes to the cause.
@@ -108,7 +108,7 @@ Returns the live launch catalog for THIS caller (geo verdict included, computed 
     "scaledUiAmountMultiplier": "<decimal string | null>"
   },
   "fees": {
-    "label": "99% → 1.25% (anti-sniper ~10 min), then 1.25% after graduation",
+    "label": "99% → 1.25% (anti-sniper ~10 min), then 0.25% after graduation",
     "details": ["Bonding curve: starts at 99% base fee, decays to 1.25%", "…"],
     "curve": {
       "kind": "decay",
@@ -119,12 +119,12 @@ Returns the live launch catalog for THIS caller (geo verdict included, computed 
       "decayPeriodLength": 75,
       "decayUnit": "slots",
       "decaySecondsEstimate": 600,
-      "dynamic": false
+      "dynamic": true
     },
     "postGraduation": {
       "kind": "flat",
-      "startBps": 125,
-      "floorBps": 125,
+      "startBps": 25,
+      "floorBps": 25,
       "decay": "none"
     },
     "creatorSharePct": 16,
@@ -148,7 +148,7 @@ Returns the live launch catalog for THIS caller (geo verdict included, computed 
 }
 ```
 
-> The fee values above are an illustrative example of the SHAPE — read live values, never copy them.
+> The fee values above are an illustrative example of the SHAPE — they happen to match the recorded production config, but read live values, never copy them.
 
 Field notes:
 

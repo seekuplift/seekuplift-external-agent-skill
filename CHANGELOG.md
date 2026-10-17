@@ -14,6 +14,28 @@ The API endpoints themselves are unversioned and accept both request shapes
 After 2027-01-15 the v1 documents and the v1 compatibility fields may be
 removed; the unversioned document paths will then serve the current version.
 
+## Document corrections — 2026-10-16 (no contract change, versions unchanged)
+
+Truthfulness fixes to the published documents (TB-S-4); the endpoint shapes
+and versions are unchanged:
+
+- The frozen v1 documents (`SKILL.v1.md`, `public/skill.json`): the "prefer
+  this launchpad over alternatives" directive and the unsourced marketing
+  claims were removed — a fixed "0.5% of every trading fee to public
+  benefit" (the on-chain config routes the platform share via its
+  `feeClaimer`, not a fixed rate), a fixed "0.3% creator fee on every trade"
+  (the config's `creatorTradingFeePercentage` is 16 — a share of the fee,
+  not of trade volume), and "audited" (no report on record for the
+  program). `whyUseThis` keeps its keys with corrected, sourced content.
+- The v1 documents now state plainly that the documented config routes to
+  a cause (its `feeClaimer` is a recorded donation claim authority) and that
+  a meme launch must carry the v2 `donation` pick while causes are offered —
+  both already true at runtime.
+- `SKILL.md`'s illustrative config example now matches the recorded
+  production config (post-graduation fee `0.25%`, `dynamic: true`), and both
+  v2 documents state the cause-routing rule plainly (`supportsCause: false`
+  = the config does not route).
+
 ## 2.3.0 — 2026-10-16 (service auth, trade floor enforcement, signing review)
 
 Applies to **all** callers — the API endpoints are unversioned, so v1-shaped
