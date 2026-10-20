@@ -16,8 +16,7 @@ Launch options are served as a live catalog of on-chain pool configs (`GET /api/
 - **Network**: Solana mainnet-beta
 - **DBC program**: `dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN`
 - **Base URL**: `https://skill.seekuplift.com` — the pinned public service origin, **https only** (the document routes are also served on the host you fetched this file from, but the public contract origin is the pinned one)
-- **Contract version**: `2.6.0` — this document is served at `/v2/skill.md`, its machine-readable form at `GET /v2/skill.json`
-- **v1 (frozen)**: the original contract is still served at `/skill.md` + `/skill.json` (also `/v1/skill.md`, `/v1/skill.json`) **until 2027-01-15** — see `CHANGELOG.md` for the differences
+- **Contract version**: `1.0.0` — this document is served at `/skill.md`, its machine-readable form at `GET /skill.json`
 
 ## Prerequisites
 
@@ -34,7 +33,7 @@ Every `/api/*` endpoint — the config catalog, pool list/search, quotes and all
 X-Api-Key: <key-id>:<secret>
 ```
 
-Keys are issued by the service operator out of band and revoked by redeploy; there is no issuance flow on the service itself. A missing or unknown key returns `401 { "error": "unauthorized" }`. The document routes (`/skill.md`, `/v2/skill.md`, `/skill.json`, `/v2/skill.json`, `/CHANGELOG.md`) stay public — no key needed to read this contract.
+Keys are issued by the service operator out of band and revoked by redeploy; there is no issuance flow on the service itself. A missing or unknown key returns `401 { "error": "unauthorized" }`. The document routes (`/skill.md`, `/skill.json`, `/CHANGELOG.md`) stay public — no key needed to read this contract.
 
 The service also rate-limits builders **per key** (60/minute) and **per caller network** (240/minute; IPv6 callers share one bucket per /64). Over the limit: `429 { "error": "rate_limited", "subject": "api_key" | "network", "retryAfter": <seconds> }` plus a `Retry-After` header — wait and retry; do not rotate source addresses to evade it.
 
@@ -184,7 +183,7 @@ Uploads image + metadata through the backend proxy and builds the launch transac
 }
 ```
 
-**Required**: `configKey`, `category` (`"meme"` | `"idea"` | `"startup"` — must be in the config's `categories`), `name`, `symbol`, `description`, `payerPublicKey`, and exactly one of `image` / `imageUrl`. (**v1 compatibility**: omitting `configKey`/`category` selects the v1 default — the production memecoin config `61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv` and category `"meme"`. Always send both in v2.)
+**Required**: `configKey`, `category` (`"meme"` | `"idea"` | `"startup"` — must be in the config's `categories`), `name`, `symbol`, `description`, `payerPublicKey`, and exactly one of `image` / `imageUrl`.
 
 - `name`: ≥3 characters, ≤32 UTF-8 bytes. `symbol`: ≤10 UTF-8 bytes (leading `$`/whitespace stripped, uppercased). `description`: required, ≤2000 characters.
 - `image`: base64 PNG/JPEG/GIF/WEBP, ≤10 MB; an RFC-2397 `data:<mime>;base64,…` URL is accepted when the declared type matches the bytes.
@@ -193,7 +192,7 @@ Uploads image + metadata through the backend proxy and builds the launch transac
 - `ideaFunding` — **idea launches only**. `{ mode, address?, handle?, redditUserId? }`. Modes come from the backend's launch-enabled registry (`managed` and `realms` are never selectable; typically `direct`, `tbd`, `x`, `reddit`): `direct` takes `address` — an **on-curve** Solana address (no PDAs) that becomes the coin's entitled signer; `x` takes `handle`; `reddit` takes `handle` + `redditUserId`, or just `handle` and the service resolves the `t2_` id.
 - **Idea extras** — required: `problem` (the use-case statement), `useCases` (1–3 slugs from the idea catalog: climate, education, inclusion, local, depin, desci, public-goods, infrastructure, payments, governance, social, art, gaming, defi, privacy, identity, health, energy, food, housing, mobility, other), `prototype` (URL). Optional: `whitepaper` (URI).
 - **Startup extras** — required: `problem` (the pitch), `useCases` (1–3 slugs from the startup catalog: saas, consumer, fintech, ai, infrastructure, defi, payments, depin, gaming, rwa, social, data, creator, climate, education, health, security, wallet, marketplace, media, stablecoins, other), `deck` (URL). Optional: `whitepaper` (recorded as roadmap), plus the compliance fields `legalFramework`, `legalFrameworkNote`, `tokenUtility`, `decentralizationEfforts`, `entityJurisdiction` — recorded only when `startupComplianceAcknowledged: true`.
-- `firstBuyAtoms` **or** `firstBuyAmount` — optional creator first buy, only on `supportsFirstBuy` configs. `firstBuyAtoms` is a bare integer string of raw **quote** atoms; `firstBuyAmount` is display units converted with the config's `quote.decimals` + `quote.scaledUiAmountMultiplier` (fraction digits beyond `quote.decimals` are rejected). The converted atom count must fit a u64 (`≤ 18446744073709551615`) — larger requests are a `400`. `0`/omitted = no first buy. (`buyAmountSol`, the v1 field, is a SOL display amount accepted only on wrapped-SOL-quoted configs — on any other quote mint a nonzero value is rejected before any upload with `400 { error: "unsupported_buyAmountSol", quoteMint, quoteSymbol, migrateTo: ["firstBuyAtoms", "firstBuyAmount"] }` naming the config's quote asset.)
+- `firstBuyAtoms` **or** `firstBuyAmount` — optional creator first buy, only on `supportsFirstBuy` configs. `firstBuyAtoms` is a bare integer string of raw **quote** atoms; `firstBuyAmount` is display units converted with the config's `quote.decimals` + `quote.scaledUiAmountMultiplier` (fraction digits beyond `quote.decimals` are rejected). The converted atom count must fit a u64 (`≤ 18446744073709551615`) — larger requests are a `400`. `0`/omitted = no first buy.
 - `mintPublicKey` — optional. The public key of a mint keypair **you** generated (for example a vanity address from `solana-keygen grind`); only the public key is sent, the secret never leaves you. It must be an on-curve key (not a PDA), differ from `payerPublicKey`, and have no on-chain account yet — otherwise `409 { error: "mint_already_exists", mintAddress }` before any upload. The transaction then comes back with **no** signatures: sign with the mint keypair **and** the payer. Omit it and the service generates the mint keypair and applies its signature. Because a mint can be created only once, rebuilding with the same `mintPublicKey` can never launch a second coin.
 - `firstBuySlippageBps` — optional, 0–1000, default 50; only meaningful with a first buy. The service quotes the buy against the pool's opening curve and writes `minimumAmountOut = floor(output × (10000 − bps) / 10000)` into the transaction — the floor is never zero. Above 1000 needs `"allowHighSlippage": true` (cap 5000); over the cap is `400 { "error": "slippage_too_high", "maxSlippageBps": … }` — same rule as the trade endpoints. A buy the opening curve cannot fill fails the build with an error rather than shipping a transaction that would revert.
 

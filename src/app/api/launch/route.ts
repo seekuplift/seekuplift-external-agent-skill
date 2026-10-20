@@ -13,11 +13,9 @@ export const dynamic = 'force-dynamic'
  * launch transaction on an agent-chosen config from `GET /api/configs`.
  *
  * Body (JSON):
- *   configKey       required in v2 — a live config key from GET /api/configs;
- *                   omitted falls back to the v1 default (the production
- *                   memecoin config, DEFAULT_DBC_CONFIG_KEY)
- *   category        required in v2 — "meme" | "idea" | "startup"; the config
- *                   must be offered for it; omitted → "meme" (v1 default)
+ *   configKey       required — a live config key from GET /api/configs
+ *   category        required — "meme" | "idea" | "startup"; the config
+ *                   must be offered for it
  *   name/symbol/description  required — app identity limits apply
  *   image | imageUrl  required (exactly one) — `image`: base64 bytes
  *                   (optionally a data: URL); `imageUrl`: a public http(s)
@@ -42,11 +40,6 @@ export const dynamic = 'force-dynamic'
  *   firstBuySlippageBps — optional (default 50): slippage on the first
  *                   buy's quoted output floor; same cap as the trade
  *                   endpoints (0–1000, 5000 with allowHighSlippage: true)
- *   buyAmountSol    v1 contract's first-buy field — a SOL display amount;
- *                   only spendable on a wrapped-SOL-quoted config. On any
- *                   other quote mint a nonzero amount is rejected BEFORE
- *                   any upload with `unsupported_buyAmountSol` (a migration
- *                   error pointing at firstBuyAtoms/firstBuyAmount).
  *   idea/startup extras: problem, useCases, prototype, deck, whitepaper,
  *                   links (website/twitter/telegram/discord), and the
  *                   startup compliance fields.

@@ -4,8 +4,8 @@
  * (tests/fixtures/config-record.json). No test reads a sibling repo or the
  * chain. A mismatch fails; it is never a warning.
  *
- * Compared: DEFAULT_DBC_CONFIG_KEY, public/skill.json, public/v2/skill.json,
- * SKILL.md / SKILL.v1.md, the captured mobile-config fixture, and the static
+ * Compared: DEFAULT_DBC_CONFIG_KEY, public/skill.json,
+ * SKILL.md, the captured mobile-config fixture, and the static
  * quote-asset facts config-catalog.ts / config.ts carry (the catalog's config
  * keys themselves are served by the backend at runtime).
  */
@@ -40,7 +40,7 @@ const NON_CONFIG_ADDRESSES = new Set<string>([
   NATIVE_MINT,
   ...record.productionQuoteAllowlist.flatMap((q) => [q.mint, q.tokenProgram]),
   // Well-known Solana program ids named by the TB-S-3 review-before-signing
-  // sections (SKILL.md, SKILL.v1.md, both skill.json) — programs, not configs.
+  // sections (SKILL.md, skill.json) — programs, not configs.
   '11111111111111111111111111111111', // System Program
   'ComputeBudget111111111111111111111111111111', // Compute Budget
   'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL', // Associated Token
@@ -105,28 +105,12 @@ describe('DEFAULT_DBC_CONFIG_KEY vs record', () => {
 })
 
 describe('skill documents vs record', () => {
-  const docs = ['SKILL.md', 'SKILL.v1.md', 'public/skill.json', 'public/v2/skill.json']
+  const docs = ['SKILL.md', 'public/skill.json']
   for (const doc of docs) {
-    it(`${doc}: every named config key is a production key in the record, and the default one is named`, () => {
-      const named = namedConfigKeys(read(doc), doc)
-      assert.ok(named.size > 0, `${doc} names no config key`)
-      for (const key of named) assertProduction(key, doc)
-      // These documents describe the v1/omitted-configKey default; it must be the record default.
-      assert.ok(named.has(recordDefault[0].key), `${doc} does not name the record default ${recordDefault[0].key}`)
+    it(`${doc}: every named config key is a production key in the record`, () => {
+      for (const key of namedConfigKeys(read(doc), doc)) assertProduction(key, doc)
     })
   }
-
-  it('the skill.json v1 `poolConfig` field is the record default', () => {
-    const json = JSON.parse(read('public/skill.json')) as Record<string, unknown>
-    const found: string[] = []
-    const walk = (v: unknown) => {
-      if (typeof v === 'string' && byKey.has(v)) found.push(v)
-      else if (v && typeof v === 'object') Object.values(v).forEach(walk)
-    }
-    walk(json)
-    assert.ok(found.length > 0)
-    for (const key of found) assertProduction(key, 'public/skill.json', true)
-  })
 })
 
 describe('mobile-config fixture vs record', () => {

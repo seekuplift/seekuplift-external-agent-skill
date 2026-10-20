@@ -2,7 +2,7 @@
  * Builder-endpoint access control (TB-S-3).
  *
  * Every `/api/*` builder route calls {@link checkAgentAccess} first. Two
- * mechanisms, both documented in DEPLOY.md and the v2 contract documents:
+ * mechanisms, both documented in DEPLOY.md and the contract documents:
  *
  *   - **API keys** — a static env-held list `AGENT_API_KEYS=<id>:<secret>,…`.
  *     The caller sends the whole `id:secret` pair as `X-Api-Key`; it is

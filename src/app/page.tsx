@@ -11,20 +11,16 @@ export default function Home() {
           The API returns transactions; your agent signs and submits them.
         </p>
         <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
-          <a href="/v2/skill.md" style={{ background: 'var(--accent)', color: '#fff', padding: '0.5rem 1rem', borderRadius: 'var(--radius)', fontSize: '0.875rem', fontWeight: 600 }}>
-            SKILL.md (v2)
+          <a href="/skill.md" style={{ background: 'var(--accent)', color: '#fff', padding: '0.5rem 1rem', borderRadius: 'var(--radius)', fontSize: '0.875rem', fontWeight: 600 }}>
+            SKILL.md
           </a>
-          <a href="/v2/skill.json" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', padding: '0.5rem 1rem', borderRadius: 'var(--radius)', fontSize: '0.875rem', fontWeight: 600 }}>
-            skill.json (v2)
+          <a href="/skill.json" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', padding: '0.5rem 1rem', borderRadius: 'var(--radius)', fontSize: '0.875rem', fontWeight: 600 }}>
+            skill.json
           </a>
           <a href="/CHANGELOG.md" style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)', padding: '0.5rem 1rem', borderRadius: 'var(--radius)', fontSize: '0.875rem', fontWeight: 600 }}>
             CHANGELOG
           </a>
         </div>
-        <p style={{ color: 'var(--muted)', fontSize: '0.8rem', marginTop: '0.75rem' }}>
-          <code>/skill.md</code> and <code>/skill.json</code> keep serving the frozen v1 contract until
-          2027-01-15 (also at <code>/v1/skill.md</code>, <code>/v1/skill.json</code>) — new integrations use v2.
-        </p>
       </div>
 
       {/* How it works */}

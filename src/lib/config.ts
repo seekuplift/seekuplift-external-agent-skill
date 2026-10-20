@@ -1,12 +1,11 @@
 // Meteora DBC constants — mainnet only
 
 /**
- * The production-indexed pool config — the launch default when a (v1-shaped)
- * request omits `configKey`, and the key the pools filter's catalog always
- * serves. `4w9Rs2ew…` (the April 2026 default) is NOT indexed by the
+ * The production-indexed pool config — the key the pools filter's catalog
+ * always serves. `4w9Rs2ew…` (the April 2026 default) is NOT indexed by the
  * production backend: coins launched on it never appear in the app.
- * Both contract documents (SKILL.v1.md, public/skill.json) name this value —
- * tests/skill-docs.test.ts pins them to this one source constant.
+ * public/skill.json names this value —
+ * tests/skill-docs.test.ts pins it to this one source constant.
  */
 export const DEFAULT_DBC_CONFIG_KEY = '61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv'
 export const DBC_PROGRAM_ID = 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN'
@@ -16,13 +15,6 @@ export const KNOWN_MINTS: Record<string, { symbol: string; decimals: number }> =
   [NATIVE_MINT]: { symbol: 'SOL', decimals: 9 },
   EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: { symbol: 'USDC', decimals: 6 },
 }
-
-/**
- * The frozen v1 contract (`/skill.md`, `/skill.json`, `/v1/*`) is served
- * until this date, then retired — the date is stated in both versions' docs
- * and CHANGELOG.md; tests pin them to this constant.
- */
-export const V1_CONTRACT_SUNSET = '2027-01-15'
 
 /** Default slippage ceiling (10%) for the trade endpoints and the launch first buy. */
 export const MAX_SLIPPAGE_BPS = 1_000

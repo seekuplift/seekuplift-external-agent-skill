@@ -1,16 +1,15 @@
 /**
  * DD-S-1 skill-document agreement tests.
  *
- * The public contract ships as two documents per version — SKILL.*.md and
+ * The public contract ships as two documents — SKILL.md and
  * skill.json — hand-maintained in parallel. This file pins them to each
  * other and to the one source constant for the production config:
  *
  *   - every endpoint, field name and fee claim in skill.json appears in the
- *     matching SKILL.*.md (and every capability endpoint the markdown
+ *     SKILL.md (and every capability endpoint the markdown
  *     documents is a json capability endpoint);
- *   - the default config key, the pools filter's served keys and the
- *     documents all name DEFAULT_DBC_CONFIG_KEY;
- *   - the v1 sunset date is stated in both versions' docs + the changelog.
+ *   - the pools filter's served keys include DEFAULT_DBC_CONFIG_KEY;
+ *   - the documents declare contract version 1.0.0 at the unversioned paths.
  *
  * Run with: `node --test tests/` (or `npm test`)
  */
@@ -19,7 +18,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { describe, it } from 'node:test'
-import { DEFAULT_DBC_CONFIG_KEY, V1_CONTRACT_SUNSET } from '../src/lib/config.ts'
+import { DEFAULT_DBC_CONFIG_KEY } from '../src/lib/config.ts'
 import { catalogConfigKeys } from '../src/lib/pools.ts'
 import { parseLaunchConfigOptions } from '../src/lib/config-catalog.ts'
 import { mobileConfigFixture } from './helpers.ts'
@@ -29,10 +28,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8')
 const readJson = (rel: string) => JSON.parse(read(rel))
 
-const V1_MD = () => read('SKILL.v1.md')
-const V2_MD = () => read('SKILL.md')
-const V1_JSON = () => readJson('public/skill.json')
-const V2_JSON = () => readJson('public/v2/skill.json')
+const MD = () => read('SKILL.md')
+const JSON_DOC = () => readJson('public/skill.json')
 const CHANGELOG = () => read('CHANGELOG.md')
 
 /** Expand "a.{b,c}" groups and "x|y" alternatives into bare field names. */
@@ -149,13 +146,9 @@ function assertJsonCoveredByMd(json: Record<string, unknown>, md: string, label:
   }
 }
 
-describe('skill.json ↔ SKILL.md agreement (each version)', () => {
-  it('v1: every endpoint, field and fee claim agrees', () => {
-    assertJsonCoveredByMd(V1_JSON(), V1_MD(), 'v1')
-  })
-
-  it('v2: every endpoint, field and fee claim agrees', () => {
-    assertJsonCoveredByMd(V2_JSON(), V2_MD(), 'v2')
+describe('skill.json ↔ SKILL.md agreement', () => {
+  it('every endpoint, field and fee claim agrees', () => {
+    assertJsonCoveredByMd(JSON_DOC(), MD(), 'skill')
   })
 })
 
@@ -164,55 +157,21 @@ describe('the prod-indexed config key — one source constant', () => {
     assert.equal(DEFAULT_DBC_CONFIG_KEY, '61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv')
   })
 
-  it('both v1 skill documents name it (poolConfig / Pool Config)', () => {
-    assert.equal(V1_JSON().poolConfig, DEFAULT_DBC_CONFIG_KEY)
-    assert.ok(V1_MD().includes(DEFAULT_DBC_CONFIG_KEY))
-  })
-
-  it('the v2 documents name it as the v1-launch default', () => {
-    assert.ok(V2_MD().includes(DEFAULT_DBC_CONFIG_KEY))
-    assert.ok(JSON.stringify(V2_JSON()).includes(DEFAULT_DBC_CONFIG_KEY))
-  })
-
   it('the pools filter serves it (catalog keys from the recorded mobile-config)', () => {
     const keys = catalogConfigKeys(parseLaunchConfigOptions(mobileConfigFixture()))
     assert.ok(keys.includes(DEFAULT_DBC_CONFIG_KEY), `pools filter keys ${keys} miss the default`)
   })
 })
 
-describe('versioning + sunset', () => {
-  it('the sunset date is stated in both versions of both documents and the changelog', () => {
-    for (const [label, text] of [
-      ['v1 md', V1_MD()],
-      ['v2 md', V2_MD()],
-      ['v1 json', JSON.stringify(V1_JSON())],
-      ['v2 json', JSON.stringify(V2_JSON())],
-      ['CHANGELOG', CHANGELOG()],
-    ] as const) {
-      assert.ok(text.includes(V1_CONTRACT_SUNSET), `${label} does not state the ${V1_CONTRACT_SUNSET} sunset`)
-    }
-  })
-
-  it('v1 docs declare version 1.x + the v2 pointer; v2 docs declare 2.x + the v1 paths', () => {
-    const v1 = V1_JSON()
-    assert.match(v1.version, /^1\./)
-    assert.equal(v1.status, 'deprecated')
-    assert.equal(v1.sunset, V1_CONTRACT_SUNSET)
-    assert.equal(v1.successor.json, '/v2/skill.json')
-    const v2 = V2_JSON()
-    assert.match(v2.version, /^2\./)
-    assert.equal(v2.docs.markdown, '/v2/skill.md')
-    assert.equal(v2.docs.v1.sunset, V1_CONTRACT_SUNSET)
-    assert.equal(v2.docs.v1.markdown, '/skill.md')
-    assert.ok(V1_MD().includes('/v2/skill.md'), 'v1 md does not point at v2')
-    assert.ok(V2_MD().includes('/skill.md'), 'v2 md does not name the v1 path')
-  })
-
-  it('the changelog lists the v1↔v2 field differences', () => {
-    const changelog = CHANGELOG()
-    for (const token of ['buyAmountSol', 'firstBuyAtoms', 'configKey', 'category', 'unsupported_buyAmountSol', DEFAULT_DBC_CONFIG_KEY]) {
-      assert.ok(changelog.includes(token), `CHANGELOG.md does not mention ${token}`)
-    }
+describe('versioning', () => {
+  it('the documents declare 1.0.0 at the unversioned paths and the changelog has the 1.0.0 entry', () => {
+    const json = JSON_DOC()
+    assert.equal(json.version, '1.0.0')
+    assert.equal(json.docs.markdown, '/skill.md')
+    assert.equal(json.docs.json, '/skill.json')
+    assert.equal(json.docs.changelog, '/CHANGELOG.md')
+    assert.ok(MD().includes('**Contract version**: `1.0.0`'), 'SKILL.md does not declare 1.0.0')
+    assert.match(CHANGELOG(), /^## 1\.0\.0\b/m)
   })
 })
 
@@ -228,8 +187,8 @@ const BUILDER_PROGRAM_IDS = [
 ]
 
 describe('TB-S-3: signing review + auth in the contract documents', () => {
-  it('SKILL.md (v2) carries the review-before-signing section with every program id', () => {
-    const md = V2_MD()
+  it('SKILL.md carries the review-before-signing section with every program id', () => {
+    const md = MD()
     assert.match(md, /Review before signing/)
     assert.match(md, /simulateTransaction\(tx, \{ sigVerify: false \}\)/)
     assert.match(md, /tx\.feePayer/)
@@ -238,8 +197,8 @@ describe('TB-S-3: signing review + auth in the contract documents', () => {
     }
   })
 
-  it('public/v2/skill.json carries the same review instructions and program ids', () => {
-    const json = JSON.stringify(V2_JSON())
+  it('public/skill.json carries the same review instructions and program ids', () => {
+    const json = JSON.stringify(JSON_DOC())
     assert.ok(json.includes('reviewBeforeSigning'))
     assert.ok(json.includes('sigVerify'))
     assert.ok(json.includes('feePayer'))
@@ -248,23 +207,14 @@ describe('TB-S-3: signing review + auth in the contract documents', () => {
     }
   })
 
-  it('both v2 documents state the API-key requirement and pinned https origin', () => {
-    const md = V2_MD()
-    const json = JSON.stringify(V2_JSON())
+  it('both documents state the API-key requirement and pinned https origin', () => {
+    const md = MD()
+    const json = JSON.stringify(JSON_DOC())
     for (const text of [md, json]) {
       assert.ok(text.includes('X-Api-Key'), 'missing X-Api-Key')
       assert.ok(text.includes('unauthorized'), 'missing the 401 shape')
       assert.ok(text.includes('rate_limited'), 'missing the 429 shape')
       assert.ok(text.includes('https://skill.seekuplift.com'), 'missing the pinned origin')
-    }
-  })
-
-  it('the frozen v1 documents carry the same service-level changes (unversioned endpoints)', () => {
-    const md = V1_MD()
-    const json = JSON.stringify(V1_JSON())
-    for (const text of [md, json]) {
-      assert.ok(text.includes('X-Api-Key'), 'v1 doc does not state the key requirement')
-      assert.ok(text.includes('min_out_below_floor'), 'v1 doc does not state the floor')
     }
   })
 })

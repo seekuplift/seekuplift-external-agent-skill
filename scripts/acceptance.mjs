@@ -684,13 +684,11 @@ function assertMovedAsQuoted(delta, quote, side) {
 const KNOWN_CAPABILITIES = ['list_configs', 'launch_token', 'trade_quote', 'trade_tx', 'list_pools', 'claim_fees']
 
 async function stepDocs() {
-  // The run drives the CURRENT (v2) contract — the unversioned paths serve
-  // the frozen v1 document until its sunset.
-  const md = await apiFetch('/v2/skill.md')
-  if (md.status !== 200) throw fail(`/v2/skill.md returned ${md.status}`)
-  if (!md.text.includes('list_configs')) throw fail('/v2/skill.md does not look like the v2 skill document')
-  const js = await apiFetch('/v2/skill.json')
-  if (js.status !== 200 || !js.json) throw fail(`/v2/skill.json returned ${js.status} or non-JSON`)
+  const md = await apiFetch('/skill.md')
+  if (md.status !== 200) throw fail(`/skill.md returned ${md.status}`)
+  if (!md.text.includes('list_configs')) throw fail('/skill.md does not look like the skill document')
+  const js = await apiFetch('/skill.json')
+  if (js.status !== 200 || !js.json) throw fail(`/skill.json returned ${js.status} or non-JSON`)
   const jsonCaps = (js.json.capabilities ?? []).map((c) => c?.id).filter(Boolean)
   // SKILL.md lists capabilities as "### N. `id` — METHOD /path" headings.
   const mdCaps = [...md.text.matchAll(/^###\s+\d+\.\s+`([a-z_]+)`/gm)].map((m) => m[1])

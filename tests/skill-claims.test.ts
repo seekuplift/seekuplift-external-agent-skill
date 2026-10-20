@@ -2,8 +2,7 @@
  * TB-S-4: the skill documents claim only what the on-chain config supports.
  *
  * Every fee, routing and audit claim in the published documents —
- * SKILL.v1.md + public/skill.json (v1) and SKILL.md + public/v2/skill.json
- * (v2) — is checked against the vendored dbc-config record
+ * SKILL.md + public/skill.json — is checked against the vendored dbc-config record
  * (tests/fixtures/config-record.json, TB-D-1) and the recorded on-chain
  * pool configs (tests/fixtures/pool-config-*.getAccountInfo.json), decoded
  * by the real SDK and run through the production catalog builder
@@ -51,10 +50,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8')
 
 const DOCS = [
-  'SKILL.v1.md',
-  'public/skill.json',
   'SKILL.md',
-  'public/v2/skill.json',
+  'public/skill.json',
 ] as const
 
 const SPL_TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
@@ -278,18 +275,6 @@ describe('TB-S-4: fee, routing and audit claims are sourced or absent', () => {
       assert.ok(text.includes('allFeesToCause'), `${doc} does not name allFeesToCause`)
     })
   }
-
-  it('SKILL.v1.md + public/skill.json: the documented config is stated to route', () => {
-    for (const doc of ['SKILL.v1.md', 'public/skill.json'] as const) {
-      const text = read(doc)
-      assert.ok(text.includes(LIVE_CONFIG_KEY), `${doc} does not name the documented config`)
-      assert.match(
-        text,
-        /routes? (the platform share|to (a|the) cause)|routes to the cause/i,
-        `${doc} does not state that the documented config routes to a cause`,
-      )
-    }
-  })
 
   it('SKILL.md: the recorded production set is stated cause-capable', () => {
     assert.match(

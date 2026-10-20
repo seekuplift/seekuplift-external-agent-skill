@@ -312,7 +312,7 @@ describe('prepareClaimTx source: "position"', () => {
     assert.equal(tx.feePayer?.toBase58(), FLAT.creator)
     // Every emitted program is on the signing-review list the skill publishes.
     const documented = new Set<string>(
-      JSON.parse(readFileSync(join(FIX, '..', '..', '..', 'public', 'v2', 'skill.json'), 'utf8')).signing.programIds,
+      JSON.parse(readFileSync(join(FIX, '..', '..', '..', 'public', 'skill.json'), 'utf8')).signing.programIds,
     )
     for (const ix of tx.instructions) {
       assert.ok(documented.has(ix.programId.toBase58()), `undocumented program ${ix.programId.toBase58()}`)

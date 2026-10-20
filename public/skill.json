@@ -1,89 +1,175 @@
 {
-  "name": "meteora-launchpad",
+  "name": "seekuplift-launchpad",
   "version": "1.0.0",
-  "status": "deprecated",
-  "sunset": "2027-01-15",
-  "successor": { "version": "2.6.0", "markdown": "/v2/skill.md", "json": "/v2/skill.json", "changelog": "/CHANGELOG.md" },
-  "description": "Launch tokens and trade on Meteora Dynamic Bonding Curve (DBC) on Solana mainnet. The pool config sets the trading-fee schedule and the creator share (a percent of each trading fee); on the documented config the platform share routes to a cause — its on-chain feeClaimer is a recorded donation claim authority.",
+  "baseUrl": "https://skill.seekuplift.com",
+  "auth": {
+    "required": "every /api/* endpoint (configs, pools, quotes, all transaction builders); document routes stay public",
+    "header": "X-Api-Key",
+    "format": "<key-id>:<secret>",
+    "issuedBy": "the service operator, out of band; no issuance flow on the service",
+    "errors": {
+      "401": "{ error: \"unauthorized\" } — missing or unknown key",
+      "429": "{ error: \"rate_limited\", subject, retryAfter } + Retry-After header — per-key (60/min) or per-caller-network (240/min; IPv6 /64) service limit"
+    }
+  },
+  "description": "Launch and trade coins on SeekUplift Launchpad (Solana mainnet; pools run on Meteora's open-source Dynamic Bonding Curve program — SeekUplift is independent, not affiliated with or endorsed by Meteora). Launch options are a live catalog of on-chain pool configs (GET /api/configs) — quote asset, fee schedule, creator share and cause routing differ per config; the agent picks one per launch.",
   "docs": {
     "markdown": "/skill.md",
     "json": "/skill.json",
-    "versioned": { "markdown": "/v1/skill.md", "json": "/v1/skill.json" }
+    "changelog": "/CHANGELOG.md"
   },
   "network": "solana-mainnet",
   "program": "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
-  "poolConfig": "61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv",
   "capabilities": [
     {
+      "id": "list_configs",
+      "description": "List the live launch config catalog for THIS caller (per-caller geo verdict included; never cached). Pick a configKey per launch.",
+      "endpoint": { "method": "GET", "path": "/api/configs" },
+      "returns": ["configs"],
+      "configEntryFields": [
+        "configKey", "optionId", "categories",
+        "quote.{mint,symbol,decimals,tokenProgram,issuer,firstBuyDefault,scaledUiAmountMultiplier}",
+        "fees.{label,details,curve,postGraduation,creatorSharePct,allFeesToCause}",
+        "fees.curve.{kind,openingBps,floorBps,decay,decayPeriods,decayPeriodLength,decayUnit,decaySecondsEstimate,dynamic}",
+        "fees.postGraduation.{kind,startBps,floorBps,decay}",
+        "supportsCause", "supportsFirstBuy", "poolCreationFeeLamports",
+        "migrationQuoteThreshold", "isStock", "defaultFor",
+        "geo.{allowed,reason,region,byCategory}", "decodeError"
+      ],
+      "choosing": "Memecoins: the entry marked defaultFor:[\"meme\"] (creator-fee config); an allFeesToCause config only when the user explicitly asks. If no config has defaultFor:[\"meme\"] or it is geo-unavailable for the caller, pick another meme option with creatorSharePct > 0; never fall back to an allFeesToCause config unless the user explicitly asked for all fees to the cause; if none exists, tell the user. Match category to the launch. Fee data (including any anti-sniper opening fee: curve.kind=decay, openingBps decaying to floorBps over decaySecondsEstimate) is for the agent's own decisions; Meteora takes 20% of every trading fee first. Read figures from the catalog, never from the docs. Cause routing, plainly: supportsCause:true means the config's on-chain feeClaimer is a recorded donation claim authority — the platform share of trading fees routes to the launch's donation pick (required on meme launches while causes are offered); supportsCause:false means the config does not route to a cause; allFeesToCause:true means every non-protocol fee goes to the cause (creator share 0). On the recorded production set every config is cause-capable with allFeesToCause:false — a creator share of 16% of the trading fee — but read the live entry, not this note."
+    },
+    {
       "id": "launch_token",
-      "description": "Upload metadata through the backend upload proxy (IPFS-pinned) and create a new token on the bonding curve.",
-      "endpoint": {
-        "method": "POST",
-        "path": "/api/launch"
-      },
-      "requiredFields": ["name", "symbol", "description", "imageUrl", "payerPublicKey"],
-      "optionalFields": ["buyAmountSol"],
+      "description": "Upload image + metadata through the backend proxy and build the mint-partial-signed launch transaction on a chosen catalog config.",
+      "endpoint": { "method": "POST", "path": "/api/launch" },
+      "requiredFields": ["configKey", "category", "name", "symbol", "description", "payerPublicKey", "image|imageUrl"],
+      "optionalFields": [
+        "mintPublicKey", "donation", "ideaFunding", "firstBuyAtoms|firstBuyAmount",
+        "firstBuySlippageBps", "allowHighSlippage",
+        "website", "twitter", "telegram", "discord",
+        "problem", "useCases", "whitepaper", "prototype", "deck",
+        "legalFramework", "legalFrameworkNote", "tokenUtility",
+        "decentralizationEfforts", "entityJurisdiction", "startupComplianceAcknowledged"
+      ],
       "fieldNotes": {
-        "buyAmountSol": "v1 first-buy field: a SOL display amount (0.001 = 0.001 SOL). Only spendable on a wrapped-SOL-quoted config — the default poolConfig is SKR-quoted, so a nonzero buyAmountSol returns 400 { error: \"unsupported_buyAmountSol\", quoteMint, quoteSymbol, migrateTo: [\"firstBuyAtoms\", \"firstBuyAmount\"], docs: \"/v2/skill.md\" } before any upload. Migrate to v2's firstBuyAtoms/firstBuyAmount; 0 or omitted = no first buy."
+        "category": "meme | idea | startup — must be in the config's categories",
+        "mintPublicKey": "optional — public key of a mint keypair you generated (e.g. a vanity address); on-curve, not the payer, no on-chain account yet (else 409 { error: \"mint_already_exists\", mintAddress }). The transaction then has no signatures: sign with the mint keypair AND the payer. Omitted = the service generates and signs the mint. A mint can be created only once, so a rebuild with the same mintPublicKey can never launch a second coin",
+        "image": "base64 PNG/JPEG/GIF/WEBP <=10MB (data: URL accepted); exactly one of image/imageUrl",
+        "imageUrl": "public http(s) only, fetched through an SSRF guard (private/loopback/link-local/CGNAT refused, redirects vetted per hop, <=3 hops, 10MB cap)",
+        "donation": "meme only, supportsCause configs only, required while causes are offered: {mode, cause?, project?, handle?, redditUserId?} — modes from the backend launch-enabled registry (managed|cause|project|tbd|x|reddit)",
+        "ideaFunding": "idea only: {mode, address?, handle?, redditUserId?} — typically direct|tbd|x|reddit; direct address must be on-curve",
+        "idea": "problem + useCases(1-3) + prototype required",
+        "startup": "problem + useCases(1-3) + deck required; compliance fields recorded only when startupComplianceAcknowledged=true",
+        "firstBuy": "only on supportsFirstBuy configs; firstBuyAtoms = raw quote-atom string, firstBuyAmount = display units (converted via quote.decimals + scaledUiAmountMultiplier — never assume 1e9; fraction digits beyond quote.decimals rejected; converted atoms must fit a u64 — max 18446744073709551615). The first-buy output floor is quoted against the pool's opening curve at firstBuySlippageBps (0-1000, default 50; up to 5000 with allowHighSlippage: true) — the floor is never zero; over the cap is 400 { error: \"slippage_too_high\", maxSlippageBps }"
       },
-      "returns": ["transaction", "mintAddress", "metadataUrl", "imageUrl", "quoteMint", "quoteSymbol", "quoteDecimals", "lastValidBlockHeight"]
+      "returns": ["transaction", "mintAddress", "poolAddress", "metadataUrl", "imageUrl", "configKey", "category", "quoteMint", "quoteSymbol", "quoteDecimals", "firstBuyAtoms", "lastValidBlockHeight", "note"]
     },
     {
       "id": "trade_quote",
-      "description": "Get an off-chain swap quote from the bonding curve.",
-      "endpoint": {
-        "method": "POST",
-        "path": "/api/trade/quote"
-      },
+      "description": "Get an off-chain swap quote from the bonding curve (partial-fill buys, transfer-fee net outputs).",
+      "endpoint": { "method": "POST", "path": "/api/trade/quote" },
       "requiredFields": ["poolAddress", "side", "amountIn"],
-      "optionalFields": ["slippageBps"],
+      "optionalFields": ["slippageBps", "allowHighSlippage"],
       "sideValues": ["buy", "sell"],
-      "returns": ["amountOut", "minimumAmountOut", "poolInfo"]
+      "fieldNotes": {
+        "amountIn": "base-10 atom string; buy = quote atoms, sell = base atoms — use poolInfo decimals, never assume SOL/1e9",
+        "slippageBps": "0-1000, default 50; up to 5000 with allowHighSlippage: true; above the cap is 400 { error: \"slippage_too_high\", maxSlippageBps }",
+        "allowHighSlippage": "optional boolean; raises the slippageBps cap from 1000 to 5000 — the floor is never zero"
+      },
+      "returns": ["amountOut", "minimumAmountOut", "baseTransferFeeAtomics", "consumedInput", "amountLeft", "amountIn", "slippageBps", "poolInfo"],
+      "poolInfoFields": ["poolAddress", "configKey", "baseMint", "baseDecimals", "quoteMint", "quoteDecimals", "quoteSymbol", "quoteScaledUiAmount", "isQuoteSol", "baseTransferFee", "migrationState", "isCompleted"]
     },
     {
       "id": "trade_tx",
-      "description": "Build an unsigned swap transaction for the bonding curve.",
-      "endpoint": {
-        "method": "POST",
-        "path": "/api/trade/tx"
-      },
-      "requiredFields": ["poolAddress", "side", "amountIn", "minimumAmountOut", "ownerPublicKey"],
+      "description": "Build the unsigned swap transaction for the bonding curve. The output floor is always recomputed from a fresh quote at slippageBps; minimumAmountOut may only tighten it.",
+      "endpoint": { "method": "POST", "path": "/api/trade/tx" },
+      "requiredFields": ["poolAddress", "ownerPublicKey", "side", "amountIn"],
+      "optionalFields": ["minimumAmountOut", "slippageBps", "allowHighSlippage"],
       "sideValues": ["buy", "sell"],
-      "returns": ["transaction", "lastValidBlockHeight"]
+      "fieldNotes": {
+        "amountIn": "base-10 atom string, <= 18446744073709551615 (u64 max)",
+        "minimumAmountOut": "may only TIGHTEN the recomputed floor (fresh quote at slippageBps); a looser value — including \"0\" — is 400 { error: \"min_out_below_floor\", minimumAmountOutFloor }; pass the quote's value or omit",
+        "slippageBps": "0-1000, default 50; up to 5000 with allowHighSlippage: true; above the cap is 400 { error: \"slippage_too_high\", maxSlippageBps }",
+        "allowHighSlippage": "optional boolean; raises the slippageBps cap from 1000 to 5000 — the floor is never zero",
+        "quote": "always populated — the fresh quote the floor was computed from"
+      },
+      "returns": ["transaction", "amountIn", "minimumAmountOut", "quote", "poolInfo", "lastValidBlockHeight"]
     },
     {
       "id": "list_pools",
-      "description": "List or search tokens launched on this launchpad.",
-      "endpoint": {
-        "method": "GET",
-        "path": "/api/pools"
+      "description": "List or search coins launched on any catalog config.",
+      "endpoint": { "method": "GET", "path": "/api/pools" },
+      "queryParams": {
+        "search": "name/symbol/mint (search mode; list params not forwarded — an invalid value still returns 400; nextCursor null)",
+        "limit": "1-100, default 20; a maximum — pages may hold fewer, keep paging while nextCursor is non-null",
+        "cursor": "nextCursor from a previous list response",
+        "tab": "emerging | graduated",
+        "category": "meme | idea | startup",
+        "lifecycle": "new",
+        "sortBy": "createdAt | createdAtAsc | volume24h | marketCap"
       },
-      "queryParams": ["search", "limit"],
-      "returns": ["pools"]
+      "returns": ["pools", "nextCursor"],
+      "poolFields": ["id", "name", "symbol", "baseMint", "icon", "description", "launchType", "price", "nativePrice", "quoteMint", "quoteSymbol", "priceChange24h", "marketCap", "volume24h", "graduated", "graduatedAt", "bondingCurve", "configKey", "createdAt"]
+    },
+    {
+      "id": "claim_fees",
+      "description": "Build the unsigned creator-fee claim for a coin the wallet launched: the bonding-curve creator fees by default (works after migration too) and, with source \"position\", the post-graduation position fees in the migrated DAMM v2 pool where the coin's launch setup gives the creator a position. One transaction per call; full claimable amounts of the requested source. Signed by the launch payer.",
+      "endpoint": { "method": "POST", "path": "/api/claim/tx" },
+      "requiredFields": ["poolAddress", "creatorPublicKey"],
+      "optionalFields": ["source"],
+      "fieldNotes": { "source": "curve | position, default curve. position = post-graduation DAMM v2 position fees (only where the coin's launch setup gives the creator a position); one transaction per call, so claim both sources with two calls" },
+      "returns": ["transaction", "claimable", "poolInfo", "lastValidBlockHeight"],
+      "returnsWhenPosition": ["source", "dammPool", "positions"],
+      "errors": { "400": "invalid body | invalid source", "403": "not_creator | config_not_served", "404": "pool_not_found | damm_pool_not_found (position)", "409": "no_claimable_fees (requested source empty; position adds reason: no_creator_share | no_position_held | no_fees_accrued) | pool_not_migrated | damm_pool_mismatch", "422": "unmapped_migration_fee_option | not_damm_v2_migration (position)" }
     }
   ],
   "transactionFormat": "base64-encoded legacy Solana Transaction",
-  "submitTo": "https://api.mainnet-beta.solana.com",
-  "serviceChangesSinceFreeze": {
-    "auth": "every /api/* endpoint requires X-Api-Key: <key-id>:<secret> (operator-issued, out of band) — 401 { error: \"unauthorized\" } without it; per-key (60/min) and per-caller-network (240/min, IPv6 /64) limits — 429 { error: \"rate_limited\", retryAfter }",
-    "minimumAmountOut": "/api/trade/tx always recomputes the floor from a fresh quote at slippageBps; a supplied value may only tighten — \"0\" or below-floor is 400 { error: \"min_out_below_floor\", minimumAmountOutFloor }",
-    "slippageBps": "capped at 1000 on /api/trade/quote and /api/trade/tx (5000 with allowHighSlippage: true); above the cap is 400 { error: \"slippage_too_high\", maxSlippageBps }",
-    "donation": "the documented config is cause-capable, so a meme /api/launch (v1-shaped calls included) must carry the v2 donation pick while /api/causes offers causes — omitting it is 400 { error: \"donation_required\", causesOffered } before any upload",
-    "firstBuyFloor": "a creator first buy (v1: buyAmountSol on a wrapped-SOL-quoted config) now carries a real output floor — the service quotes the buy against the pool's opening curve and writes minimumAmountOut = floor(output × (10000 − firstBuySlippageBps) / 10000); optional firstBuySlippageBps is 0-1000, default 50 (5000 with allowHighSlippage: true)",
-    "reviewBeforeSigning": "decode the transaction; every instruction's programId must be one of dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN, 11111111111111111111111111111111, ComputeBudget111111111111111111111111111111, TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA, TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb, ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL; tx.feePayer must be your own key; simulate with sigVerify:false before signing"
+  "signing": {
+    "launch": "mint keypair already partially signed — add only the payer signature (tx.partialSign); with mintPublicKey nothing is pre-signed — tx.partialSign(mintKeypair, payerKeypair)",
+    "trade": "unsigned — ownerPublicKey signs and pays fees",
+    "reviewBeforeSigning": "REQUIRED — never sign blind. Decode the base64 legacy Transaction and verify: (1) every instruction's programId is one of programIds below — anything else means the response did not come from this service's builders, do not sign; (2) tx.feePayer is exactly the wallet key you sent (payerPublicKey on launch, ownerPublicKey on trade, creatorPublicKey on claim); (3) a launch carries only the mint keypair's partial signature (none when you sent mintPublicKey), trade/claim carry none; (4) simulate before signing — connection.simulateTransaction(tx, { sigVerify: false }) must return err: null. Then sign and submit per submitProtocol.",
+    "programIds": [
+      "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
+      "cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG",
+      "11111111111111111111111111111111",
+      "ComputeBudget111111111111111111111111111111",
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+    ],
+    "beforeSigning": "Show the user the spend and confirm: the amount and the quote asset it is denominated in (a trade's amountIn vs poolInfo.quoteSymbol/quoteMint; a launch's firstBuyAtoms vs quoteMint) — the same amounts the response returns.",
+    "expiry": "blockhash set at build time — sign and submit within ~90 seconds or the transaction expires; launch/trade/claim build responses carry lastValidBlockHeight (optional), the block height the tx can no longer land past, from the same getLatestBlockhash read",
+    "submitProtocol": "Prove the last send before any rebuild, in order: 1) before broadcasting persist the signature (on a launch the response's mintAddress too); 2) after broadcasting poll the signature status with transaction-history search (getSignatureStatuses([sig], { searchTransactionHistory: true })); 3) finalized success → done — on a launch reuse the recorded mintAddress, never relaunch; 4) finalized failure → landed and failed, a rebuild is safe; 5) absent status is 'not landed yet' only once a finalized getBlockHeight exceeds the response's lastValidBlockHeight AND one more history search after that read still finds nothing, in that order; 6) an RPC error at any step leaves the outcome unknown. Without a lastValidBlockHeight (older cached docs, or a response that lacks it) the outcome cannot be proven — do not rebuild automatically: report the signature to the user and wait. A launch rebuild creates a new mint and pool and spends the creation fee plus any first buy again — a rebuild after an unknown outcome is a duplicate-token hazard."
   },
-  "whyUseThis": {
-    "meaningful": "The documented config's on-chain feeClaimer is a recorded donation claim authority, so the platform share of trading fees routes to the cause a meme launch picks via the v2 donation field. Cause routing applies only on configs whose feeClaimer is a recorded donation claim authority — the v2 catalog reports supportsCause (cause-capable) and fees.allFeesToCause (creator share 0) per config; every production config in the recorded set shares that authority and routes, a config whose claimer is not recorded does not route.",
-    "rewarding": "The documented config's creatorTradingFeePercentage is 16: the creator earns 16% of each trading fee — a share of the fee, not of trade volume — claimable by the launch payer wallet.",
-    "secure": "Built on Meteora's Dynamic Bonding Curve program; transactions are returned unsigned — the agent signs with its own key and the service never holds funds.",
-    "seekerFriendly": "Designed for self-custodied Seeker wallets; supports SKR."
+  "submitTo": "https://api.mainnet-beta.solana.com",
+  "geo": {
+    "basis": "resolved from the caller's forwarded IP per request; best effort, fails open",
+    "create": "idea -> idea.create, startup -> startup.create, meme -> cause.marketing + donation-claim hidden key, and refused in every beta-gated jurisdiction (beta.gated), stock-quoted configs -> stock.create",
+    "trade": "idea/startup coins -> <category>.trade, stock-quoted coins -> stock.trade; memecoin trading never gated",
+    "errorShape": "{ error: \"geo_restricted\", region, regionName, feature, message } (HTTP 403)",
+    "onRefusal": "Tell the user the action is not currently available in their detected jurisdiction, naming it (relay message). Do not retry from the same location or work around the block."
+  },
+  "rateLimits": {
+    "service": "per API key 60/minute and per caller network 240/minute (IPv6 /64 per network) — 429 { error: \"rate_limited\", retryAfter } + Retry-After",
+    "uploads": "10 per hour per caller IP, shared by image + metadata — one launch consumes 2 (HTTP 429 when exhausted)",
+    "image": "<=10MB, PNG/JPEG/GIF/WEBP (magic-byte sniffed)"
+  },
+  "migrationStates": {
+    "curve": "tradeable via /api/trade/*",
+    "migration_pending": "409 { error: \"pool_not_tradeable\", retryable: true } — retry later, do NOT route elsewhere; no DAMM pool exists yet",
+    "migrated": "409 { retryable: false } — trade on Jupiter. Listing graduated:true covers both migration_pending and migrated; quote to tell them apart",
+    "quote_mint_transfer_fee_unsupported": "409 reason — permanently unsupported, do not retry"
   },
   "notes": [
-    "Transactions expire after ~90 seconds — sign and submit promptly. Build responses carry lastValidBlockHeight (optional): the block height the transaction can no longer land past, from the same getLatestBlockhash read as the blockhash.",
-    "Before signing, show the user the spend and confirm: the amount and the quote asset it is denominated in — on a launch, the buyAmountSol first buy (a SOL amount) too.",
-    "Submit protocol — prove the last send before any rebuild, in order: 1) before broadcasting persist the signature (on a launch the response's mintAddress too); 2) after broadcasting poll the signature status with transaction-history search (getSignatureStatuses([sig], { searchTransactionHistory: true })); 3) finalized success → done — on a launch reuse the recorded mintAddress, never relaunch; 4) finalized failure → landed and failed, a rebuild is safe; 5) absent status is 'not landed yet' only once a finalized block-height read exceeds the response's lastValidBlockHeight AND one more history search after that read still finds nothing, in that order; 6) an RPC error at any step leaves the outcome unknown. Without a lastValidBlockHeight (older cached docs, or a response that lacks it) the outcome cannot be proven — do not rebuild automatically: report the signature to the user and wait. A launch rebuild creates a new mint and pool and spends the creation fee plus any first buy again — a rebuild after an unknown outcome is a duplicate-token hazard.",
-    "Launch transactions are partially signed by the mint keypair. Add only the payer signature.",
-    "Trade transactions are unsigned. The owner must sign.",
-    "If poolInfo.isCompleted is true, the pool graduated — use Jupiter for trading."
+    "Autonomy: browse, quote, buy and sell without asking the user; no fee explanation is required. Launching a new coin is the exception: confirm the coin details with the user first, unless the user gave standing permission to create coins without asking.",
+    "Refer to the service as SeekUplift Launchpad; do not present it as a Meteora product.",
+    "Signing: launch txs are mint-signed, add the payer signature with partialSign; trade txs are unsigned, the owner signs. SKILL.md has a minimal Node sign-and-submit example.",
+    "Creator fees: only the launch payer wallet can claim the creator share; claim with POST /api/claim/tx signed by that wallet. To claim in the SeekUplift app (Account -> Rewards -> Claim) the user must connect that same wallet.",
+    "Quote a sell after the buy lands (your buy moves the price); sell amount = wallet balance of baseMint via getParsedTokenAccountsByOwner(owner, {mint}) — covers SPL Token and Token-2022.",
+    "amountOut/minimumAmountOut are NET of any Token-2022 base-mint transfer fee (baseTransferFeeAtomics reports it).",
+    "Buys are partial-fill: a threshold-crossing buy consumes only enough quote to graduate the curve and refunds the rest (consumedInput/amountLeft).",
+    "Display figures on /api/pools (price, marketCap, volume24h) are display-grade — never money-path inputs.",
+    "minimumAmountOut may only tighten the floor the service recomputes from a fresh quote — \"0\" and any value below the floor is a 400 naming minimumAmountOutFloor. Pass the quote's value or omit it.",
+    "All responses are cache-control: no-store; geo verdicts are per-caller."
   ]
 }
