@@ -105,6 +105,20 @@ describe('decodePostGradFeeShape via decodeLaunchFeeShape', () => {
     assert.equal(shape.creatorTradingFeePercentage, null)
     assert.equal(launchFeeLabel(shape), 'Custom fee')
   })
+
+  it("decodes the new tiers' exponential window (mode 1) to the tier's whole bps", () => {
+    // dbc-config antiSniperBaseFee (2026-10-20): 99% × (1 − 1963/1e4)^20 = 1.2517%,
+    // (1 − 1386/1e4)^20 → 5.0088%, (1 − 1083/1e4)^20 → 10.0002%.
+    for (const [thirdFactor, endFeeBps] of [['1963', 125], ['1386', 500], ['1083', 1000]] as const) {
+      const shape = decodeLaunchFeeShape({
+        activationType: 0,
+        poolFees: { baseFee: { cliffFeeNumerator: '990000000', firstFactor: 20, secondFactor: '75', thirdFactor, baseFeeMode: 1 } },
+      })
+      assert.deepEqual(shape.curve, {
+        kind: 'decay', startFeeBps: 9900, endFeeBps, periods: 20, periodLength: 75, periodUnit: 'slots',
+      })
+    }
+  })
 })
 
 describe('decodeMigratedPoolBaseFeeBytes', () => {

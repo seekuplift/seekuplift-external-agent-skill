@@ -352,7 +352,8 @@ export type CatalogCurveFees = {
   openingBps: number | null
   /** The fee the curve decays/settles to, in bps; null when undecoded. */
   floorBps: number | null
-  /** `time` = linear per-period decay (duration below), `none` = flat. */
+  /** `time` = per-period decay over the duration below (linear on the live
+   *  keys, exponential on the new tiers), `none` = flat. */
   decay: 'time' | 'none' | 'custom'
   /** Decay schedule: number of periods × period length, in the unit below. */
   decayPeriods: number | null

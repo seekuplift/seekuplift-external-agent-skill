@@ -12,6 +12,10 @@ import { toBigIntish, toFiniteNumber } from './dbc-shared.ts'
 
 /** DBC `poolFees.baseFee.baseFeeMode === 0` (FeeSchedulerLinear). */
 const CURVE_BASE_FEE_MODE_LINEAR = 0
+/** DBC `poolFees.baseFee.baseFeeMode === 1` (FeeSchedulerExponential) — the
+ *  new tiers' anti-sniper window (dbc-config `antiSniperBaseFee`, 2026-10-20). */
+const CURVE_BASE_FEE_MODE_EXPONENTIAL = 1
+const ONE_Q64 = 1n << 64n
 /** DAMM v2 `migratedPoolBaseFeeMode` 0 (time scheduler) + all-zero scheduler bytes = flat. */
 const MIGRATED_POOL_BASE_FEE_MODE_FLAT = 0
 /** DAMM v2 `migratedPoolBaseFeeMode` 3 = market-cap fee scheduler. */
@@ -40,7 +44,8 @@ export type CurveFeeShape =
   /** Flat BASE fee — `baseFeeMode` 0 AND every scheduler factor zero.
    *  The curve's dynamic volatility fee may still apply on top. */
   | { kind: 'flat'; feeBps: number }
-  /** Linear launch decay — cliff fee stepping down over `firstFactor` periods.
+  /** Launch decay — cliff fee stepping down over `firstFactor` periods,
+   *  linearly (mode 0) or exponentially (mode 1).
    *  `periodLength` is the scheduler's `secondFactor`, expressed in the
    *  config's `periodUnit` (`activationType` 0 → slots, 1 → seconds). */
   | {
@@ -143,7 +148,20 @@ function isZeroSchedulerParams(params: MigratedPoolBaseFeeParams): boolean {
  * only because every scheduler factor is zero. So "flat" = mode 0 AND
  * `firstFactor`/`secondFactor`/`thirdFactor` all 0; rate =
  * `cliffFeeNumerator / 1e9`. `baseFeeMode` 0 alone never means flat.
+ * `baseFeeMode` 1 (exponential) is always a decay: end numerator =
+ * cliff × (1 − reduction/1e4)^periods in Q64, as the DBC SDK computes it.
  */
+function exponentialEndNumerator(cliff: bigint, reductionBps: bigint, periods: number): bigint {
+  if (reductionBps >= 10_000n) return 0n
+  let result = ONE_Q64
+  let base = ONE_Q64 - (reductionBps << 64n) / 10_000n
+  for (let exp = BigInt(periods); exp > 0n; exp >>= 1n) {
+    if (exp & 1n) result = (result * base) >> 64n
+    base = (base * base) >> 64n
+  }
+  return (cliff * result) >> 64n
+}
+
 function decodeCurveFeeShape(baseFee: unknown, activationType: number | null): CurveFeeShape {
   if (!baseFee || typeof baseFee !== 'object') return { kind: 'custom' }
   const bf = baseFee as {
@@ -156,20 +174,26 @@ function decodeCurveFeeShape(baseFee: unknown, activationType: number | null): C
   const cliff = toBigIntish(bf.cliffFeeNumerator)
   const mode = toFiniteNumber(bf.baseFeeMode)
   if (cliff == null || cliff < 0n || mode == null) return { kind: 'custom' }
-  if (mode !== CURVE_BASE_FEE_MODE_LINEAR) return { kind: 'custom' }
+  if (mode !== CURVE_BASE_FEE_MODE_LINEAR && mode !== CURVE_BASE_FEE_MODE_EXPONENTIAL) {
+    return { kind: 'custom' }
+  }
   const firstFactor = toFiniteNumber(bf.firstFactor)
   const secondFactor = toBigIntish(bf.secondFactor)
   const thirdFactor = toBigIntish(bf.thirdFactor)
   if (firstFactor == null || secondFactor == null || thirdFactor == null) {
     return { kind: 'custom' }
   }
-  if (firstFactor === 0 && secondFactor === 0n && thirdFactor === 0n) {
+  if (mode === CURVE_BASE_FEE_MODE_LINEAR && firstFactor === 0 && secondFactor === 0n && thirdFactor === 0n) {
     return { kind: 'flat', feeBps: feeNumeratorToBps(cliff) }
   }
-  // Linear decay: fee steps down by `thirdFactor` (reductionFactor) each of
-  // `firstFactor` periods. End numerator = cliff − reduction × periods.
+  // Decay: fee steps down each of `firstFactor` periods by `thirdFactor`
+  // (reductionFactor) — linear: cliff − reduction × periods; exponential: see
+  // exponentialEndNumerator.
   if (firstFactor > 0 && thirdFactor > 0n) {
-    const endNumerator = cliff - thirdFactor * BigInt(Math.trunc(firstFactor))
+    const endNumerator =
+      mode === CURVE_BASE_FEE_MODE_EXPONENTIAL
+        ? exponentialEndNumerator(cliff, thirdFactor, Math.trunc(firstFactor))
+        : cliff - thirdFactor * BigInt(Math.trunc(firstFactor))
     return {
       kind: 'decay',
       startFeeBps: feeNumeratorToBps(cliff),
