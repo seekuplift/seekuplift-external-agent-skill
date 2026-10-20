@@ -126,7 +126,7 @@ $EDITOR /tmp/skill.env
 Generate one `<id>:<secret>` per external agent — `id` is a label (agent or
 operator name), `secret` a random token (e.g. `openssl rand -hex 32`).
 Distribute the pair out of band; agents send it as
-`X-Api-Key: <id>:<secret>` on every `/api/*` call (contract v2.4.0). Rotate
+`X-Api-Key: <id>:<secret>` on every `/api/*` call (contract v2.5.0). Rotate
 or revoke by editing the list and redeploying both hosts — revocation is a
 redeploy, there is no key store to drain. The document routes
 (`/skill.md`, `/v2/*`, `/CHANGELOG.md`) never require a key so the contract

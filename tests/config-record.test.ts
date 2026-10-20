@@ -47,6 +47,8 @@ const NON_CONFIG_ADDRESSES = new Set<string>([
   // Token-2022 is named by the review sections but is not in the record's
   // production quote allowlist (every production quote mint is SPL Token).
   'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
+  // DAMM v2 (cp-amm): emitted by `claim_fees` with `source: "position"`.
+  'cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG',
 ])
 
 /** Assert `key` is a production config in the record (the default, when `asDefault`). */

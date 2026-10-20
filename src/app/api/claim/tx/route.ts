@@ -7,6 +7,11 @@
  *   poolAddress      — required base58 DBC pool address
  *   creatorPublicKey — required base58 wallet that launched the pool (the
  *                      launch's payerPublicKey); becomes the fee payer
+ *   source           — optional "curve" (default) | "position". "curve" claims
+ *                      the DBC creator fee buckets; "position" claims the
+ *                      post-graduation fees of the creator's DAMM v2 position
+ *                      NFT(s) in the coin's migrated pool. One transaction
+ *                      per call — call twice to claim both.
  *
  * 200 response:
  *   {
@@ -14,14 +19,25 @@
  *     claimable: { quoteAtoms: string, baseAtoms: string }
  *     poolInfo: { poolAddress, configKey, baseMint, creator },
  *     lastValidBlockHeight: number // expiry bound from the tx's blockhash read
+ *     // source: "position" only: source, dammPool, positions: string[]
  *   }
+ *   claimable reports the requested source only.
  *
  * Errors:
  *   400 invalid request body       — { error: string }
  *   403 config_not_served          — { error, configKey }
  *   403 not_creator                — { error, creator }
  *   404 pool_not_found             — { error: "pool_not_found" }
- *   409 no_claimable_fees          — { error: "no_claimable_fees" }
+ *   409 no_claimable_fees          — { error } for "curve"; for "position"
+ *                                    { error, reason: "no_creator_share" |
+ *                                    "no_position_held" | "no_fees_accrued",
+ *                                    dammPool } — only when the REQUESTED
+ *                                    source is empty
+ *   409 pool_not_migrated          — position: the coin has not graduated
+ *   409 damm_pool_mismatch         — position: resolved pool's mints differ
+ *   404 damm_pool_not_found        — position: resolved pool has no account
+ *   422 unmapped_migration_fee_option / not_damm_v2_migration
+ *                                  — position: the exact pool cannot be resolved
  *   502 upstream/Solana failures   — { error: "upstream_error" }
  */
 import { NextRequest, NextResponse } from 'next/server'

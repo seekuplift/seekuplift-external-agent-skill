@@ -219,6 +219,7 @@ describe('versioning + sunset', () => {
 /** The exact program ids the builders can emit — the signing-review list. */
 const BUILDER_PROGRAM_IDS = [
   'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN',
+  'cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG',
   '11111111111111111111111111111111',
   'ComputeBudget111111111111111111111111111111',
   'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',

@@ -1,6 +1,6 @@
 {
   "name": "seekuplift-launchpad",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "status": "current",
   "baseUrl": "https://skill.seekuplift.com",
   "auth": {
@@ -115,11 +115,14 @@
     },
     {
       "id": "claim_fees",
-      "description": "Build the unsigned creator-fee claim for a coin the wallet launched (full claimable bonding-curve amounts; works after migration too, but does not claim fees earned in the graduated DAMM v2 pool). Signed by the launch payer.",
+      "description": "Build the unsigned creator-fee claim for a coin the wallet launched: the bonding-curve creator fees by default (works after migration too) and, with source \"position\", the post-graduation position fees in the migrated DAMM v2 pool where the coin's launch setup gives the creator a position. One transaction per call; full claimable amounts of the requested source. Signed by the launch payer.",
       "endpoint": { "method": "POST", "path": "/api/claim/tx" },
       "requiredFields": ["poolAddress", "creatorPublicKey"],
+      "optionalFields": ["source"],
+      "fieldNotes": { "source": "curve | position, default curve. position = post-graduation DAMM v2 position fees (only where the coin's launch setup gives the creator a position); one transaction per call, so claim both sources with two calls" },
       "returns": ["transaction", "claimable", "poolInfo", "lastValidBlockHeight"],
-      "errors": { "403": "not_creator | config_not_served", "404": "pool_not_found", "409": "no_claimable_fees" }
+      "returnsWhenPosition": ["source", "dammPool", "positions"],
+      "errors": { "400": "invalid body | invalid source", "403": "not_creator | config_not_served", "404": "pool_not_found | damm_pool_not_found (position)", "409": "no_claimable_fees (requested source empty; position adds reason: no_creator_share | no_position_held | no_fees_accrued) | pool_not_migrated | damm_pool_mismatch", "422": "unmapped_migration_fee_option | not_damm_v2_migration (position)" }
     }
   ],
   "v1Compat": {
@@ -134,6 +137,7 @@
     "reviewBeforeSigning": "REQUIRED — never sign blind. Decode the base64 legacy Transaction and verify: (1) every instruction's programId is one of programIds below — anything else means the response did not come from this service's builders, do not sign; (2) tx.feePayer is exactly the wallet key you sent (payerPublicKey on launch, ownerPublicKey on trade, creatorPublicKey on claim); (3) a launch carries only the mint keypair's partial signature, trade/claim carry none; (4) simulate before signing — connection.simulateTransaction(tx, { sigVerify: false }) must return err: null. Then sign and submit per submitProtocol.",
     "programIds": [
       "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
+      "cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG",
       "11111111111111111111111111111111",
       "ComputeBudget111111111111111111111111111111",
       "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",

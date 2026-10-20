@@ -24,10 +24,11 @@ const pkg = () => readJson('package.json')
 const lock = () => readJson('package-lock.json')
 
 describe('dependency pins (DD-S-2)', () => {
-  it('the DBC SDK, web3.js and anchor are exact-pinned to the app versions', () => {
+  it('the DBC SDK, cp-amm SDK, web3.js and anchor are exact-pinned to the app versions', () => {
     const deps = pkg().dependencies
     for (const [name, expected] of [
       ['@meteora-ag/dynamic-bonding-curve-sdk', '1.5.13'],
+      ['@meteora-ag/cp-amm-sdk', '1.5.1'],
       ['@solana/web3.js', '1.98.4'],
       ['@coral-xyz/anchor', '0.31.1'],
     ] as const) {

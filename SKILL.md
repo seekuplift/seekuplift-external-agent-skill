@@ -16,7 +16,7 @@ Launch options are served as a live catalog of on-chain pool configs (`GET /api/
 - **Network**: Solana mainnet-beta
 - **DBC program**: `dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN`
 - **Base URL**: `https://skill.seekuplift.com` — the pinned public service origin, **https only** (the document routes are also served on the host you fetched this file from, but the public contract origin is the pinned one)
-- **Contract version**: `2.4.0` — this document is served at `/v2/skill.md`, its machine-readable form at `GET /v2/skill.json`
+- **Contract version**: `2.5.0` — this document is served at `/v2/skill.md`, its machine-readable form at `GET /v2/skill.json`
 - **v1 (frozen)**: the original contract is still served at `/skill.md` + `/skill.json` (also `/v1/skill.md`, `/v1/skill.json`) **until 2027-01-15** — see `CHANGELOG.md` for the differences
 
 ## Prerequisites
@@ -357,12 +357,13 @@ GET /api/pools?search=<q>&limit=20&cursor=<cursor>&tab=emerging&category=meme&li
 
 ### 6. `claim_fees` — `POST /api/claim/tx`
 
-Builds the unsigned transaction that claims a coin's accrued bonding-curve creator fees to the creator wallet. Works on the curve and after migration, but covers only fees earned on the curve: fees earned in the graduated DAMM v2 pool are not claimed here.
+Builds the unsigned transaction that claims a coin's accrued creator fees to the creator wallet. By default it claims the bonding-curve creator fees (works on the curve and after migration). With `"source": "position"` it instead claims the post-graduation trading fees of the creator's DAMM v2 position(s) in the coin's migrated pool — available where the coin's launch setup gives the creator a position (a locked-liquidity share); coins whose setup gives the creator none have nothing to claim there. One call builds one transaction: to claim both, call twice (`curve`, then `position`) and sign each.
 
 ```json
 {
   "poolAddress": "<base58 — the launch response's poolAddress>",
-  "creatorPublicKey": "<base58 — the launch's payerPublicKey>"
+  "creatorPublicKey": "<base58 — the launch's payerPublicKey>",
+  "source": "curve | position  (optional, default \"curve\")"
 }
 ```
 
@@ -375,9 +376,9 @@ Builds the unsigned transaction that claims a coin's accrued bonding-curve creat
 }
 ```
 
-`claimable` is the full amount the transaction claims, in atoms of the pool's quote and base mints. `lastValidBlockHeight` (optional) bounds the transaction's validity — see the **submit protocol** below.
+`claimable` is the full amount the transaction claims **for the requested `source`**, in atoms of the pool's quote and base mints (for a Token-2022 transfer-fee mint the creator receives that amount net of the mint's transfer fee). A `source: "position"` response also carries `source`, `dammPool` (the exact migrated DAMM v2 pool) and `positions` (the claimed position accounts); the transaction creates any missing token accounts. `lastValidBlockHeight` (optional) bounds the transaction's validity — see the **submit protocol** below.
 
-**Errors**: `400 { error }` invalid body; `403 { error: "not_creator", creator }` the wallet did not launch this pool; `403 { error: "config_not_served", configKey }` not a SeekUplift coin on a served config — claim in the app; `404 pool_not_found`; `409 { error: "no_claimable_fees" }` nothing to claim yet; `502` upstream.
+**Errors**: `400 { error }` invalid body; `403 { error: "not_creator", creator }` the wallet did not launch this pool; `403 { error: "config_not_served", configKey }` not a SeekUplift coin on a served config — claim in the app; `404 pool_not_found`; `409 { error: "no_claimable_fees" }` nothing to claim yet **in the requested source** (for `position` it also carries `reason`: `no_creator_share` — the coin's setup gives the creator no position, `no_position_held` — the setup does, but this wallet holds none, or `no_fees_accrued`); for `position` also `409 pool_not_migrated`, `409 damm_pool_mismatch`, `404 damm_pool_not_found`, `422 unmapped_migration_fee_option | not_damm_v2_migration` (the exact pool cannot be resolved — never guessed); `502` upstream.
 
 ---
 
@@ -421,6 +422,7 @@ Never sign the returned transaction blind. Before signing, **decode it** (`Trans
 
 1. **Program ids** — every instruction's `programId` is one of the only programs this service's builders emit:
    - `dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN` — Meteora Dynamic Bonding Curve
+   - `cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG` — Meteora DAMM v2 (cp-amm; `claim_fees` with `source: "position"`)
    - `11111111111111111111111111111111` — System Program
    - `ComputeBudget111111111111111111111111111111` — Compute Budget
    - `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA` — SPL Token

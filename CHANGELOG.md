@@ -6,13 +6,31 @@ version and path and the old shape keeps being served until a dated sunset.
 
 | Version | Status | Paths | Sunset |
 |---|---|---|---|
-| v2 (`2.4.0`) | current | `/v2/skill.md`, `/v2/skill.json` | — |
+| v2 (`2.5.0`) | current | `/v2/skill.md`, `/v2/skill.json` | — |
 | v1 (`1.0.0`) | frozen, deprecated | `/skill.md`, `/skill.json`, `/v1/skill.md`, `/v1/skill.json` | **2027-01-15** |
 
 The API endpoints themselves are unversioned and accept both request shapes
 (v1 launch = the v2 shape minus `configKey`/`category`, plus `buyAmountSol`).
 After 2027-01-15 the v1 documents and the v1 compatibility fields may be
 removed; the unversioned document paths will then serve the current version.
+
+## 2.5.0 — 2026-10-20 (additive: `source` on `/api/claim/tx`)
+
+Applies to **all** callers — the endpoint is unversioned; a request without
+`source` behaves exactly as before.
+
+- **Optional `source` on `POST /api/claim/tx`**: `"curve"` (default — the
+  bonding-curve creator fees, unchanged) or `"position"` — the
+  post-graduation trading fees accrued to the creator's DAMM v2 position
+  NFT(s) in the coin's migrated pool, for coins whose launch setup gives the
+  creator a locked-liquidity share. Each call builds one transaction; claim
+  both sources with two calls. `claimable` reports the requested source.
+  `409 no_claimable_fees` is returned only when the requested source is
+  empty (a position call also carries `reason`: `no_creator_share`,
+  `no_position_held` or `no_fees_accrued`). New position-only errors:
+  `409 pool_not_migrated | damm_pool_mismatch`, `404 damm_pool_not_found`,
+  `422 unmapped_migration_fee_option | not_damm_v2_migration`. This replaces
+  the 2026-10-20 "bonding-curve fees only" caveat on `claim_fees`.
 
 ## 2.4.0 — 2026-10-17 (additive: launch first-buy output floor)
 
