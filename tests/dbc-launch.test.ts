@@ -246,10 +246,67 @@ describe('buildLaunchTx — caller-supplied mint', () => {
     const result = await buildLaunchTx(baseParams(SKR_MINT), {
       client: fakeDbcClient(captured, false),
       connection: fakeConnection(),
+      generateMint: async () => Keypair.generate(),
     })
     assert.equal(result.mintSigned, true)
     const tx = Transaction.from(Buffer.from(result.transaction, 'base64'))
     assert.ok(tx.signatures.some((s) => s.publicKey.toBase58() === result.mintAddress && s.signature))
+  })
+})
+
+describe('buildLaunchTx — service-generated mint (VM-4)', () => {
+  const newCaptured = (): Captured => ({ badgeLookups: [], createPoolParam: null, firstBuyParam: null, quoteArgs: null })
+
+  it('uses and signs the injected generator mint (mintVanity: true) and forwards clientIp', async () => {
+    const mint = Keypair.generate()
+    const seen: Array<string | null> = []
+    const result = await buildLaunchTx(
+      { ...baseParams(SKR_MINT), clientIp: '203.0.113.9' },
+      {
+        client: fakeDbcClient(newCaptured(), false),
+        connection: fakeConnection(),
+        generateMint: async (ip) => {
+          seen.push(ip)
+          return mint
+        },
+      },
+    )
+    assert.deepEqual(seen, ['203.0.113.9'])
+    assert.equal(result.mintAddress, mint.publicKey.toBase58())
+    assert.equal(result.mintSigned, true)
+    assert.equal(result.mintVanity, true)
+    const tx = Transaction.from(Buffer.from(result.transaction, 'base64'))
+    assert.ok(tx.signatures.some((s) => s.publicKey.equals(mint.publicKey) && s.signature))
+  })
+
+  it('falls back to a valid signed plain mint when the generator throws (mintVanity: false)', async () => {
+    const result = await buildLaunchTx(baseParams(SKR_MINT), {
+      client: fakeDbcClient(newCaptured(), false),
+      connection: fakeConnection(),
+      generateMint: async () => {
+        throw new Error('backend down')
+      },
+    })
+    assert.equal(result.mintSigned, true)
+    assert.equal(result.mintVanity, false)
+    const tx = Transaction.from(Buffer.from(result.transaction, 'base64'))
+    assert.ok(tx.signatures.some((s) => s.publicKey.toBase58() === result.mintAddress && s.signature))
+  })
+
+  it('does not call the generator or report mintVanity for a caller-supplied mint', async () => {
+    const mint = Keypair.generate()
+    const result = await buildLaunchTx(
+      { ...baseParams(SKR_MINT), mintPublicKey: mint.publicKey.toBase58() },
+      {
+        client: fakeDbcClient(newCaptured(), false),
+        connection: fakeConnection(),
+        generateMint: async () => {
+          throw new Error('must not be called')
+        },
+      },
+    )
+    assert.equal(result.mintSigned, false)
+    assert.equal(result.mintVanity, undefined)
   })
 })
 

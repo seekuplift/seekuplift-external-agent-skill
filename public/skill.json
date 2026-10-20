@@ -53,7 +53,7 @@
       ],
       "fieldNotes": {
         "category": "meme | idea | startup — must be in the config's categories",
-        "mintPublicKey": "optional — public key of a mint keypair you generated (e.g. a vanity address); on-curve, not the payer, no on-chain account yet (else 409 { error: \"mint_already_exists\", mintAddress }). The transaction then has no signatures: sign with the mint keypair AND the payer. Omitted = the service generates and signs the mint. A mint can be created only once, so a rebuild with the same mintPublicKey can never launch a second coin",
+        "mintPublicKey": "optional — public key of a mint keypair you generated (e.g. a vanity address); on-curve, not the payer, no on-chain account yet (else 409 { error: \"mint_already_exists\", mintAddress }). The transaction then has no signatures: sign with the mint keypair AND the payer. Omitted = the service generates and signs the mint; service-generated mint addresses usually end in \"up\" (not guaranteed). If the vanity mint service is unavailable the service signs a plain random keypair instead and the response reports mintVanity: false (mintVanity is present only when the service generated the mint). A mint can be created only once, so a rebuild with the same mintPublicKey can never launch a second coin",
         "image": "base64 PNG/JPEG/GIF/WEBP <=10MB (data: URL accepted); exactly one of image/imageUrl",
         "imageUrl": "public http(s) only, fetched through an SSRF guard (private/loopback/link-local/CGNAT refused, redirects vetted per hop, <=3 hops, 10MB cap)",
         "donation": "meme only, supportsCause configs only, required while causes are offered: {mode, cause?, project?, handle?, redditUserId?} — modes from the backend launch-enabled registry (managed|cause|project|tbd|x|reddit)",
@@ -62,7 +62,7 @@
         "startup": "problem + useCases(1-3) + deck required; compliance fields recorded only when startupComplianceAcknowledged=true",
         "firstBuy": "only on supportsFirstBuy configs; firstBuyAtoms = raw quote-atom string, firstBuyAmount = display units (converted via quote.decimals + scaledUiAmountMultiplier — never assume 1e9; fraction digits beyond quote.decimals rejected; converted atoms must fit a u64 — max 18446744073709551615). The first-buy output floor is quoted against the pool's opening curve at firstBuySlippageBps (0-1000, default 50; up to 5000 with allowHighSlippage: true) — the floor is never zero; over the cap is 400 { error: \"slippage_too_high\", maxSlippageBps }"
       },
-      "returns": ["transaction", "mintAddress", "poolAddress", "metadataUrl", "imageUrl", "configKey", "category", "quoteMint", "quoteSymbol", "quoteDecimals", "firstBuyAtoms", "lastValidBlockHeight", "note"]
+      "returns": ["transaction", "mintAddress", "poolAddress", "metadataUrl", "imageUrl", "configKey", "category", "quoteMint", "quoteSymbol", "quoteDecimals", "firstBuyAtoms", "lastValidBlockHeight", "mintVanity", "note"]
     },
     {
       "id": "trade_quote",

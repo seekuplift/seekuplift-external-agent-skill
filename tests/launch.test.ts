@@ -258,7 +258,8 @@ describe('POST /api/launch — happy path', () => {
     assert.equal(result.quoteMint, SKR_MINT)
     assert.equal(result.metadataUrl, 'https://ipfs.filebase.io/ipfs/bafymeta')
     assert.equal(result.lastValidBlockHeight, 42, 'the build seam\'s expiry bound must pass through')
-    const txParams = log.lastTx as { firstBuyAtoms?: bigint; metadataUrl: string }
+    const txParams = log.lastTx as { firstBuyAtoms?: bigint; metadataUrl: string; clientIp?: string | null }
+    assert.equal(txParams.clientIp, '203.0.113.10', 'the route clientIp must reach the mint generator')
     assert.equal(txParams.firstBuyAtoms, undefined)
     assert.equal(txParams.metadataUrl, 'https://ipfs.filebase.io/ipfs/bafymeta')
   })

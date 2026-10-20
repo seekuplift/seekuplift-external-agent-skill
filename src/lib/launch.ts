@@ -731,6 +731,7 @@ export async function prepareLaunch(
     firstBuyAtoms,
     firstBuySlippageBps,
     ...(mintPublicKey ? { mintPublicKey } : {}),
+    clientIp,
   })
 
   return {

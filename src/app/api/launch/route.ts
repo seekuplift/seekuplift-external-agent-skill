@@ -70,8 +70,12 @@ export async function POST(req: NextRequest) {
         quoteDecimals: result.quoteDecimals,
         firstBuyAtoms: result.firstBuyAtoms,
         lastValidBlockHeight: result.lastValidBlockHeight,
+        ...(result.mintVanity !== undefined ? { mintVanity: result.mintVanity } : {}),
         note: result.mintSigned
-          ? 'Deserialize from base64 as a legacy Transaction, sign with payerPublicKey, then submit to mainnet RPC. The mint keypair signature is already applied.'
+          ? 'Deserialize from base64 as a legacy Transaction, sign with payerPublicKey, then submit to mainnet RPC. The mint keypair signature is already applied.' +
+            (result.mintVanity === false
+              ? ' This mint is a plain random address: the vanity (up) mint service was unavailable.'
+              : '')
           : 'Deserialize from base64 as a legacy Transaction, sign with your mint keypair (mintPublicKey) AND payerPublicKey, then submit to mainnet RPC. No signature is applied.',
       },
       { headers: { 'cache-control': 'no-store' } },

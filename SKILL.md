@@ -173,7 +173,7 @@ Uploads image + metadata through the backend proxy and builds the launch transac
   "description": "What this coin is for",
   "imageUrl": "https://example.com/logo.png",
   "payerPublicKey": "<base58 — signs + funds the launch; recorded as creatorAddress>",
-  "mintPublicKey": "<base58 — optional: your own mint key; omit and the service generates one>",
+  "mintPublicKey": "<base58 — optional: your own mint key; omit and the service generates one (usually ending in `up`)>",
   "donation": { "mode": "cause", "cause": "<cause slug>" },
   "firstBuyAtoms": "100000000",
   "website": "https://…",
@@ -193,7 +193,7 @@ Uploads image + metadata through the backend proxy and builds the launch transac
 - **Idea extras** — required: `problem` (the use-case statement), `useCases` (1–3 slugs from the idea catalog: climate, education, inclusion, local, depin, desci, public-goods, infrastructure, payments, governance, social, art, gaming, defi, privacy, identity, health, energy, food, housing, mobility, other), `prototype` (URL). Optional: `whitepaper` (URI).
 - **Startup extras** — required: `problem` (the pitch), `useCases` (1–3 slugs from the startup catalog: saas, consumer, fintech, ai, infrastructure, defi, payments, depin, gaming, rwa, social, data, creator, climate, education, health, security, wallet, marketplace, media, stablecoins, other), `deck` (URL). Optional: `whitepaper` (recorded as roadmap), plus the compliance fields `legalFramework`, `legalFrameworkNote`, `tokenUtility`, `decentralizationEfforts`, `entityJurisdiction` — recorded only when `startupComplianceAcknowledged: true`.
 - `firstBuyAtoms` **or** `firstBuyAmount` — optional creator first buy, only on `supportsFirstBuy` configs. `firstBuyAtoms` is a bare integer string of raw **quote** atoms; `firstBuyAmount` is display units converted with the config's `quote.decimals` + `quote.scaledUiAmountMultiplier` (fraction digits beyond `quote.decimals` are rejected). The converted atom count must fit a u64 (`≤ 18446744073709551615`) — larger requests are a `400`. `0`/omitted = no first buy.
-- `mintPublicKey` — optional. The public key of a mint keypair **you** generated (for example a vanity address from `solana-keygen grind`); only the public key is sent, the secret never leaves you. It must be an on-curve key (not a PDA), differ from `payerPublicKey`, and have no on-chain account yet — otherwise `409 { error: "mint_already_exists", mintAddress }` before any upload. The transaction then comes back with **no** signatures: sign with the mint keypair **and** the payer. Omit it and the service generates the mint keypair and applies its signature. Because a mint can be created only once, rebuilding with the same `mintPublicKey` can never launch a second coin.
+- `mintPublicKey` — optional. The public key of a mint keypair **you** generated (for example a vanity address from `solana-keygen grind`); only the public key is sent, the secret never leaves you. It must be an on-curve key (not a PDA), differ from `payerPublicKey`, and have no on-chain account yet — otherwise `409 { error: "mint_already_exists", mintAddress }` before any upload. The transaction then comes back with **no** signatures: sign with the mint keypair **and** the payer. Omit it and the service generates the mint keypair and applies its signature; a service-generated mint address usually ends in `up`, but that is not guaranteed — if the vanity mint service is unavailable the service signs a plain random keypair instead and reports `mintVanity: false`. Because a mint can be created only once, rebuilding with the same `mintPublicKey` can never launch a second coin.
 - `firstBuySlippageBps` — optional, 0–1000, default 50; only meaningful with a first buy. The service quotes the buy against the pool's opening curve and writes `minimumAmountOut = floor(output × (10000 − bps) / 10000)` into the transaction — the floor is never zero. Above 1000 needs `"allowHighSlippage": true` (cap 5000); over the cap is `400 { "error": "slippage_too_high", "maxSlippageBps": … }` — same rule as the trade endpoints. A buy the opening curve cannot fill fails the build with an error rather than shipping a transaction that would revert.
 
 **Response**:
@@ -202,6 +202,7 @@ Uploads image + metadata through the backend proxy and builds the launch transac
 {
   "transaction": "<base64 legacy Transaction — mint-signed, payer signature missing (unsigned when you sent mintPublicKey)>",
   "mintAddress": "<base58 — the new token's mint (your mintPublicKey when sent)>",
+  "mintVanity": true,
   "poolAddress": "<base58 — the DBC pool address /api/trade/* and /api/pools take>",
   "metadataUrl": "https://…",
   "imageUrl": "https://…",
@@ -216,7 +217,7 @@ Uploads image + metadata through the backend proxy and builds the launch transac
 }
 ```
 
-`firstBuyAtoms` is `null` when the launch has no first buy. `quoteMint`/`quoteSymbol`/`quoteDecimals` are the chosen config's quote asset — `firstBuyAtoms` (and the first-buy amount in the transaction) is denominated in it. `lastValidBlockHeight` (optional) is the expiry bound from the same blockhash read — keep it for the **submit protocol** below.
+`firstBuyAtoms` is `null` when the launch has no first buy. `quoteMint`/`quoteSymbol`/`quoteDecimals` are the chosen config's quote asset — `firstBuyAtoms` (and the first-buy amount in the transaction) is denominated in it. `mintVanity` is present only when the service generated the mint: `true` = the address is a vanity address ending in `up`, `false` = the vanity service was unavailable and the mint is a plain random address (the `note` says so; the launch is otherwise identical). `lastValidBlockHeight` (optional) is the expiry bound from the same blockhash read — keep it for the **submit protocol** below.
 
 **Errors**: `400 { error }` validation (incl. `donation_required` with `causesOffered`); `409 { error: "mint_already_exists", mintAddress }` the `mintPublicKey` you sent already has an on-chain account — if it is your launched coin, do not relaunch; `403 { error: "geo_restricted", region, regionName, feature, message }`; `429` upload rate limit (see **Limits**); `502 { error: "upstream_error" }` upstream failure; `503 { error: "causes_unavailable" }` the cause list could not be loaded for a meme launch that needs a donation — retry later.
 

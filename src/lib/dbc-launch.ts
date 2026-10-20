@@ -30,6 +30,7 @@ import {
   unwrapConfig,
 } from './dbc-shared.ts'
 import { minimumAmountOutWithSlippage } from './transfer-fee.ts'
+import { fetchVanityMint } from './vanity-mint.ts'
 
 /**
  * Static worst-case CU limit for a DBC `createPool` (app constant
@@ -55,6 +56,11 @@ export const FIRST_BUY_DEFAULT_SLIPPAGE_BPS = 50
 export type BuildLaunchTxDeps = {
   connection?: ReturnType<typeof getConnection>
   client?: ReturnType<typeof getDbcClient>
+  /**
+   * Service-side mint generation. Default: a vanity (`…up`) keypair from the
+   * backend; any failure falls back to a plain `Keypair.generate()`.
+   */
+  generateMint?: (clientIp: string | null) => Promise<Keypair>
 }
 
 export type BuildLaunchTxParams = {
@@ -85,6 +91,9 @@ export type BuildLaunchTxParams = {
    * with NO signatures — the caller signs as both mint and payer.
    */
   mintPublicKey?: string
+  /** The caller's validated IP, forwarded to the backend mint-keypair
+   *  endpoint so its per-network limit applies to the agent. */
+  clientIp?: string | null
 }
 
 export type LaunchTxResult = {
@@ -94,6 +103,9 @@ export type LaunchTxResult = {
   mintAddress: string
   /** True when the service generated the mint keypair and applied its signature. */
   mintSigned: boolean
+  /** Set only when the service generated the mint: true = vanity (`…up`)
+   *  keypair from the backend, false = plain fallback keypair. */
+  mintVanity?: boolean
   poolAddress: string
   /** Expiry bound from the same `getLatestBlockhash` read that supplied the
    *  blockhash — the agent needs it to prove a sent tx can no longer land
@@ -183,14 +195,31 @@ export async function buildLaunchTx(
     firstBuyAtoms,
     firstBuySlippageBps = FIRST_BUY_DEFAULT_SLIPPAGE_BPS,
     mintPublicKey,
+    clientIp = null,
   } = params
   const connection = deps.connection ?? getConnection()
   const client = deps.client ?? getDbcClient()
   const payer = new PublicKey(payerAddress)
   const config = new PublicKey(configKey)
   // A caller-supplied mint stays caller-signed; otherwise the service
-  // generates one and signs with it below.
-  const mintKeypair = mintPublicKey ? null : Keypair.generate()
+  // generates one and signs with it below. Generation stays before the
+  // blockhash read so the blockhash is as fresh as possible.
+  let mintKeypair: Keypair | null = null
+  let mintVanity: boolean | undefined
+  if (!mintPublicKey) {
+    try {
+      mintKeypair = await (deps.generateMint ?? fetchVanityMint)(clientIp)
+      mintVanity = true
+    } catch (err) {
+      // Reason only: the error never carries key material.
+      console.warn(
+        '[launch] vanity mint unavailable, using a plain keypair:',
+        err instanceof Error ? err.message : 'unknown error',
+      )
+      mintKeypair = Keypair.generate()
+      mintVanity = false
+    }
+  }
   const baseMint = mintKeypair ? mintKeypair.publicKey : new PublicKey(mintPublicKey!)
 
   // SQ-APP-3: attached only when the quote mint has a badge on-chain.
@@ -260,6 +289,7 @@ export async function buildLaunchTx(
     transaction: serialized.toString('base64'),
     mintAddress: baseMint.toBase58(),
     mintSigned: mintKeypair != null,
+    ...(mintVanity !== undefined ? { mintVanity } : {}),
     poolAddress,
     lastValidBlockHeight,
   }
