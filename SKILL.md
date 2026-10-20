@@ -357,7 +357,7 @@ GET /api/pools?search=<q>&limit=20&cursor=<cursor>&tab=emerging&category=meme&li
 
 ### 6. `claim_fees` — `POST /api/claim/tx`
 
-Builds the unsigned transaction that claims a coin's accrued creator fees to the creator wallet. Works on the curve and after migration.
+Builds the unsigned transaction that claims a coin's accrued bonding-curve creator fees to the creator wallet. Works on the curve and after migration, but covers only fees earned on the curve: fees earned in the graduated DAMM v2 pool are not claimed here.
 
 ```json
 {

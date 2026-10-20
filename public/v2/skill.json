@@ -115,7 +115,7 @@
     },
     {
       "id": "claim_fees",
-      "description": "Build the unsigned creator-fee claim for a coin the wallet launched (full claimable amounts; works on the curve and after migration). Signed by the launch payer.",
+      "description": "Build the unsigned creator-fee claim for a coin the wallet launched (full claimable bonding-curve amounts; works after migration too, but does not claim fees earned in the graduated DAMM v2 pool). Signed by the launch payer.",
       "endpoint": { "method": "POST", "path": "/api/claim/tx" },
       "requiredFields": ["poolAddress", "creatorPublicKey"],
       "returns": ["transaction", "claimable", "poolInfo", "lastValidBlockHeight"],
