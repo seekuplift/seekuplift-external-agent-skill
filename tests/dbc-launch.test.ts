@@ -20,6 +20,7 @@ import { strict as assert } from 'node:assert'
 import { beforeEach, describe, it } from 'node:test'
 import { Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js'
 import {
+  deriveDbcPoolAddress,
   deriveTokenBadgeAddress,
   type DynamicBondingCurveClient,
 } from '@meteora-ag/dynamic-bonding-curve-sdk'
@@ -210,6 +211,45 @@ describe('buildLaunchTx — token badge (SQ-APP-3)', () => {
     // … and the tx really carries that read's blockhash.
     const tx = Transaction.from(Buffer.from(result.transaction, 'base64'))
     assert.equal(tx.recentBlockhash, '11111111111111111111111111111111')
+  })
+})
+
+describe('buildLaunchTx — caller-supplied mint', () => {
+  it('builds around the caller mint and applies no signature', async () => {
+    const captured: Captured = { badgeLookups: [], createPoolParam: null, firstBuyParam: null, quoteArgs: null }
+    const mint = Keypair.generate()
+    const payer = Keypair.generate()
+    const result = await buildLaunchTx(
+      {
+        ...baseParams(SKR_MINT, 1_000_000n),
+        payerAddress: payer.publicKey.toBase58(),
+        mintPublicKey: mint.publicKey.toBase58(),
+      },
+      { client: fakeDbcClient(captured, false), connection: fakeConnection() },
+    )
+    assert.equal((captured.createPoolParam!.baseMint as PublicKey).toBase58(), mint.publicKey.toBase58())
+    assert.equal(result.mintAddress, mint.publicKey.toBase58())
+    assert.equal(result.mintSigned, false)
+    assert.equal(
+      result.poolAddress,
+      deriveDbcPoolAddress(new PublicKey(SKR_MINT), mint.publicKey, new PublicKey(LIVE_CONFIG_KEY)).toBase58(),
+    )
+    const tx = Transaction.from(Buffer.from(result.transaction, 'base64'))
+    assert.ok(tx.signatures.every((s) => s.signature == null))
+    // The caller's two signatures complete it.
+    tx.partialSign(mint, payer)
+    assert.ok(tx.verifySignatures())
+  })
+
+  it('still generates and signs the mint when none is supplied', async () => {
+    const captured: Captured = { badgeLookups: [], createPoolParam: null, firstBuyParam: null, quoteArgs: null }
+    const result = await buildLaunchTx(baseParams(SKR_MINT), {
+      client: fakeDbcClient(captured, false),
+      connection: fakeConnection(),
+    })
+    assert.equal(result.mintSigned, true)
+    const tx = Transaction.from(Buffer.from(result.transaction, 'base64'))
+    assert.ok(tx.signatures.some((s) => s.publicKey.toBase58() === result.mintAddress && s.signature))
   })
 })
 

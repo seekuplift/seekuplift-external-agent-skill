@@ -79,12 +79,21 @@ export type BuildLaunchTxParams = {
    * ceiling as the trade endpoints.
    */
   firstBuySlippageBps?: number
+  /**
+   * A caller-held mint public key (already validated by the launch route).
+   * When set, no keypair is generated server-side and the transaction ships
+   * with NO signatures — the caller signs as both mint and payer.
+   */
+  mintPublicKey?: string
 }
 
 export type LaunchTxResult = {
-  /** Base64-serialized legacy `Transaction`, partially mint-signed. */
+  /** Base64-serialized legacy `Transaction` — partially mint-signed unless
+   *  the caller supplied `mintPublicKey` (then unsigned). */
   transaction: string
   mintAddress: string
+  /** True when the service generated the mint keypair and applied its signature. */
+  mintSigned: boolean
   poolAddress: string
   /** Expiry bound from the same `getLatestBlockhash` read that supplied the
    *  blockhash — the agent needs it to prove a sent tx can no longer land
@@ -173,18 +182,22 @@ export async function buildLaunchTx(
     quoteMint,
     firstBuyAtoms,
     firstBuySlippageBps = FIRST_BUY_DEFAULT_SLIPPAGE_BPS,
+    mintPublicKey,
   } = params
   const connection = deps.connection ?? getConnection()
   const client = deps.client ?? getDbcClient()
   const payer = new PublicKey(payerAddress)
   const config = new PublicKey(configKey)
-  const mintKeypair = Keypair.generate()
+  // A caller-supplied mint stays caller-signed; otherwise the service
+  // generates one and signs with it below.
+  const mintKeypair = mintPublicKey ? null : Keypair.generate()
+  const baseMint = mintKeypair ? mintKeypair.publicKey : new PublicKey(mintPublicKey!)
 
   // SQ-APP-3: attached only when the quote mint has a badge on-chain.
   const tokenBadge = await resolveTokenBadgeAddress(client, new PublicKey(quoteMint))
   const createPoolParam = {
     config,
-    baseMint: mintKeypair.publicKey,
+    baseMint,
     name,
     symbol,
     uri: metadataUrl,
@@ -235,17 +248,18 @@ export async function buildLaunchTx(
 
   // Partially sign with the mint keypair — the payer signature is still
   // required before submission.
-  tx.partialSign(mintKeypair)
+  if (mintKeypair) tx.partialSign(mintKeypair)
 
   const serialized = tx.serialize({ requireAllSignatures: false })
   const poolAddress = deriveDbcPoolAddress(
     new PublicKey(quoteMint),
-    mintKeypair.publicKey,
+    baseMint,
     config,
   ).toBase58()
   return {
     transaction: serialized.toString('base64'),
-    mintAddress: mintKeypair.publicKey.toBase58(),
+    mintAddress: baseMint.toBase58(),
+    mintSigned: mintKeypair != null,
     poolAddress,
     lastValidBlockHeight,
   }

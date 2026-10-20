@@ -27,6 +27,10 @@ export const dynamic = 'force-dynamic'
  *                   way the service re-uploads through the backend proxy.
  *   payerPublicKey  required — the wallet that will sign + fund the launch;
  *                   also recorded as creatorAddress in the metadata
+ *   mintPublicKey   optional — a caller-held, on-curve mint key (e.g. a
+ *                   vanity address); must not exist on-chain (409
+ *                   mint_already_exists). The transaction then ships with no
+ *                   signatures: the caller signs as mint AND payer.
  *   donation        meme-only, cause-capable configs only, REQUIRED while
  *                   /api/causes offers picks: { mode, cause?, project?,
  *                   handle?, redditUserId? }
@@ -73,7 +77,9 @@ export async function POST(req: NextRequest) {
         quoteDecimals: result.quoteDecimals,
         firstBuyAtoms: result.firstBuyAtoms,
         lastValidBlockHeight: result.lastValidBlockHeight,
-        note: 'Deserialize from base64 as a legacy Transaction, sign with payerPublicKey, then submit to mainnet RPC. The mint keypair signature is already applied.',
+        note: result.mintSigned
+          ? 'Deserialize from base64 as a legacy Transaction, sign with payerPublicKey, then submit to mainnet RPC. The mint keypair signature is already applied.'
+          : 'Deserialize from base64 as a legacy Transaction, sign with your mint keypair (mintPublicKey) AND payerPublicKey, then submit to mainnet RPC. No signature is applied.',
       },
       { headers: { 'cache-control': 'no-store' } },
     )

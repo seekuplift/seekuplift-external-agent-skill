@@ -11,8 +11,10 @@
  *      `cause.marketing` then the claim-kind hidden key, exactly as the
  *      backend classifies the claim), plus `stock.create` for stock-quoted
  *      configs (which the backend upload route does not check);
- *   5. image upload → metadata upload through the backend proxy;
- *   6. `buildLaunchTx` — unsigned-by-payer, mint-partial-signed.
+ *   5. a caller-supplied `mintPublicKey` must not exist on-chain yet;
+ *   6. image upload → metadata upload through the backend proxy;
+ *   7. `buildLaunchTx` — unsigned-by-payer, mint-partial-signed (unsigned
+ *      when the caller supplied `mintPublicKey`).
  */
 import { PublicKey } from '@solana/web3.js'
 import { backendGetJson, backendPostJson } from './backend.ts'
@@ -46,6 +48,7 @@ import {
   type LaunchMetadataShape,
 } from './launch-metadata.ts'
 import { buildLaunchTx, type BuildLaunchTxDeps, type LaunchTxResult } from './dbc-launch.ts'
+import { getConnection } from './dbc-shared.ts'
 import {
   decodeBase64Image,
   uploadImageBytes,
@@ -146,6 +149,8 @@ export type LaunchDeps = {
   buildTx?: (params: Parameters<typeof buildLaunchTx>[0]) => Promise<LaunchTxResult>
   /** Passthrough to `buildLaunchTx`'s own deps (connection/client). */
   buildTxDeps?: BuildLaunchTxDeps
+  /** Whether an account already exists at a caller-supplied mint address. */
+  mintAccountExists?: (mint: string) => Promise<boolean>
   /** Extra deps forwarded to the default catalog loader. */
   catalogDeps?: CatalogDeps
 }
@@ -297,6 +302,26 @@ export async function prepareLaunch(
     new PublicKey(payerAddress)
   } catch {
     throw new LaunchError('payerPublicKey is not a valid Solana address')
+  }
+  // Optional caller-held mint: the caller signs as the mint, so the key must
+  // be on-curve (a PDA can never sign) and distinct from the payer.
+  const mintPublicKey = asTrimmedString(body.mintPublicKey)
+  if (body.mintPublicKey != null && !mintPublicKey) {
+    throw new LaunchError('mintPublicKey must be a non-empty base58 string')
+  }
+  if (mintPublicKey) {
+    let mintKey: PublicKey
+    try {
+      mintKey = new PublicKey(mintPublicKey)
+    } catch {
+      throw new LaunchError('mintPublicKey is not a valid Solana address')
+    }
+    if (!PublicKey.isOnCurve(mintKey.toBytes())) {
+      throw new LaunchError('mintPublicKey must be an on-curve keypair address (not a PDA) — it signs the launch')
+    }
+    if (mintKey.equals(new PublicKey(payerAddress))) {
+      throw new LaunchError('mintPublicKey must differ from payerPublicKey')
+    }
   }
 
   const identity = canonicalizeLaunchIdentity({
@@ -680,6 +705,23 @@ export async function prepareLaunch(
     }
   }
 
+  // ── 5b. a caller-supplied mint must be fresh: createPool initializes the
+  //       mint account, so an existing one would only fail on-chain. Checked
+  //       before uploads so the refusal costs no upload budget.
+  if (mintPublicKey) {
+    const mintAccountExists =
+      deps.mintAccountExists ??
+      (async (mint: string) =>
+        (await (deps.buildTxDeps?.connection ?? getConnection()).getAccountInfo(new PublicKey(mint))) != null)
+    if (await mintAccountExists(mintPublicKey)) {
+      throw new LaunchError(
+        `mintPublicKey ${mintPublicKey} already has an on-chain account — if it is your launched coin, do not relaunch; otherwise generate a fresh mint keypair`,
+        409,
+        { error: 'mint_already_exists', mintAddress: mintPublicKey },
+      )
+    }
+  }
+
   // ── 6. uploads through the backend proxy (image first — its URL is a
   //       metadata field) — geo verdict already passed.
   if (image == null) {
@@ -740,6 +782,7 @@ export async function prepareLaunch(
     quoteMint,
     firstBuyAtoms,
     firstBuySlippageBps,
+    ...(mintPublicKey ? { mintPublicKey } : {}),
   })
 
   return {

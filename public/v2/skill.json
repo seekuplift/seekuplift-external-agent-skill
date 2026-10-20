@@ -1,6 +1,6 @@
 {
   "name": "seekuplift-launchpad",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "status": "current",
   "baseUrl": "https://skill.seekuplift.com",
   "auth": {
@@ -46,7 +46,7 @@
       "endpoint": { "method": "POST", "path": "/api/launch" },
       "requiredFields": ["configKey", "category", "name", "symbol", "description", "payerPublicKey", "image|imageUrl"],
       "optionalFields": [
-        "donation", "ideaFunding", "firstBuyAtoms|firstBuyAmount", "buyAmountSol",
+        "mintPublicKey", "donation", "ideaFunding", "firstBuyAtoms|firstBuyAmount", "buyAmountSol",
         "firstBuySlippageBps", "allowHighSlippage",
         "website", "twitter", "telegram", "discord",
         "problem", "useCases", "whitepaper", "prototype", "deck",
@@ -55,6 +55,7 @@
       ],
       "fieldNotes": {
         "category": "meme | idea | startup — must be in the config's categories",
+        "mintPublicKey": "optional — public key of a mint keypair you generated (e.g. a vanity address); on-curve, not the payer, no on-chain account yet (else 409 { error: \"mint_already_exists\", mintAddress }). The transaction then has no signatures: sign with the mint keypair AND the payer. Omitted = the service generates and signs the mint. A mint can be created only once, so a rebuild with the same mintPublicKey can never launch a second coin",
         "image": "base64 PNG/JPEG/GIF/WEBP <=10MB (data: URL accepted); exactly one of image/imageUrl",
         "imageUrl": "public http(s) only, fetched through an SSRF guard (private/loopback/link-local/CGNAT refused, redirects vetted per hop, <=3 hops, 10MB cap)",
         "donation": "meme only, supportsCause configs only, required while causes are offered: {mode, cause?, project?, handle?, redditUserId?} — modes from the backend launch-enabled registry (managed|cause|project|tbd|x|reddit)",
@@ -132,9 +133,9 @@
   },
   "transactionFormat": "base64-encoded legacy Solana Transaction",
   "signing": {
-    "launch": "mint keypair already partially signed — add only the payer signature (tx.partialSign)",
+    "launch": "mint keypair already partially signed — add only the payer signature (tx.partialSign); with mintPublicKey nothing is pre-signed — tx.partialSign(mintKeypair, payerKeypair)",
     "trade": "unsigned — ownerPublicKey signs and pays fees",
-    "reviewBeforeSigning": "REQUIRED — never sign blind. Decode the base64 legacy Transaction and verify: (1) every instruction's programId is one of programIds below — anything else means the response did not come from this service's builders, do not sign; (2) tx.feePayer is exactly the wallet key you sent (payerPublicKey on launch, ownerPublicKey on trade, creatorPublicKey on claim); (3) a launch carries only the mint keypair's partial signature, trade/claim carry none; (4) simulate before signing — connection.simulateTransaction(tx, { sigVerify: false }) must return err: null. Then sign and submit per submitProtocol.",
+    "reviewBeforeSigning": "REQUIRED — never sign blind. Decode the base64 legacy Transaction and verify: (1) every instruction's programId is one of programIds below — anything else means the response did not come from this service's builders, do not sign; (2) tx.feePayer is exactly the wallet key you sent (payerPublicKey on launch, ownerPublicKey on trade, creatorPublicKey on claim); (3) a launch carries only the mint keypair's partial signature (none when you sent mintPublicKey), trade/claim carry none; (4) simulate before signing — connection.simulateTransaction(tx, { sigVerify: false }) must return err: null. Then sign and submit per submitProtocol.",
     "programIds": [
       "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
       "cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG",

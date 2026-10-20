@@ -6,13 +6,28 @@ version and path and the old shape keeps being served until a dated sunset.
 
 | Version | Status | Paths | Sunset |
 |---|---|---|---|
-| v2 (`2.5.0`) | current | `/v2/skill.md`, `/v2/skill.json` | — |
+| v2 (`2.6.0`) | current | `/v2/skill.md`, `/v2/skill.json` | — |
 | v1 (`1.0.0`) | frozen, deprecated | `/skill.md`, `/skill.json`, `/v1/skill.md`, `/v1/skill.json` | **2027-01-15** |
 
 The API endpoints themselves are unversioned and accept both request shapes
 (v1 launch = the v2 shape minus `configKey`/`category`, plus `buyAmountSol`).
 After 2027-01-15 the v1 documents and the v1 compatibility fields may be
 removed; the unversioned document paths will then serve the current version.
+
+## 2.6.0 — 2026-10-20 (additive: `mintPublicKey` on `/api/launch`)
+
+Applies to **all** callers — the endpoint is unversioned; a request without
+`mintPublicKey` behaves exactly as before.
+
+- **Optional `mintPublicKey` on `POST /api/launch`**: the public key of a
+  mint keypair the caller generated (e.g. a vanity address). The service
+  builds around it and returns the transaction with **no** signatures — the
+  caller signs as mint and payer. The key must be on-curve, differ from
+  `payerPublicKey`, and have no on-chain account yet: new
+  `409 { error: "mint_already_exists", mintAddress }`, raised before any
+  upload. The response `note` names the signers.
+- Signing review rule 3 now allows a launch with no pre-applied signature
+  when the caller sent `mintPublicKey`.
 
 ## 2.5.0 — 2026-10-20 (additive: `source` on `/api/claim/tx`)
 

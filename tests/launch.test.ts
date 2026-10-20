@@ -15,7 +15,7 @@
 import { strict as assert } from 'node:assert'
 import { readFileSync } from 'node:fs'
 import { describe, it, beforeEach, afterEach } from 'node:test'
-import { Connection, PublicKey, Transaction } from '@solana/web3.js'
+import { Connection, Keypair, PublicKey, SystemProgram, Transaction } from '@solana/web3.js'
 import { DynamicBondingCurveClient, getCurrentPoint } from '@meteora-ag/dynamic-bonding-curve-sdk'
 import {
   getConfigCatalogWithGeo,
@@ -154,6 +154,7 @@ function stubDeps(log: CallLog): Required<Pick<LaunchDeps, 'uploadImage' | 'uplo
       return {
         transaction: 'AAAAbase64tx',
         mintAddress: PAYER,
+        mintSigned: true,
         poolAddress: PAYER,
         lastValidBlockHeight: 42,
       }
@@ -506,6 +507,65 @@ describe('POST /api/launch — request rejections', () => {
       400,
       /payerPublicKey/,
     )
+  })
+})
+
+// ─── Caller-supplied mint ─────────────────────────────────────────────────────
+
+describe('POST /api/launch — mintPublicKey', () => {
+  const MINT = Keypair.generate().publicKey.toBase58()
+
+  it('passes a fresh caller mint through to the builder', async () => {
+    const log: CallLog = { imageUploads: 0, metadataUploads: 0, builds: 0 }
+    const checked: string[] = []
+    const deps = launchDeps(await catalogDeps(), log, {
+      mintAccountExists: async (mint) => {
+        checked.push(mint)
+        return false
+      },
+    })
+    await prepareLaunch(baseBody({ mintPublicKey: MINT }), null, deps)
+    assert.deepEqual(checked, [MINT])
+    assert.equal((log.lastTx as { mintPublicKey?: string }).mintPublicKey, MINT)
+  })
+
+  it('omits it from the build when absent (service-generated mint)', async () => {
+    const log: CallLog = { imageUploads: 0, metadataUploads: 0, builds: 0 }
+    const deps = launchDeps(await catalogDeps(), log, {
+      mintAccountExists: async () => assert.fail('no existence check without mintPublicKey'),
+    })
+    await prepareLaunch(baseBody(), null, deps)
+    assert.equal('mintPublicKey' in (log.lastTx as object), false)
+  })
+
+  it('refuses an invalid, off-curve or payer-equal key before any upload', async () => {
+    const log: CallLog = { imageUploads: 0, metadataUploads: 0, builds: 0 }
+    const deps = launchDeps(await catalogDeps(), log)
+    const offCurve = PublicKey.findProgramAddressSync([Buffer.from('mint')], SystemProgram.programId)[0].toBase58()
+    for (const [mintPublicKey, match] of [
+      ['not-a-key', /not a valid Solana address/],
+      [offCurve, /on-curve/],
+      [PAYER, /must differ from payerPublicKey/],
+      ['  ', /non-empty/],
+    ] as const) {
+      await expectLaunchError(() => prepareLaunch(baseBody({ mintPublicKey }), null, deps), 400, match)
+    }
+    assert.equal(log.imageUploads, 0)
+    assert.equal(log.builds, 0)
+  })
+
+  it('refuses a mint that already exists on-chain with 409, before any upload', async () => {
+    const log: CallLog = { imageUploads: 0, metadataUploads: 0, builds: 0 }
+    const deps = launchDeps(await catalogDeps(), log, { mintAccountExists: async () => true })
+    const err = await expectLaunchError(
+      () => prepareLaunch(baseBody({ mintPublicKey: MINT }), null, deps),
+      409,
+      /already has an on-chain account/,
+    )
+    assert.equal(err.fields.error, 'mint_already_exists')
+    assert.equal(err.fields.mintAddress, MINT)
+    assert.equal(log.imageUploads, 0)
+    assert.equal(log.builds, 0)
   })
 })
 
