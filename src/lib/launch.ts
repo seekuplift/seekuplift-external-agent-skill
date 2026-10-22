@@ -135,11 +135,13 @@ export type LaunchDeps = {
   uploadImage?: (
     image: ReturnType<typeof decodeBase64Image>,
     clientIp: string | null,
+    partnerId: string | null,
   ) => Promise<UploadResult>
   /** `POST /api/upload/metadata` through the backend proxy. */
   uploadMetadata?: (
     metadata: Record<string, unknown>,
     clientIp: string | null,
+    partnerId: string | null,
   ) => Promise<UploadResult>
   /** The SDK build. */
   buildTx?: (params: Parameters<typeof buildLaunchTx>[0]) => Promise<LaunchTxResult>
@@ -268,6 +270,8 @@ export async function prepareLaunch(
   rawBody: unknown,
   clientIp: string | null,
   deps: LaunchDeps = {},
+  /** The caller's partner key id (`checkAgentAccess`), for the upload lane. */
+  partnerId: string | null = null,
 ): Promise<PreparedLaunch> {
   if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
     throw new LaunchError('Request body must be a JSON object')
@@ -690,7 +694,7 @@ export async function prepareLaunch(
   }
   const uploadImage = deps.uploadImage ?? uploadImageBytes
   const uploadMetadata = deps.uploadMetadata ?? uploadMetadataJson
-  const imageResult = await uploadImage(image, clientIp)
+  const imageResult = await uploadImage(image, clientIp, partnerId)
 
   const metadata = buildLaunchMetadata({
     name: identity.name,
@@ -717,7 +721,11 @@ export async function prepareLaunch(
     donationClaim,
     ideaFundingClaim: ideaFundingClaim ?? null,
   })
-  const metadataResult = await uploadMetadata(metadata as unknown as Record<string, unknown>, clientIp)
+  const metadataResult = await uploadMetadata(
+    metadata as unknown as Record<string, unknown>,
+    clientIp,
+    partnerId,
+  )
 
   // ── 7. transaction build ────────────────────────────────────────────────
   const buildTx = deps.buildTx ?? ((p: Parameters<typeof buildLaunchTx>[0]) => buildLaunchTx(p, deps.buildTxDeps))

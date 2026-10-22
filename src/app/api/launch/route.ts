@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
   }
   try {
     const body = await req.json().catch(() => null)
-    const result = await prepareLaunch(body, clientIp)
+    const result = await prepareLaunch(body, clientIp, {}, access.keyId)
     return NextResponse.json(
       {
         transaction: result.transaction,

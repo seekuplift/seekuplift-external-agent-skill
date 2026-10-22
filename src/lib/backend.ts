@@ -102,9 +102,10 @@ async function readBackendError(response: Response, label: string): Promise<Back
 export async function backendPostJson<T>(
   path: string,
   body: unknown,
-  options: { clientIp?: string | null; timeoutMs?: number } = {},
+  options: { clientIp?: string | null; timeoutMs?: number; headers?: Record<string, string> } = {},
 ): Promise<T> {
   const headers: Record<string, string> = {
+    ...options.headers,
     accept: 'application/json',
     'content-type': 'application/json',
   }
@@ -128,9 +129,9 @@ export async function backendPostJson<T>(
 export async function backendPostForm<T>(
   path: string,
   form: FormData,
-  options: { clientIp?: string | null; timeoutMs?: number } = {},
+  options: { clientIp?: string | null; timeoutMs?: number; headers?: Record<string, string> } = {},
 ): Promise<T> {
-  const headers: Record<string, string> = { accept: 'application/json' }
+  const headers: Record<string, string> = { ...options.headers, accept: 'application/json' }
   if (options.clientIp) headers['x-forwarded-for'] = options.clientIp
   const response = await fetch(`${BACKEND_URL}${path}`, {
     method: 'POST',

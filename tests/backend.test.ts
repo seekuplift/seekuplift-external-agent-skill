@@ -2,7 +2,12 @@
 import { strict as assert } from 'node:assert'
 import { describe, it, afterEach } from 'node:test'
 import { backendGetJson, clientIpFromHeaders } from '../src/lib/backend.ts'
-import { decodeBase64Image, uploadImageBytes, uploadMetadataJson } from '../src/lib/upload.ts'
+import {
+  decodeBase64Image,
+  uploadImageBytes,
+  uploadMetadataJson,
+  uploadPartnerHeaders,
+} from '../src/lib/upload.ts'
 
 /** A 1×1 transparent PNG. */
 const PNG_1PX =
@@ -125,5 +130,16 @@ describe('upload proxy seam', () => {
     assert.equal(seen!.xff, '198.51.100.4')
     assert.equal(seen!.contentType, 'application/json')
     assert.deepEqual(seen!.body, { name: 'X', launchType: 'meme' })
+  })
+
+  it('sends the partner-lane headers only with a partner id and a configured token', () => {
+    const token = 't'.repeat(32)
+    assert.deepEqual(uploadPartnerHeaders('guildshot', token), {
+      'x-upload-partner': 'guildshot',
+      'x-upload-partner-token': token,
+    })
+    assert.deepEqual(uploadPartnerHeaders(null, token), {})
+    assert.deepEqual(uploadPartnerHeaders('guildshot', undefined), {})
+    assert.deepEqual(uploadPartnerHeaders('guildshot', '  '), {})
   })
 })

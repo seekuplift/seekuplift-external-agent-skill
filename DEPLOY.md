@@ -16,6 +16,7 @@ npm run dev                   # http://localhost:3001
 | `BACKEND_URL` | Yes | backend-rs-sql base URL — the mobile-config source, pool listing, AND the IPFS upload proxy (`/api/upload/*`); the backend owns the Filebase credentials, this service holds none. Default: `http://localhost:3000`. **Transport rule (enforced at startup):** a remote backend must be `https://…`; `http://` is accepted only for the colocated loopback deployment (`127.0.0.0/8`, `localhost`/`*.localhost`, `::1` — i.e. `http://127.0.0.1:3000`). The service calls it over loopback and forwards each caller's IP as `X-Forwarded-For` (the backend trusts XFF only from `127.0.0.1`), so geo verdicts and the 10/hour upload limit apply per calling agent. |
 | `SOLANA_RPC_URL` | No | Solana mainnet RPC endpoint. Default: `https://api.mainnet-beta.solana.com` |
 | `AGENT_API_KEYS` | No | Optional partner keys: comma-separated `<id>:<secret>` pairs checked in constant time (`X-Api-Key: <id>:<secret>`). A valid key skips the per-network rate limit; a sent but unknown key → 401; no key → served under the per-network limit. Issued out of band, revoked by removing the entry and redeploying. Unset/empty = no partners. |
+| `UPLOAD_PARTNER_TOKEN` | No | Shared secret (>= 32 chars) — must equal the backend's `UPLOAD_PARTNER_TOKEN`. When set, launch uploads made under a partner key carry `X-Upload-Partner: <key id>` + this token, so the backend counts them against that partner's hourly bucket (`UPLOAD_PARTNER_MAX_PER_HOUR`, default 600) instead of the shared egress IP's 10/hour. Partner key ids must match `[A-Za-z0-9_-]{1,64}` or the backend ignores the lane. Unset → partners share the per-IP upload limit. |
 | `DONATION_CLAIM_AUTHORITIES` | No | Comma-separated donation claim authorities (config `feeClaimer` values that make a launch config cause-capable). Must mirror the app's `config/production-manifest.json` → `targets.production.donationClaimAuthorities` (`EXPO_PUBLIC_DONATION_CLAIM_AUTHORITY`); update it whenever the app's value changes or new configs ship. Unset/empty → no config is cause-capable. |
 
 **Service rate limits** (fixed in `src/lib/agent-auth.ts`, no env): every
@@ -128,7 +129,9 @@ share one egress IP (e.g. a hosted agent platform), and a valid key skips the
 per-network limit entirely. Generate one `<id>:<secret>` per partner — `id`
 is a label, `secret` a random token (e.g. `openssl rand -hex 32`).
 Distribute the pair out of band; the partner sends it as
-`X-Api-Key: <id>:<secret>` on every `/api/*` call (contract 1.0.0). Rotate
+`X-Api-Key: <id>:<secret>` on every `/api/*` call (contract 1.0.0). Use
+an id of letters, digits, `_` or `-` (max 64) so the partner's launch
+uploads get its own backend allowance (`UPLOAD_PARTNER_TOKEN`). Rotate
 or revoke by editing the list and redeploying both hosts — revocation is a
 redeploy, there is no key store to drain. The document routes
 (`/skill.md`, `/skill.json`, `/CHANGELOG.md`) never require a key so the contract

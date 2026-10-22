@@ -11,8 +11,8 @@ the whole history; it is rewritten freely until the first release.
 
 - **Auth**: none — every endpoint is open, limited per caller network
   (`429 rate_limited`). Partners may send an operator-issued
-  `X-Api-Key: <key-id>:<secret>` to skip that limit; an unknown key →
-  `401 { "error": "unauthorized" }`.
+  `X-Api-Key: <key-id>:<secret>` to skip that limit and get their own
+  upload allowance; an unknown key → `401 { "error": "unauthorized" }`.
 - **Config catalog**: `GET /api/configs` lists the live launch options for
   the caller (fees, quote asset, categories, geo verdict). `POST /api/launch`
   requires `configKey` and `category`.

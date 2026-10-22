@@ -404,7 +404,7 @@ The service forwards the caller's IP to the backend, which resolves a fresh geo 
 ## Limits
 
 - **Service level**: every builder call without a partner key counts against a per-caller-network bucket (240/minute — IPv6 callers share one bucket per /64). Over the limit: `429 { "error": "rate_limited", "subject": "network", "retryAfter" }` + `Retry-After` header.
-- **Uploads**: **10 per hour per caller IP**, shared by image + metadata uploads — one launch consumes 2. Exceeding it returns `429` from the backend. Validation and geo refusals happen before uploads, so they do not consume budget.
+- **Uploads**: **10 per hour per caller IP**, shared by image + metadata uploads — one launch consumes 2. With a partner key, uploads count against the partner's own, larger hourly allowance instead. Exceeding it returns `429` from the backend. Validation and geo refusals happen before uploads, so they do not consume budget.
 - Pool list/search calls share a per-IP read bucket on the backend.
 - Image inputs: ≤10 MB, PNG/JPEG/GIF/WEBP (magic-byte sniffed, never the declared type).
 

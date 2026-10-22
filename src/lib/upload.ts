@@ -7,6 +7,12 @@
  * forwarded as `X-Forwarded-For` (the backend trusts XFF from loopback in
  * the colocated deployment) so the 10/hour allowance and geo verdict are
  * the calling agent's, not this host's.
+ *
+ * Partner lane: an upload made under a partner key (`AGENT_API_KEYS` id)
+ * also carries `X-Upload-Partner: <id>` and the shared
+ * `X-Upload-Partner-Token` (`UPLOAD_PARTNER_TOKEN`, the backend's same
+ * env), so it counts against the partner's hourly bucket instead of the
+ * shared egress IP's. Without the token configured nothing is sent.
  */
 import { backendPostForm, backendPostJson } from './backend.ts'
 
@@ -97,6 +103,16 @@ export function decodeBase64Image(raw: unknown): DecodedLaunchImage {
   return { bytes, contentType, fileName: `image.${MIME_EXTENSION[contentType]}` }
 }
 
+/** The partner-lane headers for `partnerId`, or none. */
+export function uploadPartnerHeaders(
+  partnerId: string | null,
+  token: string | undefined = process.env.UPLOAD_PARTNER_TOKEN,
+): Record<string, string> {
+  const secret = token?.trim()
+  if (!partnerId || !secret) return {}
+  return { 'x-upload-partner': partnerId, 'x-upload-partner-token': secret }
+}
+
 /**
  * Upload image bytes through `POST /api/upload/image` (multipart `file`
  * field), forwarding the caller IP. Throws `BackendHttpError` on a
@@ -105,6 +121,7 @@ export function decodeBase64Image(raw: unknown): DecodedLaunchImage {
 export async function uploadImageBytes(
   image: DecodedLaunchImage,
   clientIp: string | null,
+  partnerId: string | null = null,
 ): Promise<UploadResult> {
   const form = new FormData()
   form.append(
@@ -112,7 +129,10 @@ export async function uploadImageBytes(
     new Blob([new Uint8Array(image.bytes)], { type: image.contentType }),
     image.fileName,
   )
-  return backendPostForm<UploadResult>('/api/upload/image', form, { clientIp })
+  return backendPostForm<UploadResult>('/api/upload/image', form, {
+    clientIp,
+    headers: uploadPartnerHeaders(partnerId),
+  })
 }
 
 /**
@@ -125,6 +145,10 @@ export async function uploadImageBytes(
 export async function uploadMetadataJson(
   metadata: Record<string, unknown>,
   clientIp: string | null,
+  partnerId: string | null = null,
 ): Promise<UploadResult> {
-  return backendPostJson<UploadResult>('/api/upload/metadata', metadata, { clientIp })
+  return backendPostJson<UploadResult>('/api/upload/metadata', metadata, {
+    clientIp,
+    headers: uploadPartnerHeaders(partnerId),
+  })
 }

@@ -151,7 +151,7 @@
   },
   "rateLimits": {
     "service": "per caller network 240/minute (IPv6 /64 per network), skipped with a partner key — 429 { error: \"rate_limited\", retryAfter } + Retry-After",
-    "uploads": "10 per hour per caller IP, shared by image + metadata — one launch consumes 2 (HTTP 429 when exhausted)",
+    "uploads": "10 per hour per caller IP, shared by image + metadata — one launch consumes 2 (HTTP 429 when exhausted); with a partner key, the partner's own larger hourly allowance instead",
     "image": "<=10MB, PNG/JPEG/GIF/WEBP (magic-byte sniffed)"
   },
   "migrationStates": {
