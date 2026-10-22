@@ -1,10 +1,10 @@
 /**
  * TB-S-3 builder-endpoint access control — `src/lib/agent-auth.ts`:
  *
- *   - `AGENT_API_KEYS=<id>:<secret>,…` checked in constant time on every
- *     builder endpoint — missing/unknown key → 401, valid → the key id;
- *   - sliding-window limits per key AND per caller network (IPv6 /64, IPv4
- *     full address, `::ffff:` normalized — backend TB-B-8 semantics) → 429;
+ *   - permissionless: no key passes, limited per caller network (IPv6 /64,
+ *     IPv4 full address, `::ffff:` normalized — backend TB-B-8 semantics) → 429;
+ *   - partner keys `AGENT_API_KEYS=<id>:<secret>,…` checked in constant time
+ *     pass unlimited; a presented but unknown key → 401;
  *   - every route under `src/app/api/` wires the guard (source pin — the
  *     route handlers cannot be imported under `node --test` because
  *     `next/server` is not extension-resolvable there);
@@ -67,143 +67,69 @@ describe('resolveAgentKeyId — constant-time lookup', () => {
   })
 })
 
-describe('checkAgentAccess — auth', () => {
-  const opts = () => ({ agentApiKeys: KEYS, store: new Map() as RateLimitStore })
+describe('checkAgentAccess — permissionless access with partner keys', () => {
+  const tight = { perNetwork: { limit: 3, windowMs: 60_000 } }
+  const opts = (store: RateLimitStore, now = 10_000) => ({ agentApiKeys: KEYS, store, limits: tight, now })
 
-  it('401s a missing key', () => {
-    const res = checkAgentAccess(hdrs({}), '203.0.113.7', opts())
-    assert.equal(res.ok, false)
-    if (!res.ok) {
-      assert.equal(res.status, 401)
-      assert.equal(res.body.error, 'unauthorized')
-    }
+  it('no key passes as an anonymous caller', () => {
+    assert.deepEqual(checkAgentAccess(hdrs({}), '203.0.113.7', opts(new Map())), { ok: true, keyId: null })
   })
 
-  it('401s an unknown key (same body as missing — no oracle)', () => {
-    for (const presented of ['alice:nope', 'mallory:s3cret-one', 'garbage']) {
-      const res = checkAgentAccess(hdrs({ 'x-api-key': presented }), '203.0.113.7', opts())
-      assert.equal(res.ok, false, presented)
-      if (!res.ok) assert.equal(res.status, 401)
-    }
-  })
-
-  it('accepts a valid key and returns the key id', () => {
-    const res = checkAgentAccess(hdrs({ 'x-api-key': 'alice:s3cret-one' }), '203.0.113.7', opts())
-    assert.deepEqual(res, { ok: true, keyId: 'alice' })
-  })
-
-  it('unset/empty AGENT_API_KEYS outside production disables auth but keeps the network limit', () => {
+  it('anonymous callers are limited per network, and other networks are unaffected', () => {
     const store: RateLimitStore = new Map()
-    const limits = { perKey: { limit: 5, windowMs: 60_000 }, perNetwork: { limit: 2, windowMs: 60_000 } }
-    for (let i = 0; i < 2; i++) {
-      const res = checkAgentAccess(hdrs({}), '203.0.113.7', {
-        agentApiKeys: '',
-        nodeEnv: 'development',
-        store,
-        limits,
-        now: 1_000,
-      })
-      assert.equal(res.ok, true)
-    }
-    const res = checkAgentAccess(hdrs({}), '203.0.113.8', {
-      agentApiKeys: '',
-        nodeEnv: 'development',
-      store,
-      limits,
-      now: 1_000,
-    })
-    assert.equal(res.ok, true, 'a different network has its own bucket')
-    const res2 = checkAgentAccess(hdrs({}), '203.0.113.7', {
-      agentApiKeys: '',
-        nodeEnv: 'development',
-      store,
-      limits,
-      now: 1_000,
-    })
-    assert.equal(res2.ok, false)
-    if (!res2.ok) assert.equal(res2.status, 429)
-  })
-
-  it('unset/empty AGENT_API_KEYS in production refuses every call with 503', () => {
-    for (const agentApiKeys of ['', null]) {
-      const res = checkAgentAccess(hdrs({ 'x-api-key': 'alice:s3cret-one' }), '203.0.113.7', {
-        agentApiKeys,
-        nodeEnv: 'production',
-        store: new Map(),
-      })
-      assert.equal(res.ok, false)
-      if (!res.ok) {
-        assert.equal(res.status, 503)
-        assert.deepEqual(res.body, { error: 'auth_not_configured' })
-      }
-    }
-  })
-})
-
-describe('checkAgentAccess — rate limits', () => {
-  const tight = {
-    perKey: { limit: 3, windowMs: 60_000 },
-    perNetwork: { limit: 5, windowMs: 60_000 },
-  }
-  const opts = (store: RateLimitStore) => ({ agentApiKeys: KEYS, store, limits: tight, now: 10_000 })
-
-  it('a burst over the per-key limit returns 429 with retryAfter', () => {
-    const store: RateLimitStore = new Map()
-    const h = hdrs({ 'x-api-key': 'alice:s3cret-one' })
-    for (let i = 0; i < 3; i++) assert.equal(checkAgentAccess(h, '1.1.1.1', opts(store)).ok, true)
-    const res = checkAgentAccess(h, '1.1.1.1', opts(store))
+    for (let i = 0; i < 3; i++) assert.equal(checkAgentAccess(hdrs({}), '1.1.1.1', opts(store)).ok, true)
+    const res = checkAgentAccess(hdrs({}), '1.1.1.1', opts(store))
     assert.equal(res.ok, false)
     if (!res.ok) {
       assert.equal(res.status, 429)
       assert.equal(res.body.error, 'rate_limited')
-      assert.equal(res.body.subject, 'api_key')
+      assert.equal(res.body.subject, 'network')
       assert.ok((res.body.retryAfter as number) > 0)
       assert.equal(res.headers['retry-after'], String(res.body.retryAfter))
     }
-    // A different key on the same network still passes while under the net limit.
-    assert.equal(
-      checkAgentAccess(hdrs({ 'x-api-key': 'bob:s3cret-two' }), '1.1.1.1', opts(store)).ok,
-      true,
-    )
+    assert.equal(checkAgentAccess(hdrs({}), '1.1.1.2', opts(store)).ok, true)
   })
 
-  it('a burst over the per-network limit returns 429 across different keys', () => {
+  it('a valid partner key passes unlimited, even from a network over its limit', () => {
     const store: RateLimitStore = new Map()
-    const keys = ['alice:s3cret-one', 'bob:s3cret-two']
-    for (let i = 0; i < 5; i++) {
-      const res = checkAgentAccess(hdrs({ 'x-api-key': keys[i % 2] }), '9.9.9.9', opts(store))
-      assert.equal(res.ok, true, `call ${i}`)
-    }
-    const res = checkAgentAccess(hdrs({ 'x-api-key': keys[0] }), '9.9.9.9', opts(store))
-    assert.equal(res.ok, false)
-    if (!res.ok) {
-      assert.equal(res.status, 429)
-      assert.equal(res.body.subject, 'network')
+    for (let i = 0; i < 3; i++) checkAgentAccess(hdrs({}), '9.9.9.9', opts(store))
+    const partner = hdrs({ 'x-api-key': 'alice:s3cret-one' })
+    for (let i = 0; i < 50; i++) {
+      assert.deepEqual(checkAgentAccess(partner, '9.9.9.9', opts(store)), { ok: true, keyId: 'alice' })
     }
   })
 
-  it('unauthenticated bursts hit the network limit before auth (429, not endless 401s)', () => {
-    const store: RateLimitStore = new Map()
-    const limits = { perKey: { limit: 3, windowMs: 60_000 }, perNetwork: { limit: 4, windowMs: 60_000 } }
-    for (let i = 0; i < 4; i++) {
-      const res = checkAgentAccess(hdrs({}), '8.8.8.8', { agentApiKeys: KEYS, store, limits, now: 0 })
-      assert.equal(res.ok, false)
-      if (!res.ok) assert.equal(res.status, 401)
+  it('401s an unknown key (no silent downgrade to anonymous)', () => {
+    for (const presented of ['alice:nope', 'mallory:s3cret-one', 'garbage']) {
+      const res = checkAgentAccess(hdrs({ 'x-api-key': presented }), '203.0.113.7', opts(new Map()))
+      assert.equal(res.ok, false, presented)
+      if (!res.ok) assert.deepEqual([res.status, res.body.error], [401, 'unauthorized'])
     }
-    const res = checkAgentAccess(hdrs({}), '8.8.8.8', { agentApiKeys: KEYS, store, limits, now: 0 })
-    if (!res.ok) assert.equal(res.status, 429)
-    else assert.fail('expected 429')
+  })
+
+  it('bad-key bursts cost the network bucket (429, not endless 401s)', () => {
+    const store: RateLimitStore = new Map()
+    const bad = hdrs({ 'x-api-key': 'alice:guess' })
+    for (let i = 0; i < 3; i++) {
+      const res = checkAgentAccess(bad, '8.8.8.8', opts(store))
+      assert.equal(!res.ok && res.status, 401)
+    }
+    assert.equal((checkAgentAccess(bad, '8.8.8.8', opts(store)) as { status?: number }).status, 429)
+  })
+
+  it('unset/empty AGENT_API_KEYS means no partners; keyless calls still pass', () => {
+    for (const agentApiKeys of ['', null]) {
+      const store: RateLimitStore = new Map()
+      assert.equal(checkAgentAccess(hdrs({}), '203.0.113.7', { agentApiKeys, store }).ok, true)
+      const res = checkAgentAccess(hdrs({ 'x-api-key': 'alice:s3cret-one' }), '203.0.113.7', { agentApiKeys, store })
+      assert.equal(!res.ok && res.status, 401)
+    }
   })
 
   it('the window slides: old hits stop counting', () => {
     const store: RateLimitStore = new Map()
-    const h = hdrs({ 'x-api-key': 'alice:s3cret-one' })
-    for (let i = 0; i < 3; i++) {
-      checkAgentAccess(h, '1.1.1.1', { agentApiKeys: KEYS, store, limits: tight, now: 0 })
-    }
-    // 61s later the minute-window has expired — the same key is allowed again.
-    const res = checkAgentAccess(h, '1.1.1.1', { agentApiKeys: KEYS, store, limits: tight, now: 61_000 })
-    assert.equal(res.ok, true)
+    for (let i = 0; i < 3; i++) checkAgentAccess(hdrs({}), '1.1.1.1', opts(store, 0))
+    assert.equal(checkAgentAccess(hdrs({}), '1.1.1.1', opts(store, 61_000)).ok, true)
   })
 })
 

@@ -36,7 +36,7 @@
  *
  * Errors:
  *   400 invalid request body     — { error: string }
- *   401 unauthorized             — missing/unknown X-Api-Key (AGENT_API_KEYS)
+ *   401 unauthorized             — unknown X-Api-Key (AGENT_API_KEYS)
  *   403 geo_restricted           — { error: "geo_restricted", region, feature }
  *   404 pool_not_found           — { error: "pool_not_found" }
  *   409 pool_not_tradeable       — { error, migrationState, retryable }

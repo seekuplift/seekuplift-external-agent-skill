@@ -3,13 +3,13 @@
   "version": "1.0.0",
   "baseUrl": "https://skill.seekuplift.com",
   "auth": {
-    "required": "every /api/* endpoint (configs, pools, quotes, all transaction builders); document routes stay public",
+    "required": "none — every endpoint is open; a partner key is optional",
     "header": "X-Api-Key",
     "format": "<key-id>:<secret>",
-    "issuedBy": "the service operator, out of band; no issuance flow on the service",
+    "issuedBy": "the service operator, out of band, to partners whose users share one egress IP; a valid partner key skips the service rate limit",
     "errors": {
-      "401": "{ error: \"unauthorized\" } — missing or unknown key",
-      "429": "{ error: \"rate_limited\", subject, retryAfter } + Retry-After header — per-key (60/min) or per-caller-network (240/min; IPv6 /64) service limit"
+      "401": "{ error: \"unauthorized\" } — an X-Api-Key was sent but is not a valid partner key",
+      "429": "{ error: \"rate_limited\", subject: \"network\", retryAfter } + Retry-After header — per-caller-network (240/min; IPv6 /64) service limit for callers without a partner key"
     }
   },
   "description": "Launch and trade coins on SeekUplift Launchpad (Solana mainnet; pools run on Meteora's open-source Dynamic Bonding Curve program — SeekUplift is independent, not affiliated with or endorsed by Meteora). Launch options are a live catalog of on-chain pool configs (GET /api/configs) — quote asset, fee schedule, creator share and cause routing differ per config; the agent picks one per launch.",
@@ -150,7 +150,7 @@
     "onRefusal": "Tell the user the action is not currently available in their detected jurisdiction, naming it (relay message). Do not retry from the same location or work around the block."
   },
   "rateLimits": {
-    "service": "per API key 60/minute and per caller network 240/minute (IPv6 /64 per network) — 429 { error: \"rate_limited\", retryAfter } + Retry-After",
+    "service": "per caller network 240/minute (IPv6 /64 per network), skipped with a partner key — 429 { error: \"rate_limited\", retryAfter } + Retry-After",
     "uploads": "10 per hour per caller IP, shared by image + metadata — one launch consumes 2 (HTTP 429 when exhausted)",
     "image": "<=10MB, PNG/JPEG/GIF/WEBP (magic-byte sniffed)"
   },

@@ -77,9 +77,9 @@
  *   ACCEPTANCE_RPC           Solana mainnet RPC (default SOLANA_RPC_URL or
  *                            https://api.mainnet-beta.solana.com); logged and
  *                            reported as scheme+host only
- *   AGENT_API_KEY            X-Api-Key credential (<id>:<secret>) for the
- *                            builder endpoints (or --api-key); required when
- *                            the target service has AGENT_API_KEYS set
+ *   AGENT_API_KEY            optional partner X-Api-Key (<id>:<secret>) for
+ *                            the builder endpoints (or --api-key); skips the
+ *                            per-network rate limit
  *   ACCEPTANCE_POOL          resume from this pool address (see --resume)
  *   ACCEPTANCE_DONATION_CAUSE  pin the donation cause slug instead of
  *                            auto-picking causesOffered[0] (part of the plan)
@@ -193,8 +193,8 @@ const BASE_URL = (
   process.env.ACCEPTANCE_BASE_URL ||
   'https://skill.seekuplift.com'
 ).replace(/\/+$/, '')
-// TB-S-3: every /api/* endpoint requires X-Api-Key: <id>:<secret> when the
-// service has AGENT_API_KEYS configured (production does).
+// TB-S-3: endpoints are open; a partner X-Api-Key: <id>:<secret> skips the
+// per-network rate limit.
 const API_KEY = args.apiKey || process.env.AGENT_API_KEY || null
 const RPC_URL =
   args.rpc ||

@@ -1,23 +1,22 @@
 /**
  * Builder-endpoint access control (TB-S-3).
  *
- * Every `/api/*` builder route calls {@link checkAgentAccess} first. Two
- * mechanisms, both documented in DEPLOY.md and the contract documents:
+ * Every `/api/*` builder route calls {@link checkAgentAccess} first. Access
+ * is permissionless; both paths are documented in DEPLOY.md and the contract
+ * documents:
  *
- *   - **API keys** — a static env-held list `AGENT_API_KEYS=<id>:<secret>,…`.
- *     The caller sends the whole `id:secret` pair as `X-Api-Key`; it is
- *     checked in constant time (SHA-256 digests, `timingSafeEqual`, full
- *     scan). Missing or unknown key → 401. Keys are distributed out of band
- *     and revoked by redeploy; the service is stateless — there is no key
- *     store or issuance flow. Unset/empty `AGENT_API_KEYS` disables auth
- *     only outside production (with a warning log; the limits below still
- *     apply) — under `NODE_ENV=production` (`next start`) every builder call
- *     is refused with 503 `auth_not_configured` instead of failing open.
- *   - **Rate limits** — sliding-window, in-process (per `next start`
- *     instance — a two-host deployment roughly doubles the allowance), keyed
- *     per API key AND per caller network (TB-B-8 semantics: IPv6 callers
- *     share one bucket per /64, IPv4 per full address, `::ffff:` mapped
- *     forms normalize to the v4 key). Over the limit → 429.
+ *   - **No key** — anyone may call. The caller's network is rate-limited
+ *     (sliding window, in-process per `next start` instance — a two-host
+ *     deployment roughly doubles the allowance; TB-B-8 semantics: IPv6
+ *     callers share one bucket per /64, IPv4 per full address, `::ffff:`
+ *     mapped forms normalize to the v4 key). Over the limit → 429.
+ *   - **Partner keys** — a static env-held list `AGENT_API_KEYS=<id>:<secret>,…`
+ *     for partners whose many users share one egress IP. The caller sends
+ *     the whole `id:secret` pair as `X-Api-Key`; it is checked in constant
+ *     time (SHA-256 digests, `timingSafeEqual`, full scan). A valid key is
+ *     not rate-limited; a presented but unknown key → 401 (and still costs
+ *     the network bucket, so key guessing is throttled). Keys are issued out
+ *     of band and revoked by redeploy. Unset/empty = no partners.
  */
 
 import { createHash, timingSafeEqual } from 'node:crypto'
@@ -28,11 +27,9 @@ export const AGENT_API_KEY_HEADER = 'x-api-key'
 
 /** Service-level limits (per `next start` instance — documented in DEPLOY.md). */
 export const AGENT_RATE_LIMITS = {
-  /** Per API key. Builder calls each cost several RPC reads, so this is a
-   *  burst allowance, not a throughput budget. */
-  perKey: { limit: 60, windowMs: 60_000 },
-  /** Per caller network (IPv6 /64; IPv4 full address). More generous than
-   *  per-key — a site /64 can host several keyed agents. */
+  /** Per caller network (IPv6 /64; IPv4 full address) for keyless callers.
+   *  Builder calls each cost several RPC reads, so this is a burst
+   *  allowance, not a throughput budget. */
   perNetwork: { limit: 240, windowMs: 60_000 },
 } as const
 
@@ -177,7 +174,7 @@ export type AgentAccess =
   | { ok: true; keyId: string | null }
   | {
       ok: false
-      status: 401 | 429 | 503
+      status: 401 | 429
       body: Record<string, unknown>
       /** Extra response headers (`retry-after` on 429). */
       headers: Record<string, string>
@@ -186,32 +183,33 @@ export type AgentAccess =
 export type AgentAccessOptions = {
   /** Raw `AGENT_API_KEYS` value — defaults to the env at call time. */
   agentApiKeys?: string | null
-  /** `NODE_ENV` — defaults to the env at call time. */
-  nodeEnv?: string
   /** Test seams — the shared in-process store and limits are the defaults. */
   store?: RateLimitStore
-  limits?: { perKey: RateLimitRule; perNetwork: RateLimitRule }
+  limits?: { perNetwork: RateLimitRule }
   now?: number
 }
 
-let warnedAuthDisabled = false
-
 /**
- * Check a builder request: rate limit → auth → per-key limit, in that order.
- * The network bucket is consumed for EVERY request (including rejected keys)
- * so a key-guessing flood hits the per-/64 ceiling instead of free retries.
+ * Check a builder request. A valid partner key passes unlimited
+ * (`keyId` set); any other caller consumes its network bucket first, then a
+ * presented-but-unknown key is refused (401) and no key passes (`keyId` null).
  */
 export function checkAgentAccess(
   headers: Pick<Headers, 'get'>,
   clientIp: string | null,
   options: AgentAccessOptions = {},
 ): AgentAccess {
+  const presented = headers.get(AGENT_API_KEY_HEADER)?.trim() || null
+  const keyId = resolveAgentKeyId(
+    presented,
+    parseAgentApiKeys(options.agentApiKeys ?? process.env.AGENT_API_KEYS),
+  )
+  if (keyId != null) return { ok: true, keyId }
+
   const store = options.store ?? sharedStore
   const limits = options.limits ?? AGENT_RATE_LIMITS
-  const now = options.now ?? Date.now()
-
   const network = rateLimitNetworkSubject(clientIp)
-  const net = checkWindow(store, `net:${network}`, limits.perNetwork, now)
+  const net = checkWindow(store, `net:${network}`, limits.perNetwork, options.now ?? Date.now())
   if (!net.allowed) {
     return {
       ok: false,
@@ -220,35 +218,7 @@ export function checkAgentAccess(
       headers: { 'retry-after': String(net.retryAfterSec) },
     }
   }
-
-  const keys = parseAgentApiKeys(options.agentApiKeys ?? process.env.AGENT_API_KEYS)
-  if (keys.length === 0) {
-    if ((options.nodeEnv ?? process.env.NODE_ENV) === 'production') {
-      if (!warnedAuthDisabled) {
-        warnedAuthDisabled = true
-        console.error(
-          '[agent-auth] AGENT_API_KEYS is unset in production — refusing every builder call (503 auth_not_configured)',
-        )
-      }
-      return {
-        ok: false,
-        status: 503,
-        body: { error: 'auth_not_configured' },
-        headers: {},
-      }
-    }
-    if (!warnedAuthDisabled) {
-      warnedAuthDisabled = true
-      console.warn(
-        '[agent-auth] AGENT_API_KEYS is unset — builder endpoints are UNAUTHENTICATED (per-network rate limits still apply)',
-      )
-    }
-    return { ok: true, keyId: null }
-  }
-
-  const presented = headers.get(AGENT_API_KEY_HEADER)?.trim() ?? null
-  const keyId = resolveAgentKeyId(presented, keys)
-  if (keyId == null) {
+  if (presented != null) {
     return {
       ok: false,
       status: 401,
@@ -256,15 +226,5 @@ export function checkAgentAccess(
       headers: {},
     }
   }
-
-  const key = checkWindow(store, `key:${keyId}`, limits.perKey, now)
-  if (!key.allowed) {
-    return {
-      ok: false,
-      status: 429,
-      body: { error: 'rate_limited', subject: 'api_key', retryAfter: key.retryAfterSec },
-      headers: { 'retry-after': String(key.retryAfterSec) },
-    }
-  }
-  return { ok: true, keyId }
+  return { ok: true, keyId: null }
 }

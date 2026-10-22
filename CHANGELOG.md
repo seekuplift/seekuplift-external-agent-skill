@@ -9,9 +9,10 @@ change after release ships under a new version.
 The first release of the contract. Nothing has shipped yet, so this entry is
 the whole history; it is rewritten freely until the first release.
 
-- **Auth**: `X-Api-Key: <key-id>:<secret>` on every `/api/*` call; the
-  document routes stay public. Missing/unknown key → `401 { "error":
-  "unauthorized" }`; per-key and per-caller limits → `429 rate_limited`.
+- **Auth**: none — every endpoint is open, limited per caller network
+  (`429 rate_limited`). Partners may send an operator-issued
+  `X-Api-Key: <key-id>:<secret>` to skip that limit; an unknown key →
+  `401 { "error": "unauthorized" }`.
 - **Config catalog**: `GET /api/configs` lists the live launch options for
   the caller (fees, quote asset, categories, geo verdict). `POST /api/launch`
   requires `configKey` and `category`.

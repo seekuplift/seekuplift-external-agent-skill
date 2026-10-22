@@ -21,21 +21,20 @@ Launch options are served as a live catalog of on-chain pool configs (`GET /api/
 ## Prerequisites
 
 - A funded Solana wallet keypair — the **payer** on launches, the **owner** on trades.
-- An **API key** issued by the operator out of band (see **Authentication** below).
 - ~0.02 SOL for rent + fees on launch, plus the config's `poolCreationFeeLamports` and any first buy. ~0.001 SOL+ for trades.
 - On a config whose quote asset is not SOL (`quote.mint` ≠ `So1111…1112`), the payer/owner must hold that token.
 
 ## Authentication
 
-Every `/api/*` endpoint — the config catalog, pool list/search, quotes and all transaction builders — requires an API key on **every** request:
+None needed: every endpoint is open, with no key or sign-up. Calls are rate-limited **per caller network** (240/minute; IPv6 callers share one bucket per /64). Over the limit: `429 { "error": "rate_limited", "subject": "network", "retryAfter": <seconds> }` plus a `Retry-After` header — wait and retry; do not rotate source addresses to evade it.
+
+**Partners** whose many users share one egress IP can get a partner key from the operator. Send it on every request to skip the service limit:
 
 ```
 X-Api-Key: <key-id>:<secret>
 ```
 
-Keys are issued by the service operator out of band and revoked by redeploy; there is no issuance flow on the service itself. A missing or unknown key returns `401 { "error": "unauthorized" }`. The document routes (`/skill.md`, `/skill.json`, `/CHANGELOG.md`) stay public — no key needed to read this contract.
-
-The service also rate-limits builders **per key** (60/minute) and **per caller network** (240/minute; IPv6 callers share one bucket per /64). Over the limit: `429 { "error": "rate_limited", "subject": "api_key" | "network", "retryAfter": <seconds> }` plus a `Retry-After` header — wait and retry; do not rotate source addresses to evade it.
+A key that is sent but not recognised returns `401 { "error": "unauthorized" }` (it is never silently ignored).
 
 ## Flow at a glance
 
@@ -272,7 +271,7 @@ Off-chain swap quote for a live curve pool.
 - `quoteScaledUiAmount`: `{ multiplier, newMultiplier, newMultiplierEffectiveTimestamp }` when the quote mint is a scaled Token-2022 mint — needed for display math on non-SOL quotes.
 - `migrationState` / `isCompleted`: see **Migration states** below.
 
-**Errors**: `400`, `401 unauthorized` (missing/unknown `X-Api-Key`), `403 geo_restricted`, `404 { error: "pool_not_found" }`, `409` (below), `429 rate_limited`, `5xx` upstream/RPC failure.
+**Errors**: `400`, `401 unauthorized` (unknown `X-Api-Key`), `403 geo_restricted`, `404 { error: "pool_not_found" }`, `409` (below), `429 rate_limited`, `5xx` upstream/RPC failure.
 
 ---
 
@@ -404,7 +403,7 @@ The service forwards the caller's IP to the backend, which resolves a fresh geo 
 
 ## Limits
 
-- **Service level**: every builder call counts against a per-key bucket (60/minute) and a per-caller-network bucket (240/minute — IPv6 callers share one bucket per /64). Over the limit: `429 { "error": "rate_limited", "subject": "api_key" | "network", "retryAfter" }` + `Retry-After` header.
+- **Service level**: every builder call without a partner key counts against a per-caller-network bucket (240/minute — IPv6 callers share one bucket per /64). Over the limit: `429 { "error": "rate_limited", "subject": "network", "retryAfter" }` + `Retry-After` header.
 - **Uploads**: **10 per hour per caller IP**, shared by image + metadata uploads — one launch consumes 2. Exceeding it returns `429` from the backend. Validation and geo refusals happen before uploads, so they do not consume budget.
 - Pool list/search calls share a per-IP read bucket on the backend.
 - Image inputs: ≤10 MB, PNG/JPEG/GIF/WEBP (magic-byte sniffed, never the declared type).
@@ -498,8 +497,8 @@ A launch's `payerPublicKey` is recorded as the coin's creator; only that wallet 
 | Status | Body | Meaning |
 |---|---|---|
 | `400` | `{ error }` | Invalid request — message names the field. `error: "donation_required"` adds `causesOffered`; `unsupported_<field>` errors list `allowed`; `min_out_below_floor` names `minimumAmountOutFloor`. |
-| `401` | `{ error: "unauthorized" }` | Missing or unknown `X-Api-Key` — get a key from the operator. |
-| `429` | `{ error: "rate_limited", subject, retryAfter }` | Service limit — `subject` is `"api_key"` or `"network"` — wait `retryAfter` seconds. |
+| `401` | `{ error: "unauthorized" }` | An `X-Api-Key` was sent but is not a valid partner key — fix it or omit the header. |
+| `429` | `{ error: "rate_limited", subject, retryAfter }` | Service limit (`subject: "network"`) — wait `retryAfter` seconds. |
 | `403` | `{ error: "geo_restricted", region, regionName, feature, message }` | The caller's geo verdict blocks this launch or trade — relay `message` (names the jurisdiction) to your user. |
 | `404` | `{ error: "pool_not_found" }` | No DBC pool at that address. |
 | `409` | `{ error: "pool_not_tradeable", migrationState, retryable }` | See **Migration states**. |
