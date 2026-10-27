@@ -1335,7 +1335,8 @@ async function stepSell() {
  * auth check and claim path are live.
  */
 async function stepClaim() {
-  const poolAddress = ctx.launch?.poolAddress ?? ctx.pool?.poolAddress
+  // Dry-run builds a launch but never sends it, so its pool does not exist.
+  const poolAddress = (SEND ? ctx.launch?.poolAddress : null) ?? ctx.pool?.poolAddress
   if (!poolAddress) throw fail('no pool to claim on (neither launch nor trade target resolved)')
   const creatorPublicKey = ctx.payer.keypair.publicKey.toBase58()
   const res = await apiFetch('/api/claim/tx', {
