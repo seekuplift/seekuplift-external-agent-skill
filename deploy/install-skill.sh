@@ -54,7 +54,9 @@ app=/opt/skill
 work=$app.new
 rm -rf "$work"
 install -d -o skill -g skill -m 0750 "$work"
-sudo -u skill tar -xzf "$stage/$pkg" -C "$work"
+# Extract as root: the stage dir is ops-owned 0700, unreadable to skill.
+tar -xzf "$stage/$pkg" -C "$work" --no-same-owner
+chown -R skill:skill "$work"
 install -o skill -g skill -m 0600 "$stage/$envf" "$work/.env"
 cd "$work"
 # HOME=$work: skill has no home; npm needs a cache dir. The scope caps the
