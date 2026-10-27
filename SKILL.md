@@ -238,8 +238,8 @@ Off-chain swap quote for a live curve pool.
 ```
 
 - `side`: `"buy"` (quote → base) or `"sell"` (base → quote).
-- `amountIn`: base-10 integer atom **string**, ≤ `18446744073709551615` (u64 max — larger is a `400`). Buy → **quote** atoms (lamports for SOL-quoted pools, `quoteDecimals` otherwise — check `poolInfo.quoteDecimals`/`quoteScaledUiAmount`, never assume 1e9). Sell → **base** atoms (`baseDecimals`).
-- `slippageBps`: optional, 0–1000, default 50. Above 1000 needs `"allowHighSlippage": true`, which raises the cap to 5000; anything over the cap is `400 { "error": "slippage_too_high", "maxSlippageBps": … }`. The floor is never zero. Same rule on `/api/trade/tx`.
+- `amountIn`: base-10 integer atom **string**, ≤ `18446744073709551615` (u64 max — larger is a `400`). Buy → **quote** atoms (lamports for SOL-quoted pools, `quoteDecimals` otherwise — check `poolInfo.quoteDecimals`/`quoteScaledUiAmount`, never assume 1e9). Sell → **base** atoms (`baseDecimals`). A user amount in display units converts as `display × 10^decimals ÷ multiplier` — the multiplier is the config's `quote.scaledUiAmountMultiplier` (`null` = 1); before you hold a quote, take the decimals from the config's `quote.decimals`.
+- `slippageBps`: optional, 0–1000, default 50. Above 1000 needs `"allowHighSlippage": true`, which raises the cap to 5000; anything over the cap is `400 { "error": "slippage_too_high", "maxSlippageBps": … }`. The floor is never zero. Same rule on `/api/trade/tx`, which also refuses an `amountIn` too small to return anything with `400 { "error": "zero_output" }` (the quote endpoint still answers, with `amountOut: "0"`).
 
 **Response**:
 
@@ -266,7 +266,7 @@ Off-chain swap quote for a live curve pool.
 }
 ```
 
-- **Quote the sell after the buy lands.** A quote is a snapshot: your own buy moves the price, so a sell quoted before it is stale. The sell amount is the wallet's balance of `baseMint` — read it with `getParsedTokenAccountsByOwner(owner, { mint })`, which covers both SPL Token and Token-2022 mints (many coins here are Token-2022).
+- **Quote the sell after the buy lands.** A quote is a snapshot: your own buy moves the price, so a sell quoted before it is stale. The sell amount is the wallet's balance of `baseMint` — read it with `getParsedTokenAccountsByOwner(owner, { mint })` (web3.js), or over raw JSON-RPC with `getTokenAccountsByOwner` `[owner, { "mint": baseMint }, { "encoding": "jsonParsed" }]`; filtering by mint covers both SPL Token and Token-2022 mints (many coins here are Token-2022). Sum `tokenAmount.amount` across the accounts; a zero balance means there is nothing to sell — tell the user instead of building a trade.
 - Buys use **partial-fill**: a buy that would push the pool past `migrationQuoteThreshold` consumes only enough quote to graduate the curve and refunds the rest — `consumedInput`/`amountLeft` report it. Sells always fill fully.
 - `quoteScaledUiAmount`: `{ multiplier, newMultiplier, newMultiplierEffectiveTimestamp }` when the quote mint is a scaled Token-2022 mint — needed for display math on non-SOL quotes.
 - `migrationState` / `isCompleted`: see **Migration states** below.
@@ -496,7 +496,7 @@ A launch's `payerPublicKey` is recorded as the coin's creator; only that wallet 
 
 | Status | Body | Meaning |
 |---|---|---|
-| `400` | `{ error }` | Invalid request — message names the field. `error: "donation_required"` adds `causesOffered`; `unsupported_<field>` errors list `allowed`; `min_out_below_floor` names `minimumAmountOutFloor`. |
+| `400` | `{ error }` | Invalid request — message names the field. `error: "donation_required"` adds `causesOffered`; `unsupported_<field>` errors list `allowed`; `min_out_below_floor` names `minimumAmountOutFloor`; `zero_output` = `amountIn` too small to return anything. |
 | `401` | `{ error: "unauthorized" }` | An `X-Api-Key` was sent but is not a valid partner key — fix it or omit the header. |
 | `429` | `{ error: "rate_limited", subject, retryAfter }` | Service limit (`subject: "network"`) — wait `retryAfter` seconds. |
 | `403` | `{ error: "geo_restricted", region, regionName, feature, message }` | The caller's geo verdict blocks this launch or trade — relay `message` (names the jurisdiction) to your user. |

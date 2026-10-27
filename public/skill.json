@@ -88,7 +88,7 @@
       "sideValues": ["buy", "sell"],
       "fieldNotes": {
         "amountIn": "base-10 atom string, <= 18446744073709551615 (u64 max)",
-        "minimumAmountOut": "may only TIGHTEN the recomputed floor (fresh quote at slippageBps); a looser value — including \"0\" — is 400 { error: \"min_out_below_floor\", minimumAmountOutFloor }; pass the quote's value or omit",
+        "minimumAmountOut": "may only TIGHTEN the recomputed floor (fresh quote at slippageBps); a looser value — including \"0\" — is 400 { error: \"min_out_below_floor\", minimumAmountOutFloor }; pass the quote's value or omit; an amountIn whose quote returns nothing is 400 { error: \"zero_output\" }",
         "slippageBps": "0-1000, default 50; up to 5000 with allowHighSlippage: true; above the cap is 400 { error: \"slippage_too_high\", maxSlippageBps }",
         "allowHighSlippage": "optional boolean; raises the slippageBps cap from 1000 to 5000 — the floor is never zero",
         "quote": "always populated — the fresh quote the floor was computed from"

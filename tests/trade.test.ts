@@ -64,6 +64,7 @@ let mockOptions: MobileConfigResponse['launchConfigOptions'] = {}
 let mockQuoteAssets: unknown = []
 let mockLaunchType: string | null = null
 let metadataFetchThrows = false
+let mockZeroOut = false
 
 function makeMockClient(): DynamicBondingCurveClient {
   return {
@@ -92,8 +93,8 @@ function makeMockClient(): DynamicBondingCurveClient {
         swapQuoteCalls.push(args)
         const requested = (args.amountIn as { toString(): string }).toString()
         return {
-          outputAmount: bnLike(1_000_000n),
-          minimumAmountOut: bnLike(950_000n),
+          outputAmount: bnLike(mockZeroOut ? 0n : 1_000_000n),
+          minimumAmountOut: bnLike(mockZeroOut ? 0n : 950_000n),
           includedFeeInputAmount: bnLike(requested),
           amountLeft: bnLike(0),
         }
@@ -170,6 +171,7 @@ beforeEach(() => {
   mockQuoteAssets = []
   mockLaunchType = null
   metadataFetchThrows = false
+  mockZeroOut = false
   patch('getSlot', async () => 1)
   patch('getLatestBlockhash', async () => ({
     blockhash: '4uQeVj5tqViQh7yWWGStvkEG1RgTksVZc8k1q1iT1c1k',
@@ -458,6 +460,24 @@ describe('prepareTradeTx — transfer-fee mint (TF-APP-1)', () => {
         },
       )
     }
+    assert.equal(swapCalls.length + swap2Calls.length, 0, 'no transaction was built')
+  })
+
+  it('an amountIn too small to return anything is a 400 zero_output, no tx', async () => {
+    mockZeroOut = true
+    await assert.rejects(
+      prepareTradeTx(
+        { poolAddress: POOL_ADDRESS, ownerPublicKey: OWNER_ADDRESS, side: 'sell', amountIn: '1000' },
+        null,
+        makeDeps(),
+      ),
+      (err: unknown) => {
+        assert.ok(err instanceof TradeError)
+        assert.equal(err.status, 400)
+        assert.equal(err.fields.error, 'zero_output')
+        return true
+      },
+    )
     assert.equal(swapCalls.length + swap2Calls.length, 0, 'no transaction was built')
   })
 

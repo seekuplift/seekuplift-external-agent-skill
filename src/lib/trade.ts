@@ -335,6 +335,14 @@ export async function prepareTradeTx(
   // demands more output); anything below the computed floor — including "0",
   // which used to disable slippage protection — is a 400 naming the floor.
   const result = await read.quote({ swapBaseForQuote, amountIn, slippageBps })
+  // A zero quote has a zero floor: the tx would spend amountIn for nothing.
+  if (result.amountOut <= 0n) {
+    throw new TradeError(
+      `amountIn ${amountIn} is too small: the curve returns nothing for it`,
+      400,
+      { error: 'zero_output' },
+    )
+  }
   const floor = result.minimumAmountOut
   let minimumAmountOut = floor
   if (requestedMinOut != null) {

@@ -30,7 +30,7 @@ the whole history; it is rewritten freely until the first release.
   unchanged and carries no `mintVanity`.
 - **Trade**: `POST /api/trade/quote` then `POST /api/trade/tx` (unsigned
   transaction; `minimumAmountOut` may only tighten the service-computed
-  floor).
+  floor; an `amountIn` that returns nothing is `400 zero_output`).
 - **Pools**: `GET /api/pools` with search, tab, category, lifecycle and sort
   parameters.
 - **Claim**: `POST /api/claim/tx` claims creator fees; `source` is `"curve"`
