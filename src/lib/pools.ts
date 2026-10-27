@@ -33,6 +33,7 @@ import {
   type CatalogDeps,
   type LaunchConfigOptionsByCategory,
 } from './config-catalog.ts'
+import { getListedConfigKeys } from './config.ts'
 import type { LaunchCategory } from './geo.ts'
 import { LaunchError } from './launch.ts'
 
@@ -226,7 +227,8 @@ export async function listPools(
   // Fresh mobile-config context per request (geo is per-caller; the option
   // parse rides the ~60s version cache) — the served keys ARE the catalog.
   const ctx = await getMobileConfigContext(clientIp, deps.catalogDeps)
-  const keys = catalogConfigKeys(ctx.options)
+  // Retired launch configs (LISTED_CONFIG_KEYS) stay listed after the catalog drops them.
+  const keys = [...new Set([...catalogConfigKeys(ctx.options), ...getListedConfigKeys()])]
   if (keys.length === 0) return { pools: [], nextCursor: null }
   const partnerConfigs = keys.join(',')
   const catalog = new Set(keys)

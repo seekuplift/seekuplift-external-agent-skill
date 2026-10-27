@@ -73,10 +73,23 @@ export const BACKEND_URL = assertBackendTransport(
  * pubkeys. Read at call time so deploys/tests can change it without a
  * restart. Fail closed: unset/empty → no config is cause-capable.
  */
-export function getDonationClaimAuthorities(): string[] {
-  const raw = process.env.DONATION_CLAIM_AUTHORITIES ?? ''
-  return raw
+/**
+ * Config keys whose coins stay listed and claimable although the catalog no
+ * longer serves them for new launches (retired launch configs). Mirrors the
+ * app's `config/production-manifest.json` `targets.production.partnerConfigKeys`.
+ * Comma-separated base58 pubkeys, read at call time; unset → catalog keys only.
+ */
+export function getListedConfigKeys(): string[] {
+  return parseBase58List(process.env.LISTED_CONFIG_KEYS)
+}
+
+function parseBase58List(raw: string | undefined): string[] {
+  return (raw ?? '')
     .split(',')
     .map((entry) => entry.trim())
     .filter((entry) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(entry))
+}
+
+export function getDonationClaimAuthorities(): string[] {
+  return parseBase58List(process.env.DONATION_CLAIM_AUTHORITIES)
 }

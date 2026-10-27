@@ -18,6 +18,7 @@ npm run dev                   # http://localhost:3001
 | `AGENT_API_KEYS` | No | Optional partner keys: comma-separated `<id>:<secret>` pairs checked in constant time (`X-Api-Key: <id>:<secret>`). A valid key skips the per-network rate limit; a sent but unknown key → 401; no key → served under the per-network limit. Issued out of band, revoked by removing the entry and redeploying. Unset/empty = no partners. |
 | `UPLOAD_PARTNER_TOKEN` | No | Shared secret (>= 32 chars) — must equal the backend's `UPLOAD_PARTNER_TOKEN`. When set, launch uploads made under a partner key carry `X-Upload-Partner: <key id>` + this token, so the backend counts them against that partner's hourly bucket (`UPLOAD_PARTNER_MAX_PER_HOUR`, default 600) instead of the shared egress IP's 10/hour. Partner key ids must match `[A-Za-z0-9_-]{1,64}` or the backend ignores the lane. Unset → partners share the per-IP upload limit. |
 | `DONATION_CLAIM_AUTHORITIES` | No | Comma-separated donation claim authorities (config `feeClaimer` values that make a launch config cause-capable). Must mirror the app's `config/production-manifest.json` → `targets.production.donationClaimAuthorities` (`EXPO_PUBLIC_DONATION_CLAIM_AUTHORITY`); update it whenever the app's value changes or new configs ship. Unset/empty → no config is cause-capable. |
+| `LISTED_CONFIG_KEYS` | No | Comma-separated config keys whose coins stay listed (`/api/pools`) and claimable (`/api/claim/tx`) after the catalog stops serving them for new launches. Must mirror the app's `config/production-manifest.json` → `targets.production.partnerConfigKeys`. Unset → catalog keys only. |
 
 **Service rate limits** (fixed in `src/lib/agent-auth.ts`, no env): every
 builder call without a partner key counts against a per-caller-**network**
@@ -120,6 +121,7 @@ $EDITOR /tmp/skill.env
 #   SOLANA_RPC_URL=<private mainnet RPC>
 #   AGENT_API_KEYS=<id>:<secret>,…           (optional partner keys — see below)
 #   DONATION_CLAIM_AUTHORITIES=<see "Config tracking" below>
+#   LISTED_CONFIG_KEYS=<see "Config tracking" below>
 ```
 
 ### Partner keys — `AGENT_API_KEYS`
@@ -170,6 +172,13 @@ as `supportsCause: false`. Update `.env` on both hosts and
 `systemctl restart skill` (the value is read per call, but the env file is
 only loaded at start).
 
+`LISTED_CONFIG_KEYS` tracks the app's `targets.production.partnerConfigKeys`
+the same way. When the backend stops serving a launch config (e.g. the test
+config replaced by the production keys), keep that key here or its coins
+disappear from `/api/pools` and their creators get `403 config_not_served`
+on claim. No skill code change is needed for a key swap: the catalog comes
+from the backend per request.
+
 ### Upgrade
 
 ```bash
@@ -198,9 +207,10 @@ currently always builds on the host).
 
 ### Status
 
-Deployment to hosts A+B and the Cloudflare DNS/origin-cert steps are
-**blocked-on-owner** — the artifacts and commands above are prepared but not
-executed.
+Deployed 2026-10-27 on hosts A+B (Node 24, origin cert
+`~/.config/seekuplift/skill-origin.*`, proxied CNAME `skill` →
+`app-api.seekuplift.com`). The CNAME rides the app-api load balancer, so
+failover follows backend health (A primary, B fallback), not the skill's.
 
 ---
 

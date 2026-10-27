@@ -57,6 +57,7 @@ import {
   unwrapConfig,
   unwrapPoolState,
 } from './dbc-shared.ts'
+import { getListedConfigKeys } from './config.ts'
 import { deriveDbcPoolMigrationState } from './dbc-migration.ts'
 import type { TradeClientDeps } from './dbc-trade.ts'
 import { LaunchError } from './launch.ts'
@@ -171,9 +172,9 @@ export async function prepareClaimTx(
 
   const configKey = pool.config?.toString() ?? ''
   const ctx = await getMobileConfigContext(clientIp, deps.catalogDeps)
-  const served = Object.values(ctx.options).some((refs) =>
-    (refs ?? []).some((ref) => ref.configKey === configKey),
-  )
+  const served =
+    Object.values(ctx.options).some((refs) => (refs ?? []).some((ref) => ref.configKey === configKey)) ||
+    getListedConfigKeys().includes(configKey)
   if (!served) {
     throw new ClaimError(
       'Pool config is not served by SeekUplift — claim in the SeekUplift app instead',

@@ -212,6 +212,24 @@ describe('GET /api/pools', () => {
     assert.ok(result.pools.every((p) => p.configKey === LIVE_CONFIG_KEY))
   })
 
+  it('keeps retired configs listed in LISTED_CONFIG_KEYS', async () => {
+    const fixture = listFixture()
+    const retired = { ...(fixture.items[0] as Record<string, unknown>), configKey: LEGACY_CONFIG_KEY }
+    let partnerConfigs: string | null = null
+    stubFetch((url) => {
+      partnerConfigs = new URL(url).searchParams.get('partnerConfigs')
+      return { body: { items: [...fixture.items, retired], nextCursor: null } }
+    })
+    process.env.LISTED_CONFIG_KEYS = LEGACY_CONFIG_KEY
+    try {
+      const result = await listPools({}, null, { catalogDeps })
+      assert.equal(result.pools.length, fixture.items.length + 1)
+      assert.equal(partnerConfigs, `${LIVE_CONFIG_KEY},${LEGACY_CONFIG_KEY}`)
+    } finally {
+      delete process.env.LISTED_CONFIG_KEYS
+    }
+  })
+
   it('marks graduated coins on the list path too', async () => {
     stubFetch(() => ({ body: graduatedFixture() }))
     const result = await listPools({ tab: 'graduated' }, null, { catalogDeps })

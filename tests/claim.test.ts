@@ -126,6 +126,17 @@ describe('prepareClaimTx', () => {
     assert.equal(claimCalls.length, 0)
   })
 
+  it('accepts a retired config listed in LISTED_CONFIG_KEYS', async () => {
+    mockConfig = UNSERVED_CONFIG
+    process.env.LISTED_CONFIG_KEYS = UNSERVED_CONFIG
+    try {
+      // Past the config gate: the next check (creator) is what refuses.
+      await rejectsWith({ poolAddress: POOL_ADDRESS, creatorPublicKey: OTHER_WALLET }, 403, 'not_creator')
+    } finally {
+      delete process.env.LISTED_CONFIG_KEYS
+    }
+  })
+
   it('refuses a wallet that is not the pool creator', async () => {
     await rejectsWith({ poolAddress: POOL_ADDRESS, creatorPublicKey: OTHER_WALLET }, 403, 'not_creator')
     assert.equal(claimCalls.length, 0)
