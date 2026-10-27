@@ -21,6 +21,16 @@ skill.seekuplift.com:443 {
 		max_size 20MB
 	}
 
+	# Sanctioned-region block (platform.blocked): the backend answers 451 for
+	# North Korea and the occupied Ukrainian regions, 204 otherwise. Runs before the
+	# skill service; a backend that is down fails this site closed, and the
+	# skill cannot serve without the backend anyway.
+	forward_auth 127.0.0.1:3000 {
+		uri /api/geo/access
+		header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+		header_up -X-Real-IP
+	}
+
 	reverse_proxy 127.0.0.1:3010 {
 		header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
 		header_up -X-Real-IP
