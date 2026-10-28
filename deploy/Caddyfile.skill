@@ -23,12 +23,22 @@ skill.seekuplift.com:443 {
 
 	# Sanctioned-region block (platform.blocked): the backend answers 451 for
 	# North Korea and the occupied Ukrainian regions, 204 otherwise. Runs before the
-	# skill service; a backend that is down fails this site closed, and the
-	# skill cannot serve without the backend anyway.
-	forward_auth 127.0.0.1:3000 {
+	# skill service. Fail-open: an unreachable or hung backend falls through to the
+	# 204 responder on :3099 (defined in the backend's Caddyfile), and a backend
+	# 5xx admits the request like a 2xx.
+	forward_auth 127.0.0.1:3000 127.0.0.1:3099 {
 		uri /api/geo/access
 		header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
 		header_up -X-Real-IP
+		lb_policy first
+		lb_try_duration 5s
+		fail_duration 10s
+		transport http {
+			dial_timeout 1s
+			response_header_timeout 2s
+		}
+		@geo_backend_error status 5xx
+		handle_response @geo_backend_error
 	}
 
 	reverse_proxy 127.0.0.1:3010 {
