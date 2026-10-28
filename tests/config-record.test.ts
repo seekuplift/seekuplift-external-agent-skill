@@ -17,13 +17,13 @@ import { dirname, join } from 'node:path'
 import { describe, it } from 'node:test'
 import { DEFAULT_DBC_CONFIG_KEY, DBC_PROGRAM_ID, KNOWN_MINTS } from '../src/lib/config.ts'
 import { resolveQuoteAssetRecord } from '../src/lib/config-catalog.ts'
-import { configRecord, mobileConfigFixture, type ConfigRecordKey } from './helpers.ts'
+import { configRecord, LIVE_CONFIG_KEY, mobileConfigFixture, type ConfigRecordKey } from './helpers.ts'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8')
 
-const RECORD_COMMIT = '1942b7ca7697b01de4296423c881a2af1c5b7af5'
-const RECORD_SHA256 = '3908692975dd5a7f40e2b45011a6db485d019e9d90f44bab65257456c3357aa1'
+const RECORD_COMMIT = 'a9e98645da6771d2498754c6fa78caca1f72ca5e'
+const RECORD_SHA256 = '7bf05c1823329e69243a62b76f5d607d4de5d90385fc570766276e0857203a44'
 
 const BASE58_ADDRESS = /\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/g
 const BASE58_ELLIPSIS = /\b[1-9A-HJ-NP-Za-km-z]{8,12}…/g
@@ -86,10 +86,15 @@ describe('vendored dbc-config record', () => {
     assert.equal(sha, RECORD_SHA256, `tests/fixtures/config-record.json differs from dbc-config@${RECORD_COMMIT}`)
   })
 
-  it('has exactly one production default and it is indexed', () => {
+  // The default may be unindexed while the backend catches up (dbc-config
+  // a9e9864); the served-key check below is what requires indexing.
+  it('has exactly one production default', () => {
     assert.equal(recordDefault.length, 1)
     assert.equal(recordDefault[0].role, 'production')
-    assert.equal(recordDefault[0].indexed, true)
+  })
+
+  it('the fixtures\' live config is an indexed production key', () => {
+    assert.equal(assertProduction(LIVE_CONFIG_KEY, 'LIVE_CONFIG_KEY').indexed, true)
   })
 })
 

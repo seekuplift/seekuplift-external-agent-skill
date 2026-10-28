@@ -7,6 +7,7 @@ Real captured responses — nothing synthetic. Do not hand-edit; re-capture.
 |---|---|---|
 | `mobile-config.web.json` | `GET https://app-api.seekuplift.com/api/mobile-config?cluster=mainnet-beta&platform=web` (production backend-rs-sql) | 2026-10-14 |
 | `pool-config-61UBwyZf….getAccountInfo.json` | mainnet JSON-RPC `getAccountInfo` (base64) for the live production launch config (SKR quote, 99%→1.25% anti-sniper, 16% creator) via `https://api.mainnet-beta.solana.com` | 2026-10-14 |
+| `pool-config-Dird7tkG….getAccountInfo.json` | mainnet JSON-RPC `getAccountInfo` (base64, finalized) for the tf-bootstrap default (DBC 0.2.2 version-1 config: 1.25% flat fee, 1% base transfer fee, 30% creator; claim PDA `6do3n9N3…`) via `https://api.mainnet-beta.solana.com` | 2026-10-28 |
 | `pool-config-4w9Rs2ew….getAccountInfo.json` | mainnet JSON-RPC `getAccountInfo` (base64) for the legacy USDC-quoted config (same fee schedule, `enableFirstSwapWithMinFee=0`) | 2026-10-14 |
 | `stream-list.json` | `GET https://app-api.seekuplift.com/api/stream/list?partnerConfigs=61UBwyZf…&limit=5` — production `StreamListResponse` (items + nextCursor) | 2026-10-14 |
 | `stream-list-graduated.json` | same endpoint with `tab=graduated` — real graduated pools (`graduated: true`, `bondingCurve: 1`) | 2026-10-14 |
@@ -16,7 +17,7 @@ Tests feed the account bytes through the real
 `@meteora-ag/dynamic-bonding-curve-sdk` decoder via a stubbed `Connection`
 (`getAccountInfo`/`getAccountInfoAndContext`), so the exercised path is the
 production one.
-| `config-record.json` | Vendored byte-for-byte from `dbc-config/configs/mainnet/config-record.json` at dbc-config commit `1942b7ca7697b01de4296423c881a2af1c5b7af5` (TB-D-1), sha256 `3908692975dd5a7f40e2b45011a6db485d019e9d90f44bab65257456c3357aa1` (pinned by `tests/config-record.test.ts`). To refresh: copy the new file, update this row and the pinned sha in the test. Reused by TB-S-4. | 2026-10-16 |
+| `config-record.json` | Vendored byte-for-byte from `dbc-config/configs/mainnet/config-record.json` at dbc-config commit `a9e98645da6771d2498754c6fa78caca1f72ca5e` (TB-D-1; the four tf-bootstrap keys, Dird7tkG… default), sha256 `7bf05c1823329e69243a62b76f5d607d4de5d90385fc570766276e0857203a44` (pinned by `tests/config-record.test.ts`). To refresh: copy the new file, update this row and the pinned sha in the test. Reused by TB-S-4. | 2026-10-28 |
 
 ## `damm-position-claim/`
 

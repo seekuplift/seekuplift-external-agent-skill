@@ -15,7 +15,9 @@ the whole history; it is rewritten freely until the first release.
   upload allowance; an unknown key → `401 { "error": "unauthorized" }`.
 - **Config catalog**: `GET /api/configs` lists the live launch options for
   the caller (fees, quote asset, categories, geo verdict). `POST /api/launch`
-  requires `configKey` and `category`.
+  requires `configKey` and `category`. `fees.transferFeeBps` is the
+  launched coin's own Token-2022 transfer fee (0 = none; a creator first buy
+  on such a config is floored net of it).
 - **Launch**: `POST /api/launch` builds a mint-partial-signed legacy
   transaction. Optional creator first buy (`firstBuyAtoms` /
   `firstBuyAmount`, quoted floor via `firstBuySlippageBps`), optional

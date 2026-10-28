@@ -1,13 +1,11 @@
 // Meteora DBC constants — mainnet only
 
 /**
- * The production-indexed pool config — the key the pools filter's catalog
- * always serves. `4w9Rs2ew…` (the April 2026 default) is NOT indexed by the
- * production backend: coins launched on it never appear in the app.
- * public/skill.json names this value —
- * tests/skill-docs.test.ts pins it to this one source constant.
+ * The dbc-config record's production default (tests/config-record.test.ts
+ * pins it). Not read at runtime: the launch catalog comes from the backend's
+ * mobile-config on every request.
  */
-export const DEFAULT_DBC_CONFIG_KEY = '61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv'
+export const DEFAULT_DBC_CONFIG_KEY = 'Dird7tkGkKkmJW89PLME7PQ2jQaGJAftrUg4TPm9VoAx'
 export const DBC_PROGRAM_ID = 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN'
 export const NATIVE_MINT = 'So11111111111111111111111111111111111111112'
 

@@ -71,6 +71,10 @@ export const LIVE_CONFIG_ACCOUNT = 'pool-config-61UBwyZfNnULczb3teQx9FkxvfAH4WdE
 export const LEGACY_CONFIG_KEY = '4w9Rs2ewNJte2c4FGmQHM8fycv8vWzkjv3qzANuJ2rPT'
 export const LEGACY_CONFIG_ACCOUNT = 'pool-config-4w9Rs2ewNJte2c4FGmQHM8fycv8vWzkjv3qzANuJ2rPT.getAccountInfo.json'
 
+/** The tf-bootstrap default (Dird7tkG…: 1.25% + 1% transfer fee, creator 30%) and its claim PDA. */
+export const TF_CONFIG_ACCOUNT = 'pool-config-Dird7tkGkKkmJW89PLME7PQ2jQaGJAftrUg4TPm9VoAx.getAccountInfo.json'
+export const TF_CONFIG_FEE_CLAIMER = '6do3n9N3LcxP25Xuf7GVQHhN4zq34Q7JBwQn8bEJEvLA'
+
 /** The production donation claim authority (app production manifest). */
 export const DONATION_CLAIM_AUTHORITY = 'FdrDZPcYEjdB3nQGUgL7muXj4SBTzbAMMvMosufdtun1'
 

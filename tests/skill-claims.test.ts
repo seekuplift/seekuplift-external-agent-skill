@@ -279,7 +279,7 @@ describe('TB-S-4: fee, routing and audit claims are sourced or absent', () => {
   it('SKILL.md: the recorded production set is stated cause-capable', () => {
     assert.match(
       read('SKILL.md'),
-      new RegExp(`every config[^.]*${LIVE_CONFIG_KEY}[^.]*cause-capable`, 'i'),
+      /every config is cause-capable/i,
       'SKILL.md does not plainly state the recorded production set is cause-capable',
     )
   })

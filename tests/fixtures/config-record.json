@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "cluster": "mainnet-beta",
   "dbcProgramId": "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
-  "updated": "2026-10-16",
+  "updated": "2026-10-28",
   "description": "Canonical record of every DBC PoolConfig key that exists on mainnet for Seek Uplift (TB-D-1). Consumers (backend env, app featured/production manifests, external agent skill) vendor or compare against this file; `npm run verify:config-record` re-reads every key at finalized commitment and fails on drift. Add a key here BEFORE wiring it anywhere (deployment-plan.md step 9). Roles are as deployed, not as older docs stated.",
   "productionQuoteAllowlist": [
     { "mint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3", "symbol": "SKR", "decimals": 6, "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" },
@@ -10,11 +10,83 @@
   ],
   "keys": [
     {
-      "key": "61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv",
+      "key": "Dird7tkGkKkmJW89PLME7PQ2jQaGJAftrUg4TPm9VoAx",
       "role": "production",
       "default": true,
+      "indexed": false,
+      "summary": "Bootstrap transfer-fee MVP key: flat 1.25% swap fee + 1% transfer fee, creator 30%; the production default for new launches (2026-10-28). Created 2026-10-28; claim PDA feeClaimer under fee-router-bootstrap 58WD4EKi…; leftover to the Squads vault. Creator metadata authority.",
+      "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+      "quoteSymbol": "SKR",
+      "quoteDecimals": 6,
+      "quoteTokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "feeClaimer": "6do3n9N3LcxP25Xuf7GVQHhN4zq34Q7JBwQn8bEJEvLA",
+      "leftoverReceiver": "pgRYsDndsZrnR8tpbntpCfeNd7BavYtFFUQhhNGnzVj",
+      "migrationFeeOption": 6,
+      "tokenUpdateAuthority": 0,
+      "version": 1,
+      "fullTree": { "isTest": false, "feeConfig": "flat-125bps", "transferFeeBps": 100 },
+      "doc": "configs/mainnet/dbc-config-mainnet-tf-bootstrap-proposal.md"
+    },
+    {
+      "key": "DYxzpJyiGUeCe9hdAVBhtfwEXDH6Wx6i3VSDCkkzLXxC",
+      "role": "production",
+      "default": false,
+      "indexed": false,
+      "summary": "Bootstrap transfer-fee MVP key, cause-only: flat 1.25% swap fee + 1% transfer fee, creator 0% (100% of the post-Meteora fee owed to the cause). Created 2026-10-28. Creator metadata authority.",
+      "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+      "quoteSymbol": "SKR",
+      "quoteDecimals": 6,
+      "quoteTokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "feeClaimer": "Dns4QCBLbN5i5wGQVZzSHXyq2wowPtAR9bMQ9sZre3sY",
+      "leftoverReceiver": "pgRYsDndsZrnR8tpbntpCfeNd7BavYtFFUQhhNGnzVj",
+      "migrationFeeOption": 6,
+      "tokenUpdateAuthority": 0,
+      "version": 1,
+      "fullTree": { "isTest": false, "feeConfig": "cause-flat-125bps", "transferFeeBps": 100 },
+      "doc": "configs/mainnet/dbc-config-mainnet-tf-bootstrap-proposal.md"
+    },
+    {
+      "key": "3FCLsb74UCiVfgGGFkwkvdPZAm7ZFGtHT5aVMRwJt2iQ",
+      "role": "production",
+      "default": false,
+      "indexed": false,
+      "summary": "Bootstrap transfer-fee MVP key: flat 10% swap fee + 10% transfer fee, creator 30%. Created 2026-10-28. Creator metadata authority.",
+      "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+      "quoteSymbol": "SKR",
+      "quoteDecimals": 6,
+      "quoteTokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "feeClaimer": "6FbwfdYPRrjaWtNgAxSnDZBsDpXine9MadQn4mPjvUF9",
+      "leftoverReceiver": "pgRYsDndsZrnR8tpbntpCfeNd7BavYtFFUQhhNGnzVj",
+      "migrationFeeOption": 6,
+      "tokenUpdateAuthority": 0,
+      "version": 1,
+      "fullTree": { "isTest": false, "feeConfig": "flat-10", "transferFeeBps": 1000 },
+      "doc": "configs/mainnet/dbc-config-mainnet-tf-bootstrap-proposal.md"
+    },
+    {
+      "key": "cN8jwfrRzvao5NCPDbtPfFudrbHPyc84aNYAcvzXRdd",
+      "role": "production",
+      "default": false,
+      "indexed": false,
+      "summary": "Bootstrap transfer-fee MVP key, cause-only: flat 10% swap fee + 10% transfer fee, creator 0% (100% of the post-Meteora fee owed to the cause). Created 2026-10-28. Creator metadata authority.",
+      "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+      "quoteSymbol": "SKR",
+      "quoteDecimals": 6,
+      "quoteTokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "feeClaimer": "Drd7MtoMPfTk8MqNtAb2DmsaVrPPcnM9L2YHSmM9uuw8",
+      "leftoverReceiver": "pgRYsDndsZrnR8tpbntpCfeNd7BavYtFFUQhhNGnzVj",
+      "migrationFeeOption": 6,
+      "tokenUpdateAuthority": 0,
+      "version": 1,
+      "fullTree": { "isTest": false, "feeConfig": "cause-flat-10", "transferFeeBps": 1000 },
+      "doc": "configs/mainnet/dbc-config-mainnet-tf-bootstrap-proposal.md"
+    },
+    {
+      "key": "61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv",
+      "role": "production",
+      "default": false,
       "indexed": true,
-      "summary": "SKR cheap-grad (~$5) config; the production default since 2026-10-12 (history); stays default until the bootstrap SKR keys are created and added to the record. Creator metadata authority.",
+      "summary": "SKR cheap-grad (~$5) testing config, not suitable for real launches; the production default 2026-10-12 to 2026-10-28 (history). No longer the default; stays indexed while pools launched on it need streaming, graduation and claims (deployment-plan.md step 12). Creator metadata authority.",
       "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
       "quoteSymbol": "SKR",
       "quoteDecimals": 6,
@@ -67,7 +139,6 @@
   "proposed": [
     { "set": "skr-production-magnitude", "keys": null, "doc": "configs/mainnet/dbc-config-mainnet-skr-proposal.md", "note": "Not on chain; no key exists." },
     { "set": "cause-only", "keys": null, "doc": "configs/mainnet/dbc-config-mainnet-cause-only-proposal.md", "note": ".config-batches rows are 'prepared' only; no key exists." },
-    { "set": "tf-bootstrap", "keys": null, "doc": "configs/mainnet/dbc-config-mainnet-tf-bootstrap-proposal.md", "note": "Unsigned plan prepared, blocked on the owner; no key exists." },
     { "set": "aaplx-draft", "keys": null, "doc": "configs/mainnet/dbc-config-mainnet-AAPLx-draft.md", "note": "Draft stock-quote config; no key exists." }
   ],
   "history": [
@@ -100,6 +171,11 @@
       "date": "2026-10-16",
       "event": "Record created (TB-D-1 phase 1). Roles written as deployed; field values read from finalized mainnet, which agreed with the per-key docs.",
       "source": "dbc-config tickets/tickets-trust-boundary-2026-10-15.md TB-D-1"
+    },
+    {
+      "date": "2026-10-28",
+      "event": "The four bootstrap transfer-fee MVP keys created on mainnet (create_config2, DBC 0.2.2): Dird7tkG… (flat-125bps + 1%), DYxzpJyi… (cause-flat-125bps + 1%), 3FCLsb74… (flat-10 + 10%), cN8jwfrR… (cause-flat-10 + 10%); finalized decode passed on all four. Dird7tkGkKkmJW89PLME7PQ2jQaGJAftrUg4TPm9VoAx becomes the production default; 61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv stops being the default (owner: a testing key not suitable for a real app) and stays indexed. The new keys are not yet indexed by the backend.",
+      "source": "owner instruction in a Claude Code session, 2026-10-28 (\"mark them production and default\"); creation evidence in configs/mainnet/dbc-config-mainnet-tf-bootstrap-proposal.md"
     }
   ]
 }

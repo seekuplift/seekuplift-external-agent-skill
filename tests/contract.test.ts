@@ -27,7 +27,7 @@ import {
   type CatalogDeps,
   type MobileConfigResponse,
 } from '../src/lib/config-catalog.ts'
-import { DEFAULT_DBC_CONFIG_KEY, NATIVE_MINT } from '../src/lib/config.ts'
+import { NATIVE_MINT } from '../src/lib/config.ts'
 import { prepareLaunch, LaunchError, type LaunchDeps } from '../src/lib/launch.ts'
 import { listPools } from '../src/lib/pools.ts'
 import { prepareTradeQuote, type TradeDeps } from '../src/lib/trade.ts'
@@ -414,7 +414,7 @@ describe('contract — pools over the recorded stream capture', () => {
     // Every captured pool is on the prod-indexed config.
     assert.ok(result.pools.length > 0)
     for (const pool of result.pools) {
-      assert.equal(pool.configKey, DEFAULT_DBC_CONFIG_KEY)
+      assert.equal(pool.configKey, LIVE_CONFIG_KEY)
       assert.ok(pool.id && pool.name && 'price' in pool && 'marketCap' in pool)
     }
     assert.equal(result.nextCursor, null) // no cursor on search
@@ -436,7 +436,7 @@ describe('contract — pools over the recorded stream capture', () => {
     assert.equal(params.get('lifecycle'), 'new')
     assert.equal(params.get('sortBy'), 'marketCap')
     assert.equal(params.get('cursor'), 'abc')
-    assert.ok(params.get('partnerConfigs')!.split(',').includes(DEFAULT_DBC_CONFIG_KEY))
+    assert.ok(params.get('partnerConfigs')!.split(',').includes(LIVE_CONFIG_KEY))
     assert.ok(Array.isArray(result.pools))
   })
 })

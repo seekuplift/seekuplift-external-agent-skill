@@ -33,8 +33,10 @@ import {
   type ScaledUiAmountConfig,
 } from './dbc-shared.ts'
 import { getDonationClaimAuthorities } from './config.ts'
+import { configBaseTransferFeeBps } from './transfer-fee.ts'
 import {
   decodeLaunchFeeShape,
+  formatFeePercent,
   isCauseOnlyFeeConfig,
   isDonationRoutingCapable,
   launchFeeDetailLines,
@@ -416,6 +418,10 @@ export type ConfigCatalogEntry = {
     /** Creator share 0 AND cause-capable: every fee after Meteora's protocol
      *  cut goes to the cause. */
     allFeesToCause: boolean
+    /** Token-2022 transfer fee every transfer of a coin launched on this
+     *  config withholds (trades included), in bps; 0 = none; null when
+     *  undecoded. */
+    transferFeeBps: number | null
   }
   /** The config's fee claimer is a configured donation claim authority
    *  (DONATION_CLAIM_AUTHORITIES). Fail closed: undecoded claimer or unset
@@ -701,6 +707,13 @@ export async function getConfigCatalogWithGeo(
     const supportsCause = isDonationRoutingCapable(feeClaimer, donationClaimAuthorities)
     const allFeesToCause = isCauseOnlyFeeConfig(shape, supportsCause)
     const creatorSharePct = shape?.creatorTradingFeePercentage ?? null
+    const transferFeeBps = decoded ? configBaseTransferFeeBps(decoded) : null
+    const details = launchFeeDetailLines(shape, allFeesToCause)
+    if (transferFeeBps) {
+      details.push(
+        `Coin transfer fee: ${formatFeePercent(transferFeeBps)}% of every transfer of the coin, trades included`,
+      )
+    }
 
     const byCategory: CatalogEntryGeo['byCategory'] = {}
     let allAllowed = true
@@ -736,7 +749,7 @@ export async function getConfigCatalogWithGeo(
       },
       fees: {
         label: launchFeeLabel(shape, allFeesToCause),
-        details: launchFeeDetailLines(shape, allFeesToCause),
+        details,
         curve: curveFeesForApi(
           shape?.curve ?? { kind: 'custom' },
           shape?.curveDynamicFee ?? null,
@@ -744,6 +757,7 @@ export async function getConfigCatalogWithGeo(
         postGraduation: postGradFeesForApi(shape?.postGraduation ?? { kind: 'custom' }),
         creatorSharePct,
         allFeesToCause,
+        transferFeeBps,
       },
       supportsCause,
       supportsFirstBuy: decoded ? !!toFiniteNumber(decoded.enableFirstSwapWithMinFee) : false,

@@ -170,7 +170,9 @@ works; `geo.allowed` varying by caller IP proves the XFF chain works.
 cause-capable config whose `feeClaimer` is absent from the env silently reads
 as `supportsCause: false`. Update `.env` on both hosts and
 `systemctl restart skill` (the value is read per call, but the env file is
-only loaded at start).
+only loaded at start). The env may run ahead of the app: an authority only
+affects a config the backend serves (2026-10-28: the four tf-bootstrap claim
+PDAs from the dbc-config record were added before the backend served them).
 
 `LISTED_CONFIG_KEYS` tracks the app's `targets.production.partnerConfigKeys`
 the same way. When the backend stops serving a launch config (e.g. the test

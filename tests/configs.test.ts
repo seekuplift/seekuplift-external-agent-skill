@@ -21,6 +21,8 @@ import {
   LEGACY_CONFIG_KEY,
   LIVE_CONFIG_ACCOUNT,
   LIVE_CONFIG_KEY,
+  TF_CONFIG_ACCOUNT,
+  TF_CONFIG_FEE_CLAIMER,
 } from './helpers.ts'
 
 const SKR_MINT = 'SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3'
@@ -83,6 +85,7 @@ describe('GET /api/configs catalog', () => {
     })
     assert.equal(entry.fees.creatorSharePct, 16)
     assert.equal(entry.fees.allFeesToCause, false)
+    assert.equal(entry.fees.transferFeeBps, 0)
     assert.match(entry.fees.label, /99%/)
     assert.match(entry.fees.label, /1\.25%/)
     // Quote + capability fields.
@@ -357,6 +360,7 @@ describe('GET /api/configs catalog', () => {
     assert.equal(entry.supportsCause, false)
     assert.equal(entry.supportsFirstBuy, false)
     assert.equal(entry.fees.creatorSharePct, null)
+    assert.equal(entry.fees.transferFeeBps, null)
     assert.equal(entry.fees.curve.kind, 'custom')
     assert.deepEqual(entry.defaultFor, [])
     // The quote mint still falls back to the backend-served option mint.
@@ -396,5 +400,22 @@ describe('GET /api/configs catalog', () => {
     const third = await getConfigCatalog('203.0.113.10', deps)
     assert.equal(calls, 2)
     assert.equal(third.configs[0].decodeError, null)
+  })
+
+  it('a tf-bootstrap config reports its coin transfer fee (real Dird7tkG… account)', async () => {
+    const tfConfig = await decodePoolConfigFixture(TF_CONFIG_ACCOUNT)
+    const { configs } = await getConfigCatalog('203.0.113.10', {
+      fetchMobileConfig: async () => mobileConfigFixture(),
+      fetchPoolConfig: async () => tfConfig,
+      fetchMintInfo: SPL_MINT_INFO,
+      donationClaimAuthorities: [TF_CONFIG_FEE_CLAIMER],
+    })
+    const entry = configs[0]
+    assert.equal(entry.decodeError, null)
+    assert.equal(entry.fees.transferFeeBps, 100)
+    assert.ok(entry.fees.details.includes('Coin transfer fee: 1% of every transfer of the coin, trades included'))
+    assert.equal(entry.fees.creatorSharePct, 30)
+    assert.equal(entry.supportsCause, true)
+    assert.equal(entry.supportsFirstBuy, true)
   })
 })

@@ -55,7 +55,7 @@ Each `GET /api/configs` entry is one launch option. Pick by:
 - **Memecoins**: use the entry marked `defaultFor: ["meme"]`. It is a creator-fee config (`fees.creatorSharePct > 0`) — never an all-fees-to-cause config. Switch to an `fees.allFeesToCause: true` config **only when the user explicitly asks** for every fee to go to the cause.
   - **No usable default?** If no config has `defaultFor: ["meme"]`, or it is geo-unavailable for the caller (`geo.byCategory.meme.allowed: false`), pick another meme-capable config with `fees.creatorSharePct > 0` (and `decodeError: null`, geo-allowed). **Never fall back to an `allFeesToCause` config** unless the user explicitly asked for all fees to go to the cause. If no such config exists, tell the user instead of launching.
 - **Category**: the config must list your launch's `category` in `categories`. Pass it verbatim as `/api/launch`'s `category`.
-- **`supportsCause`** — cause routing, plainly: `supportsCause: true` means the config's on-chain `feeClaimer` is a recorded donation claim authority, so the platform share of trading fees routes to a cause — a meme launch on such a config must include a `donation` pick while causes are offered. **`supportsCause: false` means the config does not route to a cause** — no `donation` pick applies. `fees.allFeesToCause: true` adds that the creator share is 0 — every fee after Meteora's protocol cut goes to the cause. Routing is decoded per config from the chain, never from the option name: on the recorded production set every config (including the default `61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv`) is cause-capable with `allFeesToCause: false` — a creator share of 16% of the trading fee — but a newly served config may differ: read the entry's own fields.
+- **`supportsCause`** — cause routing, plainly: `supportsCause: true` means the config's on-chain `feeClaimer` is a recorded donation claim authority, so the platform share of trading fees routes to a cause — a meme launch on such a config must include a `donation` pick while causes are offered. **`supportsCause: false` means the config does not route to a cause** — no `donation` pick applies. `fees.allFeesToCause: true` adds that the creator share is 0 — every fee after Meteora's protocol cut goes to the cause. Routing is decoded per config from the chain, never from the option name: on the recorded production set every config is cause-capable, but creator shares and coin transfer fees differ per config (the cause-only configs carry `allFeesToCause: true`) — read the entry's own fields.
 - **`supportsFirstBuy`**: a creator first buy may be bundled into the launch transaction.
 - **`isStock`**: the quote mint is a stock quote asset — `stock.create`/`stock.trade` geo keys apply.
 - **`geo`**: the caller's create verdict (see **Geo** below). `geo.byCategory[category].allowed: false` means the launch will be refused for this caller. Top-level `geo.allowed` is true only when **every** category the config serves is allowed — decide per category from `byCategory`.
@@ -75,6 +75,7 @@ Fee data is for your own decisions (and for answering your user if asked). Read 
 - `fees.curve` is the on-curve schedule. When `curve.kind` is `"decay"` the fee **opens at `openingBps` — an anti-sniper opening fee** — and decays to `floorBps` over `decayPeriods × decayPeriodLength` `decayUnit` (`decaySecondsEstimate` is the approximate wall-clock window). Trades inside that window pay the elevated rate — avoid buying a fresh coin until the window has passed unless you accept that fee.
 - `fees.postGraduation` is the schedule after the coin graduates to a DAMM pool (`"marketCapDecay"` decays toward `floorBps` as market cap grows).
 - `fees.creatorSharePct` is the percent of trading fees routed to the creator share. On an `allFeesToCause` config it is 0 — every fee left after Meteora's protocol cut goes to the cause.
+- `fees.transferFeeBps` is the coin's own transfer fee: on a config with `transferFeeBps > 0` the launched coin is a Token-2022 mint and every transfer of it — buys, sells and wallet-to-wallet sends — withholds that share of the amount (`100` = 1%). It is on top of the trading fee; tell your user before launching on such a config. `0` means none.
 - `fees.curve.dynamic: true` means a volatility fee can add to the curve fee during sharp price moves.
 - `poolCreationFeeLamports` is a one-time launch cost paid by the payer.
 - `migrationQuoteThreshold` (raw quote atoms) is how much quote the curve must raise before the coin migrates.
@@ -126,7 +127,8 @@ Returns the live launch catalog for THIS caller (geo verdict included, computed 
       "decay": "none"
     },
     "creatorSharePct": 16,
-    "allFeesToCause": false
+    "allFeesToCause": false,
+    "transferFeeBps": 0
   },
   "supportsCause": true,
   "supportsFirstBuy": true,

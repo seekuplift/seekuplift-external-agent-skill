@@ -8,7 +8,7 @@
  *   - every endpoint, field name and fee claim in skill.json appears in the
  *     SKILL.md (and every capability endpoint the markdown
  *     documents is a json capability endpoint);
- *   - the pools filter's served keys include DEFAULT_DBC_CONFIG_KEY;
+ *   - the pools filter's served keys include the fixtures' live config;
  *   - the documents declare contract version 1.0.0 at the unversioned paths.
  *
  * Run with: `node --test tests/` (or `npm test`)
@@ -18,10 +18,9 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { describe, it } from 'node:test'
-import { DEFAULT_DBC_CONFIG_KEY } from '../src/lib/config.ts'
 import { catalogConfigKeys } from '../src/lib/pools.ts'
 import { parseLaunchConfigOptions } from '../src/lib/config-catalog.ts'
-import { mobileConfigFixture } from './helpers.ts'
+import { LIVE_CONFIG_KEY, mobileConfigFixture } from './helpers.ts'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -152,14 +151,10 @@ describe('skill.json ↔ SKILL.md agreement', () => {
   })
 })
 
-describe('the prod-indexed config key — one source constant', () => {
-  it('DEFAULT_DBC_CONFIG_KEY is the production-indexed config', () => {
-    assert.equal(DEFAULT_DBC_CONFIG_KEY, '61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv')
-  })
-
+describe('the prod-indexed config key', () => {
   it('the pools filter serves it (catalog keys from the recorded mobile-config)', () => {
     const keys = catalogConfigKeys(parseLaunchConfigOptions(mobileConfigFixture()))
-    assert.ok(keys.includes(DEFAULT_DBC_CONFIG_KEY), `pools filter keys ${keys} miss the default`)
+    assert.ok(keys.includes(LIVE_CONFIG_KEY), `pools filter keys ${keys} miss ${LIVE_CONFIG_KEY}`)
   })
 })
 
