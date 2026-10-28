@@ -23,7 +23,10 @@ the whole history; it is rewritten freely until the first release.
   `firstBuyAmount`, quoted floor via `firstBuySlippageBps`), optional
   caller-held mint (`mintPublicKey`, on-curve, no existing account, `409
   mint_already_exists`; the caller then signs as mint and payer), and the
-  idea / startup / donation fields.
+  idea / startup / donation fields. A meme launch on a cause-capable config
+  without a `donation` pick goes to the managed fund (`donationDefaulted:
+  "managed"` in the response); `{ mode: "cause" }` without a slug returns
+  `400 donation_cause_required` listing `causesOffered`.
 - **Vanity mints** (minor, additive): a service-generated launch mint
   usually ends in `up` (not guaranteed). `POST /api/launch` reports
   `mintVanity: true|false` when the service generated the mint; `false`

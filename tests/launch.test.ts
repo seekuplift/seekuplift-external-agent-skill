@@ -627,19 +627,27 @@ describe('POST /api/launch — donation rules', () => {
     )
   })
 
-  it('requires donation for meme on a cause-capable config while causes are offered', async () => {
+  it('defaults a meme launch without donation on a cause-capable config to managed', async () => {
     const log: CallLog = { imageUploads: 0, metadataUploads: 0, builds: 0 }
     const deps = launchDeps(await catalogDeps(), log, {
       fetchCauses: async () => OFFERED,
     })
+    const result = await prepareLaunch(baseBody(), null, deps)
+    assert.equal(result.donationDefaulted, 'managed')
+    assert.deepEqual(result.metadata.donationFunding, { mode: 'managed', params: {} })
+    assert.equal(log.builds, 1)
+  })
+
+  it('a cause pick without a slug lists the offered causes', async () => {
+    const log: CallLog = { imageUploads: 0, metadataUploads: 0, builds: 0 }
+    const deps = launchDeps(await catalogDeps(), log, { fetchCauses: async () => OFFERED })
     const err = await expectLaunchError(
-      () => prepareLaunch(baseBody(), null, deps),
+      () => prepareLaunch(baseBody({ donation: { mode: 'cause' } }), null, deps),
       400,
-      /donation_required|donation is required/,
+      /donation\.cause is required/,
     )
-    assert.equal(err.fields.error, 'donation_required')
+    assert.equal(err.fields.error, 'donation_cause_required')
     assert.deepEqual(err.fields.causesOffered, ['education', 'climate'])
-    assert.equal(log.imageUploads, 0)
     assert.equal(log.builds, 0)
   })
 
@@ -1282,16 +1290,16 @@ describe('POST /api/launch — first buy', () => {
 const SWAP_IX_DISCRIMINATOR = Buffer.from([248, 198, 158, 145, 225, 117, 135, 200])
 
 describe('POST /api/launch — causes unavailable', () => {
-  it('fails closed with 503 for a cause-capable meme without donation', async () => {
+  it('a cause-capable meme without donation still launches to managed', async () => {
     const log: CallLog = { imageUploads: 0, metadataUploads: 0, builds: 0 }
     const deps = launchDeps(await catalogDeps(), log, {
       fetchCauses: async () => {
         throw new Error('backend down')
       },
     })
-    const err = await expectLaunchError(() => prepareLaunch(baseBody(), null, deps), 503, /unavailable/)
-    assert.equal(err.fields.error, 'causes_unavailable')
-    assert.equal(log.builds, 0)
+    const result = await prepareLaunch(baseBody(), null, deps)
+    assert.equal(result.donationDefaulted, 'managed')
+    assert.equal(log.builds, 1)
   })
 })
 

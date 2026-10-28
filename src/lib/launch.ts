@@ -33,6 +33,7 @@ import {
 import {
   buildDonationFundingClaim,
   buildIdeaFundingClaim,
+  CAUSE_FUNDING_DEFAULT_MODE,
   buildLaunchMetadata,
   canonicalizeLaunchIdentity,
   causeFundingLaunchModes,
@@ -263,6 +264,9 @@ export type PreparedLaunch = LaunchTxResult & {
   /** The quote mint's decimals read on-chain (record fallback) — TB-S-2. */
   quoteDecimals: number | null
   firstBuyAtoms: string | null
+  /** Set when a cause-capable meme launch named no donation: the mode it
+   *  defaulted to (`managed`). */
+  donationDefaulted?: string
   metadata: LaunchMetadataShape
 }
 
@@ -390,28 +394,14 @@ export async function prepareLaunch(
   }
 
   let shippingCauses: string[] | null = null
-  if (category === 'meme' && entry.supportsCause) {
+  if (category === 'meme' && entry.supportsCause && donationRaw != null) {
     const fetchCauses = deps.fetchCauses ?? defaultFetchCauses
     try {
       shippingCauses = shippingCauseSlugs(await fetchCauses(clientIp))
     } catch (err) {
-      // Causes unavailable: with a donation we proceed (backend validates the
-      // pick); without one we fail closed (503) since the donation-required
-      // rule cannot be checked and the backend would default to managed.
+      // Causes unavailable: proceed; the backend validates the pick.
       console.warn('[launch] /api/causes fetch failed', err instanceof Error ? err.message : String(err))
-      if (donationRaw == null) {
-        throw new LaunchError('Causes list unavailable — retry shortly', 503, {
-          error: 'causes_unavailable',
-        })
-      }
       shippingCauses = null
-    }
-    if (donationRaw == null && shippingCauses != null && shippingCauses.length > 0) {
-      throw new LaunchError(
-        `donation is required for meme launches on cause-capable config ${configKey} — causes are offered: ${shippingCauses.join(', ')}`,
-        400,
-        { error: 'donation_required', causesOffered: shippingCauses },
-      )
     }
   }
 
@@ -438,11 +428,22 @@ export async function prepareLaunch(
     }
     if (donation.mode === 'cause') {
       const slug = donation.cause
-      if (!slug) throw new LaunchError('donation.cause is required for mode "cause"')
+      // Both refusals list the offered slugs: this is how an agent discovers
+      // them (send `{ mode: "cause" }` alone).
+      const offered = shippingCauses ? { causesOffered: shippingCauses } : {}
+      if (!slug) {
+        throw new LaunchError(
+          `donation.cause is required for mode "cause"${shippingCauses ? ` (offered: ${shippingCauses.join(', ') || 'none'})` : ''}`,
+          400,
+          { error: 'donation_cause_required', ...offered },
+        )
+      }
       // The picker's whitelist applies only when the list was fetchable.
       if (shippingCauses != null && !shippingCauses.includes(slug)) {
         throw new LaunchError(
           `donation.cause "${slug}" is not a shipping cause (offered: ${shippingCauses.join(', ') || 'none'})`,
+          400,
+          { error: 'unknown_cause', causesOffered: shippingCauses },
         )
       }
       donationClaim = { donationCause: slug }
@@ -466,6 +467,12 @@ export async function prepareLaunch(
       }
       donationClaim = { donationFunding: funding }
     }
+  }
+  // Owner 2026-10-28: a meme launch on a cause-capable config without a pick
+  // goes to the managed fund (the backend's fallbackMode), stated in the result.
+  const donationDefaulted = category === 'meme' && entry.supportsCause && donationRaw == null
+  if (donationDefaulted) {
+    donationClaim = { donationFunding: { mode: CAUSE_FUNDING_DEFAULT_MODE, params: {} } }
   }
 
   let ideaFundingClaim: ReturnType<typeof buildIdeaFundingClaim> | undefined
@@ -752,6 +759,7 @@ export async function prepareLaunch(
     quoteSymbol: entry.quote.symbol,
     quoteDecimals: entry.quote.decimals,
     firstBuyAtoms: firstBuyAtoms != null && firstBuyAtoms > 0n ? firstBuyAtoms.toString() : null,
+    ...(donationDefaulted ? { donationDefaulted: CAUSE_FUNDING_DEFAULT_MODE } : {}),
     metadata,
   }
 }

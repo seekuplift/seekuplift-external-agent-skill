@@ -71,12 +71,16 @@ export async function POST(req: NextRequest) {
         firstBuyAtoms: result.firstBuyAtoms,
         lastValidBlockHeight: result.lastValidBlockHeight,
         ...(result.mintVanity !== undefined ? { mintVanity: result.mintVanity } : {}),
-        note: result.mintSigned
+        ...(result.donationDefaulted ? { donationDefaulted: result.donationDefaulted } : {}),
+        note: (result.mintSigned
           ? 'Deserialize from base64 as a legacy Transaction, sign with payerPublicKey, then submit to mainnet RPC. The mint keypair signature is already applied.' +
             (result.mintVanity === false
               ? ' This mint is a plain random address: the vanity (up) mint service was unavailable.'
               : '')
-          : 'Deserialize from base64 as a legacy Transaction, sign with your mint keypair (mintPublicKey) AND payerPublicKey, then submit to mainnet RPC. No signature is applied.',
+          : 'Deserialize from base64 as a legacy Transaction, sign with your mint keypair (mintPublicKey) AND payerPublicKey, then submit to mainnet RPC. No signature is applied.') +
+          (result.donationDefaulted
+            ? ' No donation was picked, so the platform share of trading fees goes to the managed fund.'
+            : ''),
       },
       { headers: { 'cache-control': 'no-store' } },
     )
