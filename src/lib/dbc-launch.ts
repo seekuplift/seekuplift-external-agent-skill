@@ -29,7 +29,11 @@ import {
   toFiniteNumber,
   unwrapConfig,
 } from './dbc-shared.ts'
-import { minimumAmountOutWithSlippage } from './transfer-fee.ts'
+import {
+  configBaseTransferFeeBps,
+  minimumAmountOutWithSlippage,
+  netOfTransferFee,
+} from './transfer-fee.ts'
 import { fetchVanityMint } from './vanity-mint.ts'
 
 /**
@@ -177,7 +181,16 @@ async function quoteFirstBuyMinimumOut(
       toFiniteNumber(poolConfig.enableFirstSwapWithMinFee) === 1,
     currentPoint,
   })
-  const floor = minimumAmountOutWithSlippage(quoteAmountOut(quote), slippageBps)
+  // DBC 0.2.2 checks the floor on the output NET of the base mint's transfer
+  // fee; the SDK quote is gross. The mint's fee cap is unknown before it
+  // exists, so assume no cap: the largest possible fee only lowers the floor.
+  const transferFeeBasisPoints = configBaseTransferFeeBps(poolConfig)
+  const out = quoteAmountOut(quote)
+  const netOut =
+    transferFeeBasisPoints > 0
+      ? netOfTransferFee(out, { epoch: 0n, maximumFee: 2n ** 64n - 1n, transferFeeBasisPoints })
+      : out
+  const floor = minimumAmountOutWithSlippage(netOut, slippageBps)
   return floor > 0n ? floor : 1n
 }
 

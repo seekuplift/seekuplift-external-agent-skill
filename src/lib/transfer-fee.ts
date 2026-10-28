@@ -213,3 +213,21 @@ export function minimumAmountOutWithSlippage(netAmountOut: bigint, slippageBps: 
   const factor = BigInt(Math.round(10_000 - slippageBps))
   return (netAmountOut * factor) / BASIS_POINTS_DENOMINATOR
 }
+
+/**
+ * The base-mint transfer fee a DBC 0.2.2 config gives the mints launched on
+ * it, in basis points. The pinned SDK predates the field and decodes it as
+ * `padding0`: bytes 0–1 hold the rate (u16 LE) on version-1 configs (verified
+ * against the mainnet configs Dird7tkG… = 100 and 3FCLsb74… = 1000). A
+ * version-0 config, or one decoded without the bytes, has no transfer fee.
+ */
+export function configBaseTransferFeeBps(config: {
+  version?: unknown
+  padding0?: unknown
+}): number {
+  if (Number(config.version) !== 1) return 0
+  const bytes = config.padding0
+  if (!Array.isArray(bytes) && !(bytes instanceof Uint8Array)) return 0
+  const bps = (Number(bytes[0]) || 0) | ((Number(bytes[1]) || 0) << 8)
+  return bps <= 10_000 ? bps : 0
+}

@@ -397,6 +397,26 @@ describe('buildLaunchTx — first-buy output floor (DD-S-2)', () => {
     )
   })
 
+  it('nets a version-1 config transfer fee out of the quote before slippage', async () => {
+    // Mainnet Dird7tkG… decodes padding0 as [100, 0, 0, 0, 1, …]: 100 bps.
+    quoteControl.config = {
+      activationType: 0,
+      enableFirstSwapWithMinFee: 1,
+      version: 1,
+      padding0: [100, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    }
+    const captured = newCaptured()
+    await buildLaunchTx(baseParams(SKR_MINT, 5_000_000n), {
+      client: fakeDbcClient(captured, false),
+      connection: fakeConnection(),
+    })
+    // 2_000_000 − ceil(1%) = 1_980_000; floor(1_980_000 × 9950 / 10_000) = 1_970_100
+    assert.equal(
+      (captured.firstBuyParam!.minimumAmountOut as { toString(): string }).toString(),
+      '1970100',
+    )
+  })
+
   it('throws when the config cannot be read for the quote', async () => {
     quoteControl.config = null
     const captured = newCaptured()
