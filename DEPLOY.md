@@ -171,7 +171,7 @@ cause-capable config whose `feeClaimer` is absent from the env silently reads
 as `supportsCause: false`. Update `.env` on both hosts and
 `systemctl restart skill` (the value is read per call, but the env file is
 only loaded at start). The env may run ahead of the app: an authority only
-affects a config the backend serves (2026-10-28: the four tf-bootstrap claim
+affects a config the backend serves (2026-10-28: the eight bootstrap MVP claim
 PDAs from the dbc-config record were added before the backend served them).
 
 `LISTED_CONFIG_KEYS` tracks the app's `targets.production.partnerConfigKeys`

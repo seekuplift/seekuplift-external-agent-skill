@@ -12,9 +12,9 @@
     {
       "key": "Dird7tkGkKkmJW89PLME7PQ2jQaGJAftrUg4TPm9VoAx",
       "role": "production",
-      "default": true,
+      "default": false,
       "indexed": false,
-      "summary": "Bootstrap transfer-fee MVP key: flat 1.25% swap fee + 1% transfer fee, creator 30%; the production default for new launches (2026-10-28). Created 2026-10-28; claim PDA feeClaimer under fee-router-bootstrap 58WD4EKi…; leftover to the Squads vault. Creator metadata authority.",
+      "summary": "Bootstrap transfer-fee MVP key: flat 1.25% swap fee + 1% transfer fee, creator 30%; the default transfer-fee twin of the flat 1.25% tier (the app's toggle defaults on). Created 2026-10-28; claim PDA feeClaimer under fee-router-bootstrap 58WD4EKi…; leftover to the Squads vault. Creator metadata authority.",
       "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
       "quoteSymbol": "SKR",
       "quoteDecimals": 6,
@@ -79,6 +79,78 @@
       "tokenUpdateAuthority": 0,
       "version": 1,
       "fullTree": { "isTest": false, "feeConfig": "cause-flat-10", "transferFeeBps": 1000 },
+      "doc": "configs/mainnet/dbc-config-mainnet-tf-bootstrap-proposal.md"
+    },
+    {
+      "key": "B3Nwr5oZJXw4CxE5CURSup3MzxpiDbQSy1mpfvv6KMn2",
+      "role": "production",
+      "default": true,
+      "indexed": false,
+      "summary": "Bootstrap trading-only MVP key (no transfer fee): flat 1.25% swap fee, creator 30%; the plain twin of the flat-125bps transfer-fee key, so a launch can turn the transfer fee off; the production default (first tier option of every category). Created 2026-10-28 (create_config). Creator metadata authority.",
+      "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+      "quoteSymbol": "SKR",
+      "quoteDecimals": 6,
+      "quoteTokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "feeClaimer": "D6kr5J3id3bm8n5kHFT5HznNoUqraLKhAACzt5ZUhsNa",
+      "leftoverReceiver": "pgRYsDndsZrnR8tpbntpCfeNd7BavYtFFUQhhNGnzVj",
+      "migrationFeeOption": 6,
+      "tokenUpdateAuthority": 0,
+      "version": 1,
+      "fullTree": { "isTest": false, "feeConfig": "flat-125bps", "transferFeeBps": 0 },
+      "doc": "configs/mainnet/dbc-config-mainnet-tf-bootstrap-proposal.md"
+    },
+    {
+      "key": "6WU8Dp3DfiEZRoWcZPMuA9NwjA3p2x6aPBCCkqZHy7Lg",
+      "role": "production",
+      "default": false,
+      "indexed": false,
+      "summary": "Bootstrap trading-only MVP key (no transfer fee): flat 1.25% swap fee, creator 0% (100% to the cause); the plain twin of the cause-flat-125bps transfer-fee key, so a launch can turn the transfer fee off. Created 2026-10-28 (create_config). Creator metadata authority.",
+      "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+      "quoteSymbol": "SKR",
+      "quoteDecimals": 6,
+      "quoteTokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "feeClaimer": "EpunnnMKAhtodWyLyht22XyB5r854uNiHG4yBaLtB6wy",
+      "leftoverReceiver": "pgRYsDndsZrnR8tpbntpCfeNd7BavYtFFUQhhNGnzVj",
+      "migrationFeeOption": 6,
+      "tokenUpdateAuthority": 0,
+      "version": 1,
+      "fullTree": { "isTest": false, "feeConfig": "cause-flat-125bps", "transferFeeBps": 0 },
+      "doc": "configs/mainnet/dbc-config-mainnet-tf-bootstrap-proposal.md"
+    },
+    {
+      "key": "C2QNGCTC3RBLqKYaHPSyxpxwVkM2y8JgmmTnqwgJrZAG",
+      "role": "production",
+      "default": false,
+      "indexed": false,
+      "summary": "Bootstrap trading-only MVP key (no transfer fee): flat 10% swap fee, creator 30%; the plain twin of the flat-10 transfer-fee key, so a launch can turn the transfer fee off. Created 2026-10-28 (create_config). Creator metadata authority.",
+      "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+      "quoteSymbol": "SKR",
+      "quoteDecimals": 6,
+      "quoteTokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "feeClaimer": "H5LqH5dJcEDJBKDhFYkComPY8aKBDYumFkVoQYSFdemm",
+      "leftoverReceiver": "pgRYsDndsZrnR8tpbntpCfeNd7BavYtFFUQhhNGnzVj",
+      "migrationFeeOption": 6,
+      "tokenUpdateAuthority": 0,
+      "version": 1,
+      "fullTree": { "isTest": false, "feeConfig": "flat-10", "transferFeeBps": 0 },
+      "doc": "configs/mainnet/dbc-config-mainnet-tf-bootstrap-proposal.md"
+    },
+    {
+      "key": "AzZy9mVSjNNWRAH3CjsozG6qDjeQxnuZ85hRJuFta88z",
+      "role": "production",
+      "default": false,
+      "indexed": false,
+      "summary": "Bootstrap trading-only MVP key (no transfer fee): flat 10% swap fee, creator 0% (100% to the cause); the plain twin of the cause-flat-10 transfer-fee key, so a launch can turn the transfer fee off. Created 2026-10-28 (create_config). Creator metadata authority.",
+      "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+      "quoteSymbol": "SKR",
+      "quoteDecimals": 6,
+      "quoteTokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "feeClaimer": "A5mkXv6ajYigjsrdr5zLS1MTHrkWnowuR8zFErAHumtA",
+      "leftoverReceiver": "pgRYsDndsZrnR8tpbntpCfeNd7BavYtFFUQhhNGnzVj",
+      "migrationFeeOption": 6,
+      "tokenUpdateAuthority": 0,
+      "version": 1,
+      "fullTree": { "isTest": false, "feeConfig": "cause-flat-10", "transferFeeBps": 0 },
       "doc": "configs/mainnet/dbc-config-mainnet-tf-bootstrap-proposal.md"
     },
     {
@@ -176,6 +248,16 @@
       "date": "2026-10-28",
       "event": "The four bootstrap transfer-fee MVP keys created on mainnet (create_config2, DBC 0.2.2): Dird7tkG… (flat-125bps + 1%), DYxzpJyi… (cause-flat-125bps + 1%), 3FCLsb74… (flat-10 + 10%), cN8jwfrR… (cause-flat-10 + 10%); finalized decode passed on all four. Dird7tkGkKkmJW89PLME7PQ2jQaGJAftrUg4TPm9VoAx becomes the production default; 61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv stops being the default (owner: a testing key not suitable for a real app) and stays indexed. The new keys are not yet indexed by the backend.",
       "source": "owner instruction in a Claude Code session, 2026-10-28 (\"mark them production and default\"); creation evidence in configs/mainnet/dbc-config-mainnet-tf-bootstrap-proposal.md"
+    },
+    {
+      "date": "2026-10-28",
+      "event": "The four bootstrap trading-only MVP keys (--set bootstrap-mvp, create_config) created on mainnet, the plain twins of the transfer-fee keys: B3Nwr5oZJXw4CxE5CURSup3MzxpiDbQSy1mpfvv6KMn2 (flat-125bps), 6WU8Dp3DfiEZRoWcZPMuA9NwjA3p2x6aPBCCkqZHy7Lg (cause-flat-125bps), C2QNGCTC3RBLqKYaHPSyxpxwVkM2y8JgmmTnqwgJrZAG (flat-10), AzZy9mVSjNNWRAH3CjsozG6qDjeQxnuZ85hRJuFta88z (cause-flat-10); finalized decode passed on all four. Not yet indexed by the backend.",
+      "source": "owner instruction in a Claude Code session, 2026-10-28 (\"Create 4 plain keys\", \"go ahead with deploying 4 plain keys\"); creation evidence in configs/mainnet/dbc-config-mainnet-tf-bootstrap-proposal.md"
+    },
+    {
+      "date": "2026-10-28",
+      "event": "B3Nwr5oZJXw4CxE5CURSup3MzxpiDbQSy1mpfvv6KMn2 (trading-only flat 1.25%) becomes the production default in place of Dird7tkGkKkmJW89PLME7PQ2jQaGJAftrUg4TPm9VoAx: the backend serves a category's default as its first tier option, so the transfer-fee key as default would leave the flat 1.25% tier with no transfer-fee-off choice and give startups a transfer fee. Meme and idea launches still default to Dird7tkG through the app's default-on transfer-fee toggle.",
+      "source": "owner instruction in a Claude Code session, 2026-10-28 (\"Plain B3Nwr5oZ default\")"
     }
   ]
 }

@@ -5,7 +5,7 @@
  * pins it). Not read at runtime: the launch catalog comes from the backend's
  * mobile-config on every request.
  */
-export const DEFAULT_DBC_CONFIG_KEY = 'Dird7tkGkKkmJW89PLME7PQ2jQaGJAftrUg4TPm9VoAx'
+export const DEFAULT_DBC_CONFIG_KEY = 'B3Nwr5oZJXw4CxE5CURSup3MzxpiDbQSy1mpfvv6KMn2'
 export const DBC_PROGRAM_ID = 'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN'
 export const NATIVE_MINT = 'So11111111111111111111111111111111111111112'
 

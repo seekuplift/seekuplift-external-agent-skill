@@ -22,8 +22,8 @@ import { configRecord, LIVE_CONFIG_KEY, mobileConfigFixture, type ConfigRecordKe
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8')
 
-const RECORD_COMMIT = 'a9e98645da6771d2498754c6fa78caca1f72ca5e'
-const RECORD_SHA256 = '7bf05c1823329e69243a62b76f5d607d4de5d90385fc570766276e0857203a44'
+const RECORD_COMMIT = '08acfcf3912607ec5ab83da34465fdfd0d1679f0'
+const RECORD_SHA256 = '466556a258bc9c3dab90318cdb3ca16c6405eac79faab2802c9aab0a629af4d1'
 
 const BASE58_ADDRESS = /\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/g
 const BASE58_ELLIPSIS = /\b[1-9A-HJ-NP-Za-km-z]{8,12}…/g
