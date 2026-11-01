@@ -32,7 +32,7 @@ import {
   toFiniteNumber,
   type ScaledUiAmountConfig,
 } from './dbc-shared.ts'
-import { getDonationClaimAuthorities } from './config.ts'
+import { getDonationClaimAuthorities, getTransferFeeConfigKeys } from './config.ts'
 import { configBaseTransferFeeBps } from './transfer-fee.ts'
 import {
   decodeLaunchFeeShape,
@@ -320,7 +320,26 @@ export type CatalogDeps = {
   fetchMintInfo?: (mint: string) => Promise<MintTokenInfo>
   /** The DONATION_CLAIM_AUTHORITIES env value (parsed list). Default: env. */
   donationClaimAuthorities?: readonly string[] | null
+  /** The TRANSFER_FEE_CONFIG_KEYS env value (parsed list). Default: env. */
+  transferFeeConfigKeys?: readonly string[]
   now?: () => number
+}
+
+/**
+ * The served options plus the transfer-fee configs as extra meme options,
+ * after the served ones (so the memecoin default stays a served config). A key
+ * the backend already serves for meme is not repeated.
+ */
+function withTransferFeeOptions(
+  options: LaunchConfigOptionsByCategory,
+  transferFeeKeys: readonly string[],
+): LaunchConfigOptionsByCategory {
+  const meme = options.meme ?? []
+  const extra = transferFeeKeys
+    .filter((key, i) => transferFeeKeys.indexOf(key) === i)
+    .filter((key) => !meme.some((ref) => ref.configKey === key))
+    .map((configKey) => ({ configKey }))
+  return extra.length === 0 ? options : { ...options, meme: [...meme, ...extra] }
 }
 
 async function defaultFetchMobileConfig(clientIp: string | null): Promise<MobileConfigResponse> {
@@ -598,7 +617,11 @@ export async function getMobileConfigContext(
       }
     }
   }
-  return { geo, options: parsed.options, quoteAssets: parsed.quoteAssets, version }
+  const options = withTransferFeeOptions(
+    parsed.options,
+    deps.transferFeeConfigKeys ?? getTransferFeeConfigKeys(),
+  )
+  return { geo, options, quoteAssets: parsed.quoteAssets, version }
 }
 
 /**

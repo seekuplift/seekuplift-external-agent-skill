@@ -418,4 +418,24 @@ describe('GET /api/configs catalog', () => {
     assert.equal(entry.supportsCause, true)
     assert.equal(entry.supportsFirstBuy, true)
   })
+
+  it('offers TRANSFER_FEE_CONFIG_KEYS as extra meme options after the served ones', async () => {
+    const TF_KEY = 'Dird7tkGkKkmJW89PLME7PQ2jQaGJAftrUg4TPm9VoAx'
+    const liveConfig = await decodePoolConfigFixture(LIVE_CONFIG_ACCOUNT)
+    const tfConfig = await decodePoolConfigFixture(TF_CONFIG_ACCOUNT)
+    const { configs } = await getConfigCatalog('203.0.113.10', await defaultDeps({
+      fetchPoolConfig: async (key) => (key === LIVE_CONFIG_KEY ? liveConfig : key === TF_KEY ? tfConfig : null),
+      donationClaimAuthorities: [DONATION_CLAIM_AUTHORITY, TF_CONFIG_FEE_CLAIMER],
+      // A served key is not repeated; a duplicate collapses.
+      transferFeeConfigKeys: [TF_KEY, LIVE_CONFIG_KEY, TF_KEY],
+    }))
+    assert.deepEqual(configs.map((c) => c.configKey), [LIVE_CONFIG_KEY, TF_KEY])
+    const tf = configs[1]
+    assert.deepEqual(tf.categories, ['meme'])
+    assert.equal(tf.optionId, null)
+    assert.equal(tf.fees.transferFeeBps, 100)
+    assert.equal(tf.decodeError, null)
+    assert.deepEqual(tf.defaultFor, [])
+    assert.deepEqual(configs[0].defaultFor, ['meme'])
+  })
 })

@@ -81,6 +81,18 @@ export function getListedConfigKeys(): string[] {
   return parseBase58List(process.env.LISTED_CONFIG_KEYS)
 }
 
+/**
+ * Token-2022 transfer-fee launch configs offered as extra MEMECOIN options on
+ * top of the backend-served catalog. `/api/mobile-config` never serves them:
+ * the app picks them as transfer-fee "twins" behind its own flag. Mirrors the
+ * values of the app's `config/production-manifest.json`
+ * `targets.production.transferFeeConfigKeys`. Comma-separated base58 pubkeys,
+ * read at call time; unset → none offered.
+ */
+export function getTransferFeeConfigKeys(): string[] {
+  return parseBase58List(process.env.TRANSFER_FEE_CONFIG_KEYS)
+}
+
 function parseBase58List(raw: string | undefined): string[] {
   return (raw ?? '')
     .split(',')

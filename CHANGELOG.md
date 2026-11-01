@@ -17,7 +17,8 @@ the whole history; it is rewritten freely until the first release.
   the caller (fees, quote asset, categories, geo verdict). `POST /api/launch`
   requires `configKey` and `category`. `fees.transferFeeBps` is the
   launched coin's own Token-2022 transfer fee (0 = none; a creator first buy
-  on such a config is floored net of it).
+  on such a config is floored net of it). The transfer-fee configs are
+  extra memecoin-only options, never the memecoin default.
 - **Launch**: `POST /api/launch` builds a mint-partial-signed legacy
   transaction. Optional creator first buy (`firstBuyAtoms` /
   `firstBuyAmount`, quoted floor via `firstBuySlippageBps`), optional
