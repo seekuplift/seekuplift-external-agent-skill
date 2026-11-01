@@ -12,9 +12,10 @@
  *   2. GET /api/configs — the memecoin default (defaultFor:["meme"]) must be
  *      a creator-fee config (fees.creatorSharePct > 0, not allFeesToCause).
  *   3. POST /api/launch — with a first buy when the config supports it.
- *      Donation is resolved the way an agent would: post without it, and on
- *      400 { error: "donation_required" } re-post with the first offered
- *      shipping cause.
+ *      Donation is resolved the way an agent would: post { mode: "cause" }
+ *      alone (400 donation_cause_required lists causesOffered, before any
+ *      upload) and take the first offered cause; none offered → the managed
+ *      fund, sent explicitly.
  *   4. GET /api/pools — find the new coin via BOTH search and list.
  *   5. Anti-sniper wait — trades are held until the launch config's fee
  *      decay window (fees.curve.decaySecondsEstimate) has passed, so the
@@ -546,7 +547,6 @@ const ctx = {
   launchBlockTime: null,
   plan: null,
   image: null,
-  launchProbe: null,
   resume: null,
   buyQuote: null,
   boughtBaseAtoms: 0n,
@@ -761,15 +761,16 @@ function launchBody(plan, payerPublicKey) {
     payerPublicKey,
     ...(plan.firstBuyAmount !== '0' ? { firstBuyAmount: plan.firstBuyAmount } : {}),
     ...(plan.donation.mode === 'cause' ? { donation: { mode: 'cause', cause: plan.donation.cause } } : {}),
+    ...(plan.donation.mode === 'managed' ? { donation: { mode: 'managed' } } : {}),
   }
 }
 
 /**
  * Resolve the donation deterministically BEFORE approval: pinned via
- * ACCEPTANCE_DONATION_CAUSE, else probe /api/launch without a donation (the
- * service refuses with causesOffered before any upload when causes are
- * offered) and take causesOffered[0]. A 200 means no cause is required; that
- * build is kept and reused by the launch step while still fresh.
+ * ACCEPTANCE_DONATION_CAUSE, else probe /api/launch with `{ mode: "cause" }`
+ * and no slug: the service refuses 400 donation_cause_required with
+ * causesOffered before any upload or mint grind. Take causesOffered[0]; none
+ * offered → the managed fund (the service's own default), sent explicitly.
  */
 async function resolveDonation(entry, plan0, payerKey) {
   if (!entry.supportsCause) return { mode: 'none' }
@@ -778,16 +779,11 @@ async function resolveDonation(entry, plan0, payerKey) {
   if (!args.launchBuild) return { mode: 'unresolved' }
   const res = await apiFetch('/api/launch', {
     method: 'POST',
-    body: launchBody({ ...plan0, donation: { mode: 'none' } }, payerKey),
+    body: launchBody({ ...plan0, donation: { mode: 'cause' } }, payerKey),
   })
-  if (res.status === 400 && res.json?.error === 'donation_required') {
+  if (res.status === 400 && res.json?.error === 'donation_cause_required') {
     const offered = res.json.causesOffered ?? []
-    if (offered.length === 0) throw fail('donation_required but causesOffered is empty')
-    return { mode: 'cause', cause: offered[0] }
-  }
-  if (res.status === 200) {
-    ctx.launchProbe = { res, at: now() }
-    return { mode: 'none' }
+    return offered.length > 0 ? { mode: 'cause', cause: offered[0] } : { mode: 'managed' }
   }
   throw fail(`donation probe: /api/launch returned ${res.status}: ${res.text.slice(0, 300)}`)
 }
@@ -923,17 +919,11 @@ async function stepLaunch(payer) {
   const payerKey = payer.keypair.publicKey.toBase58()
   const body = launchBody(plan, payerKey)
 
-  // Reuse the donation probe's build when it is fresh (blockhash still valid);
-  // otherwise post the plan's body, donation included. The donation is NEVER
-  // re-picked here: if the offered causes changed, the plan must be re-approved.
-  let res
-  if (ctx.launchProbe && now() - ctx.launchProbe.at < 45_000) {
-    res = ctx.launchProbe.res
-  } else {
-    res = await apiFetch('/api/launch', { method: 'POST', body })
-  }
-  if (res.status === 400 && res.json?.error === 'donation_required') {
-    throw fail('donation became required since the plan was resolved — re-run --dry-run and re-approve the new plan')
+  // Post the plan's body, donation included. The donation is NEVER re-picked
+  // here: if the offered causes changed, the plan must be re-approved.
+  const res = await apiFetch('/api/launch', { method: 'POST', body })
+  if (res.status === 400 && res.json?.error === 'unknown_cause') {
+    throw fail('the planned cause is no longer offered — re-run --dry-run and re-approve the new plan')
   }
   if (res.status !== 200) {
     throw fail(`/api/launch returned ${res.status}: ${res.text.slice(0, 500)}`)
