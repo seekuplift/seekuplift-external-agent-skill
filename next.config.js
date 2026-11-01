@@ -6,6 +6,7 @@ const nextConfig = {
   // would silently bundle these). Next 16 keeps this key.
   serverExternalPackages: [
     '@meteora-ag/dynamic-bonding-curve-sdk',
+    '@meteora-ag/cp-amm-sdk',
     '@coral-xyz/anchor',
     '@solana/web3.js',
     'bn.js',

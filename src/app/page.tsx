@@ -134,7 +134,7 @@ export default function Home() {
         <ApiEndpoint
           method="POST"
           path="/api/trade/tx"
-          description="Builds the unsigned swap transaction. Omit minimumAmountOut to quote internally; never send '0' (it disables slippage protection)."
+          description="Builds the unsigned swap transaction. The floor is always recomputed from a fresh quote at slippageBps; minimumAmountOut may only tighten it (a lower value, '0' included, is 400 min_out_below_floor)."
           request={`{
   "poolAddress": "<pool id>",
   "ownerPublicKey": "<base58>",
@@ -147,7 +147,7 @@ export default function Home() {
   "transaction": "<base64, unsigned>",
   "amountIn": "...",
   "minimumAmountOut": "...",
-  "quote": { ... } | null,   // null when minimumAmountOut was supplied
+  "quote": { ... },          // always set: the fresh quote behind the floor
   "poolInfo": { ... },
   "lastValidBlockHeight": 390000000
 }`}
