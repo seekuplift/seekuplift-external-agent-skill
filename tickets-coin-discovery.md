@@ -10,6 +10,8 @@ Non-negotiables:
 
 ## CD-S-1: Agents can call `discover` through the skill
 
+**2026-11-03 owner: hidden from the live service until the backend half ships.** The route 404s unless `DISCOVER_ENABLED=true`, and SKILL.md / `skill.json` / the landing page / CHANGELOG no longer mention discover. CD-B-4 re-enables it: set `DISCOVER_ENABLED=true` on both hosts and revert the docs-hiding commit (`git log --grep "hide discover"`).
+
 **Status:** done (2026-11-03). Deploy still waits for CD-B-4 (human-only).
 
 An agent calls the skill's `discover` capability with a user's interests and gets the backend's shortlist back unchanged. `SKILL.md` teaches it to:

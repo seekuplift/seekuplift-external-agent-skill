@@ -39,14 +39,6 @@ the whole history; it is rewritten freely until the first release.
   floor; an `amountIn` that returns nothing is `400 zero_output`).
 - **Pools**: `GET /api/pools` with search, tab, category, lifecycle and sort
   parameters.
-- **Discovery** (additive): `POST /api/discover` shortlists coins matching a
-  user's stated interests — `{ interests, avoid?, filters?, sort?, limit?,
-  cursor? }` → `{ mode, results, excludedForRegion, nextCursor }`. `mode` is
-  `"semantic"` (meaning-matched) or `"keyword"` (fallback). For interest or
-  value matching call `discover` first rather than paging `GET /api/pools`;
-  `interests` is a one-line summary without identifying details and is never
-  logged or stored. `marketCap`/`volume24h` stay display-grade — quote with
-  `trade_quote` before trading.
 - **Claim**: `POST /api/claim/tx` claims creator fees; `source` is `"curve"`
   (default, bonding-curve creator fees) or `"position"` (post-graduation
   DAMM v2 position fees where the coin's launch setup gives the creator a

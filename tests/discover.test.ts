@@ -322,6 +322,13 @@ describe('POST /api/discover — query text is never logged or echoed', () => {
 })
 
 describe('POST /api/discover — route wiring (source pin)', () => {
+  it('404s unless DISCOVER_ENABLED=true, before any other work (hidden until CD-B-4)', () => {
+    const src = readFileSync(ROUTE, 'utf8')
+    const gate = src.indexOf("process.env.DISCOVER_ENABLED !== 'true'")
+    assert.ok(gate > 0, 'route must gate on DISCOVER_ENABLED')
+    assert.ok(gate < src.indexOf('clientIpFromHeaders(req.headers)'), 'gate must come first')
+  })
+
   it('runs clientIpFromHeaders + checkAgentAccess before the backend call and never caches', () => {
     const src = readFileSync(ROUTE, 'utf8')
     assert.match(src, /checkAgentAccess\(req\.headers, clientIp\)/)

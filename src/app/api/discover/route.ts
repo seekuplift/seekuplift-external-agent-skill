@@ -46,6 +46,12 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
+  // Hidden until the backend half ships (CD-B-4): the route 404s and the
+  // skill docs leave discover out. CD-B-4 sets DISCOVER_ENABLED=true and
+  // reverts the docs-hiding commit.
+  if (process.env.DISCOVER_ENABLED !== 'true') {
+    return NextResponse.json({ error: 'not_found' }, { status: 404 })
+  }
   const clientIp = clientIpFromHeaders(req.headers)
   const access = checkAgentAccess(req.headers, clientIp)
   if (!access.ok) {

@@ -1,6 +1,6 @@
 ---
 name: seekuplift-launchpad
-description: Launch and trade coins on SeekUplift Launchpad (Solana mainnet) over a public HTTP API. Use when the user wants to launch a memecoin, idea coin or startup coin, find SeekUplift coins (browsing, or matching a user's interests/values), buy/sell them, or claim creator fees. The API returns transactions; the agent signs with the user's wallet and submits.
+description: Launch and trade coins on SeekUplift Launchpad (Solana mainnet) over a public HTTP API. Use when the user wants to launch a memecoin, idea coin or startup coin, find SeekUplift coins, buy/sell them, or claim creator fees. The API returns transactions; the agent signs with the user's wallet and submits.
 ---
 
 # SeekUplift Launchpad — Agent Skill
@@ -40,7 +40,7 @@ A key that is sent but not recognised returns `401 { "error": "unauthorized" }` 
 
 1. `GET /api/configs` → pick a config (see **Choosing a config**), check its `geo` verdict.
 2. `POST /api/launch` → mint-partial-signed legacy transaction → add the payer signature → submit to mainnet.
-3. `POST /api/discover` → shortlist coins matching the user's interests; `GET /api/pools` → browse or look up by name/symbol/mint. A pool's `id` is the `poolAddress` the trade endpoints take.
+3. `GET /api/pools` → find coins; a pool's `id` is the `poolAddress` the trade endpoints take.
 4. `POST /api/trade/quote` → `POST /api/trade/tx` → unsigned legacy transaction → the owner signs → submit.
 5. `POST /api/claim/tx` → unsigned creator-fee claim for a coin you launched → the launch payer signs → submit.
 
@@ -189,7 +189,7 @@ Uploads image + metadata through the backend proxy and builds the launch transac
 - `name`: ≥3 characters, ≤32 UTF-8 bytes. `symbol`: ≤10 UTF-8 bytes (leading `$`/whitespace stripped, uppercased). `description`: required, ≤2000 characters.
 - `image`: base64 PNG/JPEG/GIF/WEBP, ≤10 MB; an RFC-2397 `data:<mime>;base64,…` URL is accepted when the declared type matches the bytes.
 - `imageUrl`: a public `http(s)` URL fetched through an **SSRF guard** — no credentials in the URL, no `localhost`/`.local`/`.internal` hosts, private/loopback/link-local/CGNAT/documentation address targets refused (every DNS answer is vetted and the connection is pinned to it), redirects followed manually (≤3 hops, each re-vetted), 10 MB cap, magic-byte sniffed. `ipfs://` and other non-http(s) schemes are refused — pass a public gateway URL instead.
-- `donation` — **meme launches only**, and only on `supportsCause` configs. `{ mode, cause?, project?, handle?, redditUserId? }`. **Optional: omit it and the platform share goes to the managed fund** — the response then carries `donationDefaulted: "managed"`; tell your user. To pick a specific cause, ask your user which one; to list them, send `{ "mode": "cause" }` with no slug — the `400 donation_cause_required` (raised before any upload) lists `causesOffered` (an unknown slug gets `400 unknown_cause` with the same list). An empty `causesOffered` means no cause is open for donations right now: tell your user, and omit `donation` (managed fund) or use `project` with a Giveth project id. Modes selectable at launch come from the backend's launch-enabled mode registry (typically `managed`, `cause`, `project`, `tbd`; `x`/`reddit` are usually off for memecoins); `cause` takes `cause` (a shipping cause slug), `project` takes a bare positive Giveth project id in `project`, `x` takes `handle`, `reddit` takes `handle` + `redditUserId` (a `t2_` id), `managed`/`tbd` take no params.
+- `donation` — **meme launches only**, and only on `supportsCause` configs. `{ mode, cause?, project?, handle?, redditUserId? }`. **Optional: omit it and the platform share goes to the managed fund** — the response then carries `donationDefaulted: "managed"`; tell your user. To pick a specific cause, ask your user which one; to list them, send `{ "mode": "cause" }` with no slug — the `400 donation_cause_required` (raised before any upload) lists `causesOffered` (an unknown slug gets `400 unknown_cause` with the same list). An empty `causesOffered` means no cause is open for donations right now: tell your user, and omit `donation` (managed fund), use `project` with a Giveth project id, or `tbd` to decide later (the launch wallet makes the final pick — managed fund, cause or Giveth project — in the SeekUplift app; this skill has no endpoint for it). Modes selectable at launch come from the backend's launch-enabled mode registry (typically `managed`, `cause`, `project`, `tbd`; `x`/`reddit` are usually off for memecoins); `cause` takes `cause` (a shipping cause slug), `project` takes a bare positive Giveth project id in `project`, `x` takes `handle`, `reddit` takes `handle` + `redditUserId` (a `t2_` id), `managed`/`tbd` take no params.
 - `ideaFunding` — **idea launches only**. `{ mode, address?, handle?, redditUserId? }`. Modes come from the backend's launch-enabled registry (`managed` and `realms` are never selectable; typically `direct`, `tbd`, `x`, `reddit`): `direct` takes `address` — an **on-curve** Solana address (no PDAs) that becomes the coin's entitled signer; `x` takes `handle`; `reddit` takes `handle` + `redditUserId`, or just `handle` and the service resolves the `t2_` id.
 - **Idea extras** — required: `problem` (the use-case statement), `useCases` (1–3 slugs from the idea catalog: climate, education, inclusion, local, depin, desci, public-goods, infrastructure, payments, governance, social, art, gaming, defi, privacy, identity, health, energy, food, housing, mobility, other), `prototype` (URL). Optional: `whitepaper` (URI).
 - **Startup extras** — required: `problem` (the pitch), `useCases` (1–3 slugs from the startup catalog: saas, consumer, fintech, ai, infrastructure, defi, payments, depin, gaming, rwa, social, data, creator, climate, education, health, security, wallet, marketplace, media, stablecoins, other), `deck` (URL). Optional: `whitepaper` (recorded as roadmap), plus the compliance fields `legalFramework`, `legalFrameworkNote`, `tokenUtility`, `decentralizationEfforts`, `entityJurisdiction` — recorded only when `startupComplianceAcknowledged: true`.
@@ -358,68 +358,7 @@ GET /api/pools?search=<q>&limit=20&cursor=<cursor>&tab=emerging&category=meme&li
 
 **Errors**: `400 { error }` on a non-numeric `limit`, invalid `tab`/`category`/`lifecycle`/`sortBy`; `502` upstream.
 
----
-
-### 6. `discover` — `POST /api/discover`
-
-Shortlists the coins that best match a user's stated interests or values — meaning-matched across the whole catalog, with a keyword fallback. **For interest or value matching, call `discover` first — never page `list_pools` to match**: the catalog is large, and `list_pools` is for browsing and name/symbol/mint lookups, not for judging fit.
-
-Write `interests` as a **short summary of the user's interests — one line, no names or identifying details** ("ocean conservation, kids' education", not "Jane from Leeds likes…"). The text is used for that one request only — the service never stores or logs it.
-
-**Request** (JSON):
-
-```json
-{
-  "interests": "ocean conservation, kids' education",
-  "avoid": ["gambling"],
-  "filters": { "kind": "any", "causeSlugs": [], "stage": "any", "minVolume24h": 0 },
-  "sort": "relevance",
-  "limit": 10,
-  "cursor": null
-}
-```
-
-- `interests` — required, 1–500 characters, any language. Comma-separated pieces are what `why` reports against (at most 5 pieces).
-- `avoid` — optional, ≤5 terms of 1–80 characters each; coins matching a term drop out of the shortlist.
-- `filters` — optional: `kind` (`"cause" | "idea" | "any"`), `causeSlugs` (≤50 shipping cause slugs), `stage` (`"curve" | "graduated" | "any"`), `minVolume24h` (USD, ≥ 0). Filters narrow the candidate set before ranking, so they never empty a shortlist that still has eligible matches.
-- `sort` — `"relevance"` (default: best match first, recent activity breaks ties within a relevance band), `"newest"`, `"active"` — the last two reorder the most relevant candidate matches only ("the most relevant matches, newest first"), not the whole catalog.
-- `limit` — 1–25, default 10.
-- `cursor` — pass `nextCursor` for the next page, keeping the same `sort` (a mismatched-sort cursor is a `400`); pages end after the ~200-candidate set.
-
-**Response**:
-
-```json
-{
-  "mode": "keyword",
-  "results": [
-    {
-      "mint": "<base58>",
-      "name": "Reef Guardians", "symbol": "REEF",
-      "kind": "cause",
-      "funds": { "cause": "Ocean", "project": "Coral Restoration Fund", "idea": null },
-      "marketCap": 41200, "volume24h": 3100,
-      "stage": "curve",
-      "match": 0.82,
-      "why": "matches: ocean conservation"
-    }
-  ],
-  "excludedForRegion": 2,
-  "nextCursor": "<opaque keyset cursor | null>"
-}
-```
-
-- `mode` — `"semantic"` when the matches are meaning-matched (multilingual embeddings), `"keyword"` when the term-match fallback served (the embedding service is off): same shape, coarser matching.
-- Each result is a **coin**: `kind` is `"cause"` (funds a cause — `funds.cause`/`funds.project` name them), `"idea"` (funds an idea — `funds.idea`), or `"plain"`. `match` is the 0–1 relevance; `why` names the `interests` piece the coin best matched.
-- `excludedForRegion` counts matching coins left out because the caller's region cannot trade them — mention it to your user if they expected a coin that is missing.
-- `marketCap`/`volume24h` are USD figures — **display-grade only**, never money-path inputs.
-
-**After choosing a coin**: resolve its pool address with `GET /api/pools?search=<mint>` (the pool `id`), then `POST /api/trade/quote` → `POST /api/trade/tx` as usual — always quote before trading. Quote first even for `stage: "graduated"`, then route on the quote's `poolInfo.migrationState` (see **Migration states**): only `migrated` trades on Jupiter — `migration_pending` has no pool anywhere yet, so retry later.
-
-**Errors**: `400 { error: "invalid_request", field, message }` names the failing field (never echoes your input); `429` service/backend read limits; `502` upstream.
-
----
-
-### 7. `claim_fees` — `POST /api/claim/tx`
+### 6. `claim_fees` — `POST /api/claim/tx`
 
 Builds the unsigned transaction that claims a coin's accrued creator fees to the creator wallet. By default it claims the bonding-curve creator fees (works on the curve and after migration). With `"source": "position"` it instead claims the post-graduation trading fees of the creator's DAMM v2 position(s) in the coin's migrated pool — available where the coin's launch setup gives the creator a position (a locked-liquidity share); coins whose setup gives the creator none have nothing to claim there. One call builds one transaction: to claim both, call twice (`curve`, then `position`) and sign each.
 
@@ -468,7 +407,7 @@ The service forwards the caller's IP to the backend, which resolves a fresh geo 
 
 - **Service level**: every builder call without a partner key counts against a per-caller-network bucket (240/minute — IPv6 callers share one bucket per /64). Over the limit: `429 { "error": "rate_limited", "subject": "network", "retryAfter" }` + `Retry-After` header.
 - **Uploads**: **10 per hour per caller IP**, shared by image + metadata uploads — one launch consumes 2. With a partner key, uploads count against the partner's own, larger hourly allowance instead. Exceeding it returns `429` from the backend. Validation and geo refusals happen before uploads, so they do not consume budget.
-- Pool list/search and discover calls share per-IP read buckets on the backend.
+- Pool list/search calls share a per-IP read bucket on the backend.
 - Image inputs: ≤10 MB, PNG/JPEG/GIF/WEBP (magic-byte sniffed, never the declared type).
 
 ## Transactions — signing and expiry
@@ -559,7 +498,7 @@ A launch's `payerPublicKey` is recorded as the coin's creator; only that wallet 
 
 | Status | Body | Meaning |
 |---|---|---|
-| `400` | `{ error }` | Invalid request — message names the field. `error: "donation_cause_required"` / `"unknown_cause"` add `causesOffered`; `unsupported_<field>` errors list `allowed`; `min_out_below_floor` names `minimumAmountOutFloor`; `zero_output` = `amountIn` too small to return anything; `invalid_request` (discover) adds `field`. |
+| `400` | `{ error }` | Invalid request — message names the field. `error: "donation_cause_required"` / `"unknown_cause"` add `causesOffered`; `unsupported_<field>` errors list `allowed`; `min_out_below_floor` names `minimumAmountOutFloor`; `zero_output` = `amountIn` too small to return anything. |
 | `401` | `{ error: "unauthorized" }` | An `X-Api-Key` was sent but is not a valid partner key — fix it or omit the header. |
 | `429` | `{ error: "rate_limited", subject, retryAfter }` | Service limit (`subject: "network"`) — wait `retryAfter` seconds. |
 | `403` | `{ error: "geo_restricted", region, regionName, feature, message }` | The caller's geo verdict blocks this launch or trade — relay `message` (names the jurisdiction) to your user. |
