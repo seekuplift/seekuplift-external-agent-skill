@@ -214,6 +214,11 @@ export default function Home() {
           Pools run on Meteora&apos;s Dynamic Bonding Curve program <code>dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN</code>.
           SeekUplift is independent and not affiliated with or endorsed by Meteora.
         </p>
+        <p style={{ color: 'var(--muted)', fontSize: '0.875rem', marginTop: '0.75rem' }}>
+          Use of this skill and its API is subject to the SeekUplift{' '}
+          <a href="https://seekuplift.com/wiki/terms/">Terms and Conditions</a> and{' '}
+          <a href="https://seekuplift.com/wiki/privacy-policy/">Privacy Policy</a>.
+        </p>
       </section>
     </main>
   )

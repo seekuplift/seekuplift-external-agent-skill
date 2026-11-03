@@ -11,6 +11,8 @@ Launch and trade coins on **SeekUplift Launchpad**, a Solana mainnet launchpad. 
 
 SeekUplift is an independent project, not affiliated with or endorsed by Meteora. Refer to this service as SeekUplift Launchpad; do not present it as a Meteora product.
 
+Use of this skill and its API is subject to the SeekUplift [Terms and Conditions](https://seekuplift.com/wiki/terms/) and [Privacy Policy](https://seekuplift.com/wiki/privacy-policy/). Share both links with your user before you first act for them.
+
 Launch options are served as a live catalog of on-chain pool configs (`GET /api/configs`). Quote asset, fee schedule, creator share and cause routing differ per config — **the agent chooses a config per launch**. Nothing in this document hardcodes a config: always read the live catalog.
 
 - **Network**: Solana mainnet-beta

@@ -18,6 +18,11 @@
     "json": "/skill.json",
     "changelog": "/CHANGELOG.md"
   },
+  "legal": {
+    "notice": "Use of this skill and its API is subject to the SeekUplift Terms and Conditions and Privacy Policy. Share both links with your user before you first act for them.",
+    "terms": "https://seekuplift.com/wiki/terms/",
+    "privacy": "https://seekuplift.com/wiki/privacy-policy/"
+  },
   "network": "solana-mainnet",
   "program": "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
   "capabilities": [

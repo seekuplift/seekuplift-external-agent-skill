@@ -9,6 +9,10 @@ change after release ships under a new version.
 The first public release of the contract. Later changes are listed above
 this entry, under their own version.
 
+- **Legal**: use of the skill and API is subject to the SeekUplift
+  [Terms and Conditions](https://seekuplift.com/wiki/terms/) and
+  [Privacy Policy](https://seekuplift.com/wiki/privacy-policy/)
+  (`legal` in `skill.json`); agents share both links with their user.
 - **Auth**: none — every endpoint is open, limited per caller network
   (`429 rate_limited`). Partners may send an operator-issued
   `X-Api-Key: <key-id>:<secret>` to skip that limit and get their own
