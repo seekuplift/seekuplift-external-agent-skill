@@ -17,7 +17,7 @@ Tests feed the account bytes through the real
 `@meteora-ag/dynamic-bonding-curve-sdk` decoder via a stubbed `Connection`
 (`getAccountInfo`/`getAccountInfoAndContext`), so the exercised path is the
 production one.
-| `config-record.json` | Vendored byte-for-byte from `dbc-config/configs/mainnet/config-record.json` at dbc-config commit `b352d6c37b0b34d8869df7b63da8d7f4eaf6d2ef` (TB-D-1; the eight bootstrap MVP keys, B3Nwr5oZ… default, all indexed), sha256 `548ea09face95d33267db365df64e89b43df27a4f694df48cd44ddb3284e7dd1` (pinned by `tests/config-record.test.ts`). To refresh: copy the new file, update this row and the pinned sha in the test. Reused by TB-S-4. | 2026-11-01 |
+| `config-record.json` | Vendored byte-for-byte from `dbc-config/configs/mainnet/config-record.json` at dbc-config base commit `1bdcc223eb6314d2a1e09dbf29dec356895ad5fd` plus its then-uncommitted 2026-11-03 edit (the eight exact-fee keys, DjLboXML… default, all indexed; the old eight stay indexed), sha256 `d1c47749c0fe4bc8dbcb0cfaf05193829e0f66c7d873cf08c313ae545033ac33` (pinned by `tests/config-record.test.ts`). To refresh: copy the new file, update this row and the pinned sha in the test. Reused by TB-S-4. | 2026-11-03 |
 
 ## `damm-position-claim/`
 

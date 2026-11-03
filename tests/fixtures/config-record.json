@@ -2,19 +2,205 @@
   "schemaVersion": 1,
   "cluster": "mainnet-beta",
   "dbcProgramId": "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN",
-  "updated": "2026-10-28",
+  "updated": "2026-11-03",
   "description": "Canonical record of every DBC PoolConfig key that exists on mainnet for Seek Uplift (TB-D-1). Consumers (backend env, app featured/production manifests, external agent skill) vendor or compare against this file; `npm run verify:config-record` re-reads every key at finalized commitment and fails on drift. Add a key here BEFORE wiring it anywhere (deployment-plan.md step 9). Roles are as deployed, not as older docs stated.",
   "productionQuoteAllowlist": [
-    { "mint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3", "symbol": "SKR", "decimals": 6, "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" },
-    { "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "symbol": "USDC", "decimals": 6, "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" }
+    {
+      "mint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+      "symbol": "SKR",
+      "decimals": 6,
+      "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+    },
+    {
+      "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "symbol": "USDC",
+      "decimals": 6,
+      "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+    }
   ],
   "keys": [
+    {
+      "key": "B9fKVdRQWdgKKpsJT6qriBLwaTQCkn2HcNTRH2FwB6Xv",
+      "role": "production",
+      "default": false,
+      "indexed": true,
+      "summary": "Exact-fee MVP key (1% transfer fee): 1.25% swap fee exactly after a 20-period anti-sniper window (starts 98.86229%), dynamic fee off, creator 30%; replaces Dird7tkG… for new launches. Created 2026-11-03 (create_config2). Creator metadata authority.",
+      "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+      "quoteSymbol": "SKR",
+      "quoteDecimals": 6,
+      "quoteTokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "feeClaimer": "37xQQcucCVVhAxLPUWUf2iYrMX77PqAnR6C8oH2BPHLo",
+      "leftoverReceiver": "pgRYsDndsZrnR8tpbntpCfeNd7BavYtFFUQhhNGnzVj",
+      "migrationFeeOption": 6,
+      "tokenUpdateAuthority": 0,
+      "version": 1,
+      "fullTree": {
+        "isTest": false,
+        "feeConfig": "exact-125bps",
+        "transferFeeBps": 100
+      },
+      "doc": "configs/mainnet/dbc-config-mainnet-exact-fee-proposal.md"
+    },
+    {
+      "key": "HNDbmoQwALyZJizCbzf7pR9mSWKHBojhxU5QSxb1fWVB",
+      "role": "production",
+      "default": false,
+      "indexed": true,
+      "summary": "Exact-fee MVP key (1% transfer fee): 1.25% swap fee exactly after a 20-period anti-sniper window (starts 98.86229%), dynamic fee off, creator 0% (100% to the cause); replaces DYxzpJyi… for new launches. Created 2026-11-03 (create_config2). Creator metadata authority.",
+      "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+      "quoteSymbol": "SKR",
+      "quoteDecimals": 6,
+      "quoteTokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "feeClaimer": "9BLcrE3zF7Adaf5QxvFLFm3uL8bDh7jVfU2Sgb3fHJgB",
+      "leftoverReceiver": "pgRYsDndsZrnR8tpbntpCfeNd7BavYtFFUQhhNGnzVj",
+      "migrationFeeOption": 6,
+      "tokenUpdateAuthority": 0,
+      "version": 1,
+      "fullTree": {
+        "isTest": false,
+        "feeConfig": "cause-exact-125bps",
+        "transferFeeBps": 100
+      },
+      "doc": "configs/mainnet/dbc-config-mainnet-exact-fee-proposal.md"
+    },
+    {
+      "key": "GnfW19jWtioghaBitR2ybFi7XgDRwKkni3d2diKb2wYX",
+      "role": "production",
+      "default": false,
+      "indexed": true,
+      "summary": "Exact-fee MVP key (10% transfer fee): 10% swap fee exactly after a 20-period anti-sniper window (starts 98.997601%), dynamic fee off, creator 30%; replaces 3FCLsb74… for new launches. Created 2026-11-03 (create_config2). Creator metadata authority.",
+      "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+      "quoteSymbol": "SKR",
+      "quoteDecimals": 6,
+      "quoteTokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "feeClaimer": "EAej4sJRZVHA43iDkKddcof8SmYeaB9tqgR39Ypmkk8k",
+      "leftoverReceiver": "pgRYsDndsZrnR8tpbntpCfeNd7BavYtFFUQhhNGnzVj",
+      "migrationFeeOption": 6,
+      "tokenUpdateAuthority": 0,
+      "version": 1,
+      "fullTree": {
+        "isTest": false,
+        "feeConfig": "exact-10",
+        "transferFeeBps": 1000
+      },
+      "doc": "configs/mainnet/dbc-config-mainnet-exact-fee-proposal.md"
+    },
+    {
+      "key": "7q3m3pF9j9kfERgQ8QJBnfzDBKRsBsEzH9iaL6gcutg9",
+      "role": "production",
+      "default": false,
+      "indexed": true,
+      "summary": "Exact-fee MVP key (10% transfer fee): 10% swap fee exactly after a 20-period anti-sniper window (starts 98.997601%), dynamic fee off, creator 0% (100% to the cause); replaces cN8jwfrR… for new launches. Created 2026-11-03 (create_config2). Creator metadata authority.",
+      "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+      "quoteSymbol": "SKR",
+      "quoteDecimals": 6,
+      "quoteTokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "feeClaimer": "FYoemHfC2WHBY32Rfr1ckgpktCWD27sBSu9JCyXcc7as",
+      "leftoverReceiver": "pgRYsDndsZrnR8tpbntpCfeNd7BavYtFFUQhhNGnzVj",
+      "migrationFeeOption": 6,
+      "tokenUpdateAuthority": 0,
+      "version": 1,
+      "fullTree": {
+        "isTest": false,
+        "feeConfig": "cause-exact-10",
+        "transferFeeBps": 1000
+      },
+      "doc": "configs/mainnet/dbc-config-mainnet-exact-fee-proposal.md"
+    },
+    {
+      "key": "DjLboXMLkQW9w7ZpcUPrKH1262GbwLZ2S7KNauu4B3fH",
+      "role": "production",
+      "default": true,
+      "indexed": true,
+      "summary": "Exact-fee MVP key (no transfer fee): 1.25% swap fee exactly after a 20-period anti-sniper window (starts 98.86229%), dynamic fee off, creator 30%; replaces B3Nwr5oZ… for new launches. Created 2026-11-03 (create_config). Creator metadata authority.",
+      "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+      "quoteSymbol": "SKR",
+      "quoteDecimals": 6,
+      "quoteTokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "feeClaimer": "9vTeHSRDG13tZ1XT6cZHQYU1vLty6Jb3jrDyQv5BKovb",
+      "leftoverReceiver": "pgRYsDndsZrnR8tpbntpCfeNd7BavYtFFUQhhNGnzVj",
+      "migrationFeeOption": 6,
+      "tokenUpdateAuthority": 0,
+      "version": 1,
+      "fullTree": {
+        "isTest": false,
+        "feeConfig": "exact-125bps",
+        "transferFeeBps": 0
+      },
+      "doc": "configs/mainnet/dbc-config-mainnet-exact-fee-proposal.md"
+    },
+    {
+      "key": "Dbg7BsYHBTDbLfjmwFqVqKXui4HrzVb8q7d9QJL5GiBX",
+      "role": "production",
+      "default": false,
+      "indexed": true,
+      "summary": "Exact-fee MVP key (no transfer fee): 1.25% swap fee exactly after a 20-period anti-sniper window (starts 98.86229%), dynamic fee off, creator 0% (100% to the cause); replaces 6WU8Dp3D… for new launches. Created 2026-11-03 (create_config). Creator metadata authority.",
+      "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+      "quoteSymbol": "SKR",
+      "quoteDecimals": 6,
+      "quoteTokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "feeClaimer": "GfFSguwxxxtTDLcHj3w1gm7JqUk41rM5dee48KkLuXAW",
+      "leftoverReceiver": "pgRYsDndsZrnR8tpbntpCfeNd7BavYtFFUQhhNGnzVj",
+      "migrationFeeOption": 6,
+      "tokenUpdateAuthority": 0,
+      "version": 1,
+      "fullTree": {
+        "isTest": false,
+        "feeConfig": "cause-exact-125bps",
+        "transferFeeBps": 0
+      },
+      "doc": "configs/mainnet/dbc-config-mainnet-exact-fee-proposal.md"
+    },
+    {
+      "key": "8TRPZM36kej8ULqhxagxECDMWcRwcwEGhGR8YEFf9UtG",
+      "role": "production",
+      "default": false,
+      "indexed": true,
+      "summary": "Exact-fee MVP key (no transfer fee): 10% swap fee exactly after a 20-period anti-sniper window (starts 98.997601%), dynamic fee off, creator 30%; replaces C2QNGCTC… for new launches. Created 2026-11-03 (create_config). Creator metadata authority.",
+      "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+      "quoteSymbol": "SKR",
+      "quoteDecimals": 6,
+      "quoteTokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "feeClaimer": "A7z4NuqkHWiMoyHfsGRv4uzDf1NT1RP2DMWoS89bYZAQ",
+      "leftoverReceiver": "pgRYsDndsZrnR8tpbntpCfeNd7BavYtFFUQhhNGnzVj",
+      "migrationFeeOption": 6,
+      "tokenUpdateAuthority": 0,
+      "version": 1,
+      "fullTree": {
+        "isTest": false,
+        "feeConfig": "exact-10",
+        "transferFeeBps": 0
+      },
+      "doc": "configs/mainnet/dbc-config-mainnet-exact-fee-proposal.md"
+    },
+    {
+      "key": "6xnNQWKNzyQxj4bfyopRm1C4mFSoMVfYUBB825SmU5Ey",
+      "role": "production",
+      "default": false,
+      "indexed": true,
+      "summary": "Exact-fee MVP key (no transfer fee): 10% swap fee exactly after a 20-period anti-sniper window (starts 98.997601%), dynamic fee off, creator 0% (100% to the cause); replaces AzZy9mVS… for new launches. Created 2026-11-03 (create_config). Creator metadata authority.",
+      "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+      "quoteSymbol": "SKR",
+      "quoteDecimals": 6,
+      "quoteTokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "feeClaimer": "BAQxpNQWwb7oRQx8PU6KPZTk5BdrAUnaXFDBDKMY2Q83",
+      "leftoverReceiver": "pgRYsDndsZrnR8tpbntpCfeNd7BavYtFFUQhhNGnzVj",
+      "migrationFeeOption": 6,
+      "tokenUpdateAuthority": 0,
+      "version": 1,
+      "fullTree": {
+        "isTest": false,
+        "feeConfig": "cause-exact-10",
+        "transferFeeBps": 0
+      },
+      "doc": "configs/mainnet/dbc-config-mainnet-exact-fee-proposal.md"
+    },
     {
       "key": "Dird7tkGkKkmJW89PLME7PQ2jQaGJAftrUg4TPm9VoAx",
       "role": "production",
       "default": false,
       "indexed": true,
-      "summary": "Bootstrap transfer-fee MVP key: flat 1.25% swap fee + 1% transfer fee, creator 30%; the default transfer-fee twin of the flat 1.25% tier (the app's toggle defaults on). Created 2026-10-28; claim PDA feeClaimer under fee-router-bootstrap 58WD4EKi…; leftover to the Squads vault. Creator metadata authority.",
+      "summary": "Superseded for new launches on 2026-11-03 by B9fKVdRQ… (exact fee, no dynamic fee); stays indexed for coins already launched. Bootstrap transfer-fee MVP key: 1.25% swap fee (99% at launch, decaying to 1.25% over about 10 minutes, plus a dynamic fee of up to +0.25% after sharp price moves) + 1% transfer fee, creator 30%; the default transfer-fee twin of the flat 1.25% tier (the app's toggle defaults on). Created 2026-10-28; claim PDA feeClaimer under fee-router-bootstrap 58WD4EKi…; leftover to the Squads vault. Creator metadata authority.",
       "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
       "quoteSymbol": "SKR",
       "quoteDecimals": 6,
@@ -24,7 +210,11 @@
       "migrationFeeOption": 6,
       "tokenUpdateAuthority": 0,
       "version": 1,
-      "fullTree": { "isTest": false, "feeConfig": "flat-125bps", "transferFeeBps": 100 },
+      "fullTree": {
+        "isTest": false,
+        "feeConfig": "flat-125bps",
+        "transferFeeBps": 100
+      },
       "doc": "configs/mainnet/dbc-config-mainnet-tf-bootstrap-proposal.md"
     },
     {
@@ -32,7 +222,7 @@
       "role": "production",
       "default": false,
       "indexed": true,
-      "summary": "Bootstrap transfer-fee MVP key, cause-only: flat 1.25% swap fee + 1% transfer fee, creator 0% (100% of the post-Meteora fee owed to the cause). Created 2026-10-28. Creator metadata authority.",
+      "summary": "Superseded for new launches on 2026-11-03 by HNDbmoQw… (exact fee, no dynamic fee); stays indexed for coins already launched. Bootstrap transfer-fee MVP key, cause-only: 1.25% swap fee (99% at launch, decaying to 1.25% over about 10 minutes, plus a dynamic fee of up to +0.25% after sharp price moves) + 1% transfer fee, creator 0% (100% of the post-Meteora fee owed to the cause). Created 2026-10-28. Creator metadata authority.",
       "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
       "quoteSymbol": "SKR",
       "quoteDecimals": 6,
@@ -42,7 +232,11 @@
       "migrationFeeOption": 6,
       "tokenUpdateAuthority": 0,
       "version": 1,
-      "fullTree": { "isTest": false, "feeConfig": "cause-flat-125bps", "transferFeeBps": 100 },
+      "fullTree": {
+        "isTest": false,
+        "feeConfig": "cause-flat-125bps",
+        "transferFeeBps": 100
+      },
       "doc": "configs/mainnet/dbc-config-mainnet-tf-bootstrap-proposal.md"
     },
     {
@@ -50,7 +244,7 @@
       "role": "production",
       "default": false,
       "indexed": true,
-      "summary": "Bootstrap transfer-fee MVP key: flat 10% swap fee + 10% transfer fee, creator 30%. Created 2026-10-28. Creator metadata authority.",
+      "summary": "Superseded for new launches on 2026-11-03 by GnfW19jW… (exact fee, no dynamic fee); stays indexed for coins already launched. Bootstrap transfer-fee MVP key: 10% swap fee (99% at launch, decaying to 10% over about 10 minutes, plus a dynamic fee of up to +2% after sharp price moves) + 10% transfer fee, creator 30%. Created 2026-10-28. Creator metadata authority.",
       "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
       "quoteSymbol": "SKR",
       "quoteDecimals": 6,
@@ -60,7 +254,11 @@
       "migrationFeeOption": 6,
       "tokenUpdateAuthority": 0,
       "version": 1,
-      "fullTree": { "isTest": false, "feeConfig": "flat-10", "transferFeeBps": 1000 },
+      "fullTree": {
+        "isTest": false,
+        "feeConfig": "flat-10",
+        "transferFeeBps": 1000
+      },
       "doc": "configs/mainnet/dbc-config-mainnet-tf-bootstrap-proposal.md"
     },
     {
@@ -68,7 +266,7 @@
       "role": "production",
       "default": false,
       "indexed": true,
-      "summary": "Bootstrap transfer-fee MVP key, cause-only: flat 10% swap fee + 10% transfer fee, creator 0% (100% of the post-Meteora fee owed to the cause). Created 2026-10-28. Creator metadata authority.",
+      "summary": "Superseded for new launches on 2026-11-03 by 7q3m3pF9… (exact fee, no dynamic fee); stays indexed for coins already launched. Bootstrap transfer-fee MVP key, cause-only: 10% swap fee (99% at launch, decaying to 10% over about 10 minutes, plus a dynamic fee of up to +2% after sharp price moves) + 10% transfer fee, creator 0% (100% of the post-Meteora fee owed to the cause). Created 2026-10-28. Creator metadata authority.",
       "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
       "quoteSymbol": "SKR",
       "quoteDecimals": 6,
@@ -78,15 +276,19 @@
       "migrationFeeOption": 6,
       "tokenUpdateAuthority": 0,
       "version": 1,
-      "fullTree": { "isTest": false, "feeConfig": "cause-flat-10", "transferFeeBps": 1000 },
+      "fullTree": {
+        "isTest": false,
+        "feeConfig": "cause-flat-10",
+        "transferFeeBps": 1000
+      },
       "doc": "configs/mainnet/dbc-config-mainnet-tf-bootstrap-proposal.md"
     },
     {
       "key": "B3Nwr5oZJXw4CxE5CURSup3MzxpiDbQSy1mpfvv6KMn2",
       "role": "production",
-      "default": true,
+      "default": false,
       "indexed": true,
-      "summary": "Bootstrap trading-only MVP key (no transfer fee): flat 1.25% swap fee, creator 30%; the plain twin of the flat-125bps transfer-fee key, so a launch can turn the transfer fee off; the production default (first tier option of every category). Created 2026-10-28 (create_config). Creator metadata authority.",
+      "summary": "Superseded for new launches on 2026-11-03 by DjLboXML… (exact fee, no dynamic fee); stays indexed for coins already launched. Bootstrap trading-only MVP key (no transfer fee): 1.25% swap fee (99% at launch, decaying to 1.25% over about 10 minutes, plus a dynamic fee of up to +0.25% after sharp price moves), creator 30%; the plain twin of the flat-125bps transfer-fee key, so a launch can turn the transfer fee off; the production default (first tier option of every category). Created 2026-10-28 (create_config). Creator metadata authority.",
       "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
       "quoteSymbol": "SKR",
       "quoteDecimals": 6,
@@ -96,7 +298,11 @@
       "migrationFeeOption": 6,
       "tokenUpdateAuthority": 0,
       "version": 1,
-      "fullTree": { "isTest": false, "feeConfig": "flat-125bps", "transferFeeBps": 0 },
+      "fullTree": {
+        "isTest": false,
+        "feeConfig": "flat-125bps",
+        "transferFeeBps": 0
+      },
       "doc": "configs/mainnet/dbc-config-mainnet-tf-bootstrap-proposal.md"
     },
     {
@@ -104,7 +310,7 @@
       "role": "production",
       "default": false,
       "indexed": true,
-      "summary": "Bootstrap trading-only MVP key (no transfer fee): flat 1.25% swap fee, creator 0% (100% to the cause); the plain twin of the cause-flat-125bps transfer-fee key, so a launch can turn the transfer fee off. Created 2026-10-28 (create_config). Creator metadata authority.",
+      "summary": "Superseded for new launches on 2026-11-03 by Dbg7BsYH… (exact fee, no dynamic fee); stays indexed for coins already launched. Bootstrap trading-only MVP key (no transfer fee): 1.25% swap fee (99% at launch, decaying to 1.25% over about 10 minutes, plus a dynamic fee of up to +0.25% after sharp price moves), creator 0% (100% to the cause); the plain twin of the cause-flat-125bps transfer-fee key, so a launch can turn the transfer fee off. Created 2026-10-28 (create_config). Creator metadata authority.",
       "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
       "quoteSymbol": "SKR",
       "quoteDecimals": 6,
@@ -114,7 +320,11 @@
       "migrationFeeOption": 6,
       "tokenUpdateAuthority": 0,
       "version": 1,
-      "fullTree": { "isTest": false, "feeConfig": "cause-flat-125bps", "transferFeeBps": 0 },
+      "fullTree": {
+        "isTest": false,
+        "feeConfig": "cause-flat-125bps",
+        "transferFeeBps": 0
+      },
       "doc": "configs/mainnet/dbc-config-mainnet-tf-bootstrap-proposal.md"
     },
     {
@@ -122,7 +332,7 @@
       "role": "production",
       "default": false,
       "indexed": true,
-      "summary": "Bootstrap trading-only MVP key (no transfer fee): flat 10% swap fee, creator 30%; the plain twin of the flat-10 transfer-fee key, so a launch can turn the transfer fee off. Created 2026-10-28 (create_config). Creator metadata authority.",
+      "summary": "Superseded for new launches on 2026-11-03 by 8TRPZM36… (exact fee, no dynamic fee); stays indexed for coins already launched. Bootstrap trading-only MVP key (no transfer fee): 10% swap fee (99% at launch, decaying to 10% over about 10 minutes, plus a dynamic fee of up to +2% after sharp price moves), creator 30%; the plain twin of the flat-10 transfer-fee key, so a launch can turn the transfer fee off. Created 2026-10-28 (create_config). Creator metadata authority.",
       "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
       "quoteSymbol": "SKR",
       "quoteDecimals": 6,
@@ -132,7 +342,11 @@
       "migrationFeeOption": 6,
       "tokenUpdateAuthority": 0,
       "version": 1,
-      "fullTree": { "isTest": false, "feeConfig": "flat-10", "transferFeeBps": 0 },
+      "fullTree": {
+        "isTest": false,
+        "feeConfig": "flat-10",
+        "transferFeeBps": 0
+      },
       "doc": "configs/mainnet/dbc-config-mainnet-tf-bootstrap-proposal.md"
     },
     {
@@ -140,7 +354,7 @@
       "role": "production",
       "default": false,
       "indexed": true,
-      "summary": "Bootstrap trading-only MVP key (no transfer fee): flat 10% swap fee, creator 0% (100% to the cause); the plain twin of the cause-flat-10 transfer-fee key, so a launch can turn the transfer fee off. Created 2026-10-28 (create_config). Creator metadata authority.",
+      "summary": "Superseded for new launches on 2026-11-03 by 6xnNQWKN… (exact fee, no dynamic fee); stays indexed for coins already launched. Bootstrap trading-only MVP key (no transfer fee): 10% swap fee (99% at launch, decaying to 10% over about 10 minutes, plus a dynamic fee of up to +2% after sharp price moves), creator 0% (100% to the cause); the plain twin of the cause-flat-10 transfer-fee key, so a launch can turn the transfer fee off. Created 2026-10-28 (create_config). Creator metadata authority.",
       "quoteMint": "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
       "quoteSymbol": "SKR",
       "quoteDecimals": 6,
@@ -150,7 +364,11 @@
       "migrationFeeOption": 6,
       "tokenUpdateAuthority": 0,
       "version": 1,
-      "fullTree": { "isTest": false, "feeConfig": "cause-flat-10", "transferFeeBps": 0 },
+      "fullTree": {
+        "isTest": false,
+        "feeConfig": "cause-flat-10",
+        "transferFeeBps": 0
+      },
       "doc": "configs/mainnet/dbc-config-mainnet-tf-bootstrap-proposal.md"
     },
     {
@@ -168,7 +386,9 @@
       "migrationFeeOption": 0,
       "tokenUpdateAuthority": 0,
       "version": 0,
-      "fullTree": { "isTest": true },
+      "fullTree": {
+        "isTest": true
+      },
       "doc": "configs/mainnet/dbc-config-mainnet-61UBwyZf.md"
     },
     {
@@ -209,9 +429,24 @@
     }
   ],
   "proposed": [
-    { "set": "skr-production-magnitude", "keys": null, "doc": "configs/mainnet/dbc-config-mainnet-skr-proposal.md", "note": "Not on chain; no key exists." },
-    { "set": "cause-only", "keys": null, "doc": "configs/mainnet/dbc-config-mainnet-cause-only-proposal.md", "note": ".config-batches rows are 'prepared' only; no key exists." },
-    { "set": "aaplx-draft", "keys": null, "doc": "configs/mainnet/dbc-config-mainnet-AAPLx-draft.md", "note": "Draft stock-quote config; no key exists." }
+    {
+      "set": "skr-production-magnitude",
+      "keys": null,
+      "doc": "configs/mainnet/dbc-config-mainnet-skr-proposal.md",
+      "note": "Not on chain; no key exists."
+    },
+    {
+      "set": "cause-only",
+      "keys": null,
+      "doc": "configs/mainnet/dbc-config-mainnet-cause-only-proposal.md",
+      "note": ".config-batches rows are 'prepared' only; no key exists."
+    },
+    {
+      "set": "aaplx-draft",
+      "keys": null,
+      "doc": "configs/mainnet/dbc-config-mainnet-AAPLx-draft.md",
+      "note": "Draft stock-quote config; no key exists."
+    }
   ],
   "history": [
     {
@@ -263,6 +498,11 @@
       "date": "2026-10-28",
       "event": "Backend wiring for the release (hackathon-build-retirement step 1): the eight bootstrap MVP keys (four transfer-fee, four trading-only) become indexed: watched and streamed by the production backend, the trading-only keys served as tier options with B3Nwr5oZJXw4CxE5CURSup3MzxpiDbQSy1mpfvv6KMn2 as every category's default, the transfer-fee keys offered by the app as the meme/idea twins.",
       "source": "owner instruction in a Claude Code session, 2026-10-28 (\"Commit now, deploy at release\"), brought forward the same day (\"I have no problem if the judge APK sees the real keys and coins going forward\"); backend-rs-sql release-keys branch"
+    },
+    {
+      "date": "2026-11-03",
+      "event": "The eight exact-fee MVP keys created on mainnet (DBC 0.2.2; --set tf-exact plan 30de97d6, --set exact-mvp plan b76a2a1a, both from fcb7693): B9fKVdRQ… / HNDbmoQw… / GnfW19jW… / 7q3m3pF9… (transfer-fee) and DjLboXML… / Dbg7BsYH… / 8TRPZM36… / 6xnNQWKN… (trading-only). Each is its live twin with the anti-sniper cliff set so the window lands exactly on 1.25% / 10%, and the dynamic fee off. finalized decode passed on all eight. They become indexed and replace the old eight for new launches; DjLboXMLkQW9w7ZpcUPrKH1262GbwLZ2S7KNauu4B3fH becomes the production default in place of B3Nwr5oZ…. The old eight stay indexed for coins already launched.",
+      "source": "owner instruction in a Claude Code session, 2026-11-03 (\"I will want exact-1.25% keys, with the dynamic fee off too\", \"all 8\", \"run a mainnet simulation, then create the keys. check the created keys and switch the app, backend, agent skill and wiki over to them\"); creation evidence in configs/mainnet/dbc-config-mainnet-exact-fee-proposal.md"
     }
   ]
 }

@@ -178,8 +178,9 @@ PDAs from the dbc-config record were added before the backend served them).
 
 `TRANSFER_FEE_CONFIG_KEYS` tracks the values of the app's
 `targets.production.transferFeeConfigKeys` the same way (the four transfer-fee
-twins `Dird7tkG…`, `DYxzpJyi…`, `3FCLsb74…`, `cN8jwfrR…`; their claim PDAs are
-already in `DONATION_CLAIM_AUTHORITIES`):
+twins `B9fKVdRQ…`, `HNDbmoQw…`, `GnfW19jW…`, `7q3m3pF9…`, which replaced
+`Dird7tkG…`, `DYxzpJyi…`, `3FCLsb74…`, `cN8jwfrR…` for new launches on 2026-11-03;
+the new claim PDAs are in `DONATION_CLAIM_AUTHORITIES` alongside the old ones):
 
 ```bash
 jq -r '.targets.production.transferFeeConfigKeys | [values[]] | join(",")' \
@@ -190,7 +191,9 @@ jq -r '.targets.production.transferFeeConfigKeys | [values[]] | join(",")' \
 the same way. When the backend stops serving a launch config (e.g. the test
 config replaced by the production keys), keep that key here or its coins
 disappear from `/api/pools` and their creators get `403 config_not_served`
-on claim. No skill code change is needed for a key swap: the catalog comes
+on claim. On 2026-11-03 the eight superseded bootstrap keys (four transfer-fee,
+four trading-only, e.g. the old default `B3Nwr5oZ…`) moved into this list; the
+new default is `DjLboXML…`. No skill code change is needed for a key swap: the catalog comes
 from the backend per request.
 
 ### Upgrade
