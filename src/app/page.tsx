@@ -29,7 +29,7 @@ export default function Home() {
         <ol style={{ color: 'var(--muted)', paddingLeft: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <li><code>GET /api/configs</code> → pick a launch option (config)</li>
           <li><code>POST /api/launch</code> → mint-partial-signed legacy transaction; add the payer signature and submit</li>
-          <li><code>GET /api/pools</code> → find coins; a pool&apos;s <code>id</code> is the <code>poolAddress</code> for trades</li>
+          <li><code>POST /api/discover</code> → shortlist coins matching the user&apos;s interests; <code>GET /api/pools</code> → browse or look up by name/symbol/mint; a pool&apos;s <code>id</code> is the <code>poolAddress</code> for trades</li>
           <li><code>POST /api/trade/quote</code> then <code>POST /api/trade/tx</code> → unsigned legacy transaction; the owner signs and submits</li>
           <li><code>POST /api/claim/tx</code> → unsigned creator-fee claim; the launch payer signs and submits</li>
         </ol>
@@ -176,6 +176,37 @@ export default function Home() {
       "configKey": "...", "createdAt": 1760000000000
     }
   ],
+  "nextCursor": "<string | null>"
+}`}
+        />
+
+        <ApiEndpoint
+          method="POST"
+          path="/api/discover"
+          description="Shortlist coins matching a user's stated interests — semantic matching with a keyword fallback. For interest matching call this first, never page /api/pools to match. Write interests as a one-line summary without identifying details; it is never logged or stored."
+          request={`{
+  "interests": "ocean conservation",  // required, 1-500 chars
+  "avoid": ["gambling"],              // optional, <=5 terms of 1-80 chars
+  "filters": { "kind": "any", "causeSlugs": [],
+               "stage": "any", "minVolume24h": 0 },  // optional
+  "sort": "relevance",               // relevance | newest | active
+  "limit": 10,                       // 1-25
+  "cursor": null                     // nextCursor from a previous response
+}`}
+          response={`{
+  "mode": "semantic",   // semantic | keyword (fallback)
+  "results": [
+    {
+      "mint": "...", "name": "...", "symbol": "...",
+      "kind": "cause",              // cause | idea | plain
+      "funds": { "cause": "...", "project": "...", "idea": null },
+      "marketCap": 41200, "volume24h": 3100,   // display-grade USD
+      "stage": "curve",             // curve | graduated
+      "match": 0.82,                // relevance 0-1
+      "why": "matches: ocean conservation"
+    }
+  ],
+  "excludedForRegion": 2,  // matching coins the caller's region cannot trade
   "nextCursor": "<string | null>"
 }`}
         />

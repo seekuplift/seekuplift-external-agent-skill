@@ -1,6 +1,6 @@
 ---
 name: seekuplift-launchpad
-description: Launch and trade coins on SeekUplift Launchpad (Solana mainnet) over a public HTTP API. Use when the user wants to launch a memecoin, idea coin or startup coin, find SeekUplift coins, buy/sell them, or claim creator fees. The API returns transactions; the agent signs with the user's wallet and submits.
+description: Launch and trade coins on SeekUplift Launchpad (Solana mainnet) over a public HTTP API. Use when the user wants to launch a memecoin, idea coin or startup coin, find SeekUplift coins (browsing, or matching a user's interests/values), buy/sell them, or claim creator fees. The API returns transactions; the agent signs with the user's wallet and submits.
 ---
 
 # SeekUplift Launchpad — Agent Skill
@@ -40,7 +40,7 @@ A key that is sent but not recognised returns `401 { "error": "unauthorized" }` 
 
 1. `GET /api/configs` → pick a config (see **Choosing a config**), check its `geo` verdict.
 2. `POST /api/launch` → mint-partial-signed legacy transaction → add the payer signature → submit to mainnet.
-3. `GET /api/pools` → find coins; a pool's `id` is the `poolAddress` the trade endpoints take.
+3. `POST /api/discover` → shortlist coins matching the user's interests; `GET /api/pools` → browse or look up by name/symbol/mint. A pool's `id` is the `poolAddress` the trade endpoints take.
 4. `POST /api/trade/quote` → `POST /api/trade/tx` → unsigned legacy transaction → the owner signs → submit.
 5. `POST /api/claim/tx` → unsigned creator-fee claim for a coin you launched → the launch payer signs → submit.
 
@@ -358,7 +358,68 @@ GET /api/pools?search=<q>&limit=20&cursor=<cursor>&tab=emerging&category=meme&li
 
 **Errors**: `400 { error }` on a non-numeric `limit`, invalid `tab`/`category`/`lifecycle`/`sortBy`; `502` upstream.
 
-### 6. `claim_fees` — `POST /api/claim/tx`
+---
+
+### 6. `discover` — `POST /api/discover`
+
+Shortlists the coins that best match a user's stated interests or values — meaning-matched across the whole catalog, with a keyword fallback. **For interest or value matching, call `discover` first — never page `list_pools` to match**: the catalog is large, and `list_pools` is for browsing and name/symbol/mint lookups, not for judging fit.
+
+Write `interests` as a **short summary of the user's interests — one line, no names or identifying details** ("ocean conservation, kids' education", not "Jane from Leeds likes…"). The text is used for that one request only — the service never stores or logs it.
+
+**Request** (JSON):
+
+```json
+{
+  "interests": "ocean conservation, kids' education",
+  "avoid": ["gambling"],
+  "filters": { "kind": "any", "causeSlugs": [], "stage": "any", "minVolume24h": 0 },
+  "sort": "relevance",
+  "limit": 10,
+  "cursor": null
+}
+```
+
+- `interests` — required, 1–500 characters, any language. Comma-separated pieces are what `why` reports against (at most 5 pieces).
+- `avoid` — optional, ≤5 terms of 1–80 characters each; coins matching a term drop out of the shortlist.
+- `filters` — optional: `kind` (`"cause" | "idea" | "any"`), `causeSlugs` (≤50 shipping cause slugs), `stage` (`"curve" | "graduated" | "any"`), `minVolume24h` (USD, ≥ 0). Filters narrow the candidate set before ranking, so they never empty a shortlist that still has eligible matches.
+- `sort` — `"relevance"` (default: best match first, recent activity breaks ties within a relevance band), `"newest"`, `"active"` — the last two reorder the most relevant candidate matches only ("the most relevant matches, newest first"), not the whole catalog.
+- `limit` — 1–25, default 10.
+- `cursor` — pass `nextCursor` for the next page, keeping the same `sort` (a mismatched-sort cursor is a `400`); pages end after the ~200-candidate set.
+
+**Response**:
+
+```json
+{
+  "mode": "keyword",
+  "results": [
+    {
+      "mint": "<base58>",
+      "name": "Reef Guardians", "symbol": "REEF",
+      "kind": "cause",
+      "funds": { "cause": "Ocean", "project": "Coral Restoration Fund", "idea": null },
+      "marketCap": 41200, "volume24h": 3100,
+      "stage": "curve",
+      "match": 0.82,
+      "why": "matches: ocean conservation"
+    }
+  ],
+  "excludedForRegion": 2,
+  "nextCursor": "<opaque keyset cursor | null>"
+}
+```
+
+- `mode` — `"semantic"` when the matches are meaning-matched (multilingual embeddings), `"keyword"` when the term-match fallback served (the embedding service is off): same shape, coarser matching.
+- Each result is a **coin**: `kind` is `"cause"` (funds a cause — `funds.cause`/`funds.project` name them), `"idea"` (funds an idea — `funds.idea`), or `"plain"`. `match` is the 0–1 relevance; `why` names the `interests` piece the coin best matched.
+- `excludedForRegion` counts matching coins left out because the caller's region cannot trade them — mention it to your user if they expected a coin that is missing.
+- `marketCap`/`volume24h` are USD figures — **display-grade only**, never money-path inputs.
+
+**After choosing a coin**: resolve its pool address with `GET /api/pools?search=<mint>` (the pool `id`), then `POST /api/trade/quote` → `POST /api/trade/tx` as usual — always quote before trading. A `stage: "graduated"` coin trades on Jupiter, not `/api/trade/*`.
+
+**Errors**: `400 { error: "invalid_request", field, message }` names the failing field (never echoes your input); `429` service/backend read limits; `502` upstream.
+
+---
+
+### 7. `claim_fees` — `POST /api/claim/tx`
 
 Builds the unsigned transaction that claims a coin's accrued creator fees to the creator wallet. By default it claims the bonding-curve creator fees (works on the curve and after migration). With `"source": "position"` it instead claims the post-graduation trading fees of the creator's DAMM v2 position(s) in the coin's migrated pool — available where the coin's launch setup gives the creator a position (a locked-liquidity share); coins whose setup gives the creator none have nothing to claim there. One call builds one transaction: to claim both, call twice (`curve`, then `position`) and sign each.
 
@@ -407,7 +468,7 @@ The service forwards the caller's IP to the backend, which resolves a fresh geo 
 
 - **Service level**: every builder call without a partner key counts against a per-caller-network bucket (240/minute — IPv6 callers share one bucket per /64). Over the limit: `429 { "error": "rate_limited", "subject": "network", "retryAfter" }` + `Retry-After` header.
 - **Uploads**: **10 per hour per caller IP**, shared by image + metadata uploads — one launch consumes 2. With a partner key, uploads count against the partner's own, larger hourly allowance instead. Exceeding it returns `429` from the backend. Validation and geo refusals happen before uploads, so they do not consume budget.
-- Pool list/search calls share a per-IP read bucket on the backend.
+- Pool list/search and discover calls share per-IP read buckets on the backend.
 - Image inputs: ≤10 MB, PNG/JPEG/GIF/WEBP (magic-byte sniffed, never the declared type).
 
 ## Transactions — signing and expiry
@@ -498,7 +559,7 @@ A launch's `payerPublicKey` is recorded as the coin's creator; only that wallet 
 
 | Status | Body | Meaning |
 |---|---|---|
-| `400` | `{ error }` | Invalid request — message names the field. `error: "donation_cause_required"` / `"unknown_cause"` add `causesOffered`; `unsupported_<field>` errors list `allowed`; `min_out_below_floor` names `minimumAmountOutFloor`; `zero_output` = `amountIn` too small to return anything. |
+| `400` | `{ error }` | Invalid request — message names the field. `error: "donation_cause_required"` / `"unknown_cause"` add `causesOffered`; `unsupported_<field>` errors list `allowed`; `min_out_below_floor` names `minimumAmountOutFloor`; `zero_output` = `amountIn` too small to return anything; `invalid_request` (discover) adds `field`. |
 | `401` | `{ error: "unauthorized" }` | An `X-Api-Key` was sent but is not a valid partner key — fix it or omit the header. |
 | `429` | `{ error: "rate_limited", subject, retryAfter }` | Service limit (`subject: "network"`) — wait `retryAfter` seconds. |
 | `403` | `{ error: "geo_restricted", region, regionName, feature, message }` | The caller's geo verdict blocks this launch or trade — relay `message` (names the jurisdiction) to your user. |

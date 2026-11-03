@@ -10,7 +10,7 @@ Non-negotiables:
 
 ## CD-S-1: Agents can call `discover` through the skill
 
-**Status:** ready-for-agent. **Blocked by:** None. Tests stub the backend contract from the spec; the deploy waits for CD-B-4.
+**Status:** done (2026-11-03). Deploy still waits for CD-B-4 (human-only).
 
 An agent calls the skill's `discover` capability with a user's interests and gets the backend's shortlist back unchanged. `SKILL.md` teaches it to:
 - use `discover`, not page through `list_pools`, for interest or value matching;
@@ -22,5 +22,32 @@ An agent calls the skill's `discover` capability with a user's interests and get
 - The wiki sample prompt needs no change; it now works as written.
 
 Done when:
-- [ ] Route tests: forwarding with `X-Forwarded-For`, edge validation, rate limiting, backend error passthrough, and no query text in logs.
-- [ ] The docs agreement test passes with the new capability.
+- [x] Route tests: forwarding with `X-Forwarded-For`, edge validation, rate limiting, backend error passthrough, and no query text in logs.
+- [x] The docs agreement test passes with the new capability.
+
+**Landed 2026-11-03** (this commit, branch `cd-s1`; not pushed — the main
+checkout is untouched):
+- `src/app/api/discover/route.ts` + `src/lib/discover.ts`: `POST
+  /api/discover` forwards the body verbatim to the backend with the caller IP
+  on `X-Forwarded-For` (`backendPostJson`), validates the request shape at the
+  edge with the backend's own limits (400 `{ error: "invalid_request", field,
+  message }` — the backend's own 400 shape), runs the shared per-network
+  `checkAgentAccess` guard before the forward, and passes backend errors
+  through (400/403/429 kept, others 502) — the trade-route pattern. All
+  responses `cache-control: no-store`. Query text is never logged or echoed:
+  refusals name the field only; the sole log line carries the error message
+  (statuses/codes only).
+- `public/skill.json` gains the `discover` capability (additive, between
+  `list_pools` and `claim_fees`); `SKILL.md` §6 documents request, response,
+  `mode` (semantic vs keyword), `excludedForRegion`, the display-grade price
+  note, and the three agent teachings (discover-first, one-line anonymous
+  summary, quote-then-trade); landing page `src/app/page.tsx` + `CHANGELOG.md`
+  updated; `claim_fees` renumbered §6→§7.
+- Verification: `npm test` 396 pass / 0 fail / 4 skipped (opt-in live);
+  `npx tsc --noEmit` clean. New `tests/discover.test.ts` covers forwarding
+  with XFF, every edge-validation field, the 429 guard order, backend error
+  passthrough and the no-query-text rule (lib + route source pin).
+- Third-party review (opencode, zai-coding-plan/glm-5.3, diff `main...HEAD` +
+  this ticket + the design spec): **CLEAN**; two non-blocking notes applied —
+  edge 400s now carry `message` like the backend's shape, and the cursor bound
+  uses the same code-point count as the other fields.

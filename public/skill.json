@@ -112,6 +112,25 @@
       "poolFields": ["id", "name", "symbol", "baseMint", "icon", "description", "launchType", "price", "nativePrice", "quoteMint", "quoteSymbol", "priceChange24h", "marketCap", "volume24h", "graduated", "graduatedAt", "bondingCurve", "configKey", "createdAt"]
     },
     {
+      "id": "discover",
+      "description": "Shortlist coins matching a user's stated interests or values — meaning-matched across the whole catalog, with a keyword fallback. For interest or value matching call this first; never page list_pools to match.",
+      "endpoint": { "method": "POST", "path": "/api/discover" },
+      "requiredFields": ["interests"],
+      "optionalFields": ["avoid", "filters", "sort", "limit", "cursor"],
+      "fieldNotes": {
+        "interests": "1-500 chars, any language — summarize the user's interests in one short line WITHOUT names or identifying details (the text is never stored or logged). Comma-separated pieces are what why reports against",
+        "avoid": "<=5 terms of 1-80 chars — coins matching a term drop out of the shortlist",
+        "filters": "{ kind: cause|idea|any, causeSlugs: string[] (<=50 shipping cause slugs), stage: curve|graduated|any, minVolume24h: number >= 0 (USD) } — filters narrow candidates before ranking",
+        "sort": "relevance (default) | newest | active — newest/active reorder the most relevant candidate matches only, not the whole catalog",
+        "limit": "1-25, default 10",
+        "cursor": "nextCursor from a previous discover response — keep the same sort (a mismatched-sort cursor is a 400)"
+      },
+      "returns": ["mode", "results", "excludedForRegion", "nextCursor"],
+      "resultFields": ["mint", "name", "symbol", "kind", "funds", "marketCap", "volume24h", "stage", "match", "why"],
+      "modeValues": { "semantic": "meaning-matched via multilingual embeddings", "keyword": "term-match fallback when the embedding service is off — same shape, coarser matching" },
+      "next": "resolve the chosen coin's poolAddress with GET /api/pools?search=<mint> (the pool id), then trade_quote / trade_tx as usual; marketCap/volume24h are display-grade — quote before trading"
+    },
+    {
       "id": "claim_fees",
       "description": "Build the unsigned creator-fee claim for a coin the wallet launched: the bonding-curve creator fees by default (works after migration too) and, with source \"position\", the post-graduation position fees in the migrated DAMM v2 pool where the coin's launch setup gives the creator a position. One transaction per call; full claimable amounts of the requested source. Signed by the launch payer.",
       "endpoint": { "method": "POST", "path": "/api/claim/tx" },
@@ -168,7 +187,7 @@
     "Quote a sell after the buy lands (your buy moves the price); sell amount = wallet balance of baseMint via getParsedTokenAccountsByOwner(owner, {mint}) — covers SPL Token and Token-2022.",
     "amountOut/minimumAmountOut are NET of any Token-2022 base-mint transfer fee (baseTransferFeeAtomics reports it).",
     "Buys are partial-fill: a threshold-crossing buy consumes only enough quote to graduate the curve and refunds the rest (consumedInput/amountLeft).",
-    "Display figures on /api/pools (price, marketCap, volume24h) are display-grade — never money-path inputs.",
+    "Display figures on /api/pools and /api/discover (price, marketCap, volume24h) are display-grade — never money-path inputs; quote with trade_quote before trading.",
     "minimumAmountOut may only tighten the floor the service recomputes from a fresh quote — \"0\" and any value below the floor is a 400 naming minimumAmountOutFloor. Pass the quote's value or omit it.",
     "All responses are cache-control: no-store; geo verdicts are per-caller."
   ]
