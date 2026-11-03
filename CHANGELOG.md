@@ -4,10 +4,10 @@ The contract documents are `SKILL.md` (markdown, `/skill.md`) and `skill.json`
 (machine readable, `/skill.json`). External agents cache them, so a shape
 change after release ships under a new version.
 
-## 1.0.0 — unreleased
+## 1.0.0 — 2026-11-03
 
-The first release of the contract. Nothing has shipped yet, so this entry is
-the whole history; it is rewritten freely until the first release.
+The first public release of the contract. Later changes are listed above
+this entry, under their own version.
 
 - **Auth**: none — every endpoint is open, limited per caller network
   (`429 rate_limited`). Partners may send an operator-issued
@@ -27,7 +27,10 @@ the whole history; it is rewritten freely until the first release.
   idea / startup / donation fields. A meme launch on a cause-capable config
   without a `donation` pick goes to the managed fund (`donationDefaulted:
   "managed"` in the response); `{ mode: "cause" }` without a slug returns
-  `400 donation_cause_required` listing `causesOffered`.
+  `400 donation_cause_required` listing `causesOffered`. Curated cause
+  baskets are added gradually, so an empty `causesOffered` is expected, not
+  an error: launch without a pick (managed fund), with a Giveth `project`,
+  or with `tbd`.
 - **Vanity mints** (minor, additive): a service-generated launch mint
   usually ends in `up` (not guaranteed). `POST /api/launch` reports
   `mintVanity: true|false` when the service generated the mint; `false`
