@@ -277,16 +277,20 @@ describe('POST /api/discover — query text is never logged or echoed', () => {
     }
   })
 
-  it('upstream failures log the status path only — never the query text', async () => {
+  it('upstream failures log a fixed line — never the query text', async () => {
     const capture = captureConsole()
+    // An upstream error whose message embeds the request text — the leak
+    // vector this test exists for. If the route logged `err.message` this
+    // marker would reach the console.
+    const leaky = `fetch failed: ${MARKER}`
     stubFetch(() => {
-      throw new TypeError('fetch failed')
+      throw new TypeError(leaky)
     })
     try {
       await discover({ interests: MARKER, avoid: [MARKER] }, '203.0.113.7').catch((err) => {
-        // The route's generic catch logs `err.message` — simulate it verbatim.
-        const message = err instanceof Error ? err.message : String(err)
-        console.error('[/api/discover]', message)
+        assert.ok(err instanceof Error && err.message.includes(MARKER))
+        // The route's generic catch logs a fixed string — simulate it verbatim.
+        console.error('[/api/discover] upstream failure')
       })
       assert.ok(!loggedText(capture.calls).includes(MARKER), 'console echoes query text')
     } finally {
@@ -307,11 +311,12 @@ describe('POST /api/discover — query text is never logged or echoed', () => {
 
   it('the route source pins the no-log rule', () => {
     const src = readFileSync(ROUTE, 'utf8')
-    // The route may log only the error message — never request fields.
+    // Console calls may carry no request fields and no error values — an
+    // upstream error's message could embed the request text it failed on.
     assert.doesNotMatch(
       src,
-      /console\.(?:error|warn|log|info|debug)\([^)]*\b(body|interests|avoid|req)\b/,
-      'route logs request data',
+      /console\.(?:error|warn|log|info|debug)\([^)]*\b(body|interests|avoid|req|err|message)\b/,
+      'route logs request data or error contents',
     )
   })
 })

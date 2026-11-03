@@ -413,7 +413,7 @@ Write `interests` as a **short summary of the user's interests — one line, no 
 - `excludedForRegion` counts matching coins left out because the caller's region cannot trade them — mention it to your user if they expected a coin that is missing.
 - `marketCap`/`volume24h` are USD figures — **display-grade only**, never money-path inputs.
 
-**After choosing a coin**: resolve its pool address with `GET /api/pools?search=<mint>` (the pool `id`), then `POST /api/trade/quote` → `POST /api/trade/tx` as usual — always quote before trading. A `stage: "graduated"` coin trades on Jupiter, not `/api/trade/*`.
+**After choosing a coin**: resolve its pool address with `GET /api/pools?search=<mint>` (the pool `id`), then `POST /api/trade/quote` → `POST /api/trade/tx` as usual — always quote before trading. Quote first even for `stage: "graduated"`, then route on the quote's `poolInfo.migrationState` (see **Migration states**): only `migrated` trades on Jupiter — `migration_pending` has no pool anywhere yet, so retry later.
 
 **Errors**: `400 { error: "invalid_request", field, message }` names the failing field (never echoes your input); `429` service/backend read limits; `502` upstream.
 

@@ -1,6 +1,6 @@
 # Tickets: Coin discovery by interests (external agent skill half)
 
-Status: filed 2026-11-02, nothing implemented.
+Status: filed 2026-11-02. CD-S-1 done 2026-11-03 (`ff63725` on local `main`, unpushed); deploy waits on CD-B-4 (human-only).
 Source: spec `../backend-rs-sql/docs/superpowers/specs/2026-11-02-coin-discovery-design.md` (owner-approved, codex plan review r1 applied). The backend half, with the endpoint contract, is `../backend-rs-sql/tickets-coin-discovery.md` (CD-B-1..4). This file holds CD-S-1.
 
 Non-negotiables:
@@ -25,8 +25,7 @@ Done when:
 - [x] Route tests: forwarding with `X-Forwarded-For`, edge validation, rate limiting, backend error passthrough, and no query text in logs.
 - [x] The docs agreement test passes with the new capability.
 
-**Landed 2026-11-03** (this commit, branch `cd-s1`; not pushed — the main
-checkout is untouched):
+**Landed 2026-11-03** (`ff63725`, now on local `main`; not pushed):
 - `src/app/api/discover/route.ts` + `src/lib/discover.ts`: `POST
   /api/discover` forwards the body verbatim to the backend with the caller IP
   on `X-Forwarded-For` (`backendPostJson`), validates the request shape at the

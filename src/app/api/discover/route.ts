@@ -75,9 +75,9 @@ export async function POST(req: NextRequest) {
         headers: { 'cache-control': 'no-store' },
       })
     }
-    // Never log request data — message strings carry statuses only.
-    const message = err instanceof Error ? err.message : String(err)
-    console.error('[/api/discover]', message)
+    // Never log request data — a fixed message, not err.message: an
+    // unexpected upstream error could embed request text in its message.
+    console.error('[/api/discover] upstream failure')
     // Generic body: upstream errors can embed internals (incl. API keys).
     return NextResponse.json({ error: 'upstream_error' }, { status: 502 })
   }
