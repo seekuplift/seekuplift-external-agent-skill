@@ -76,7 +76,7 @@ Fee data is for your own decisions (and for answering your user if asked). Read 
 - `fees.postGraduation` is the schedule after the coin graduates to a DAMM pool (`"marketCapDecay"` decays toward `floorBps` as market cap grows).
 - `fees.creatorSharePct` is the percent of trading fees routed to the creator share. On an `allFeesToCause` config it is 0 — every fee left after Meteora's protocol cut goes to the cause.
 - `fees.transferFeeBps` is the coin's own transfer fee: on a config with `transferFeeBps > 0` the launched coin is a Token-2022 mint and every transfer of it — buys, sells and wallet-to-wallet sends — withholds that share of the amount (`100` = 1%). It is on top of the trading fee; tell your user before launching on such a config. `0` means none. Transfer-fee configs are memecoin-only options and never the memecoin default; launch on one only when your user wants a coin transfer fee.
-- `fees.curve.dynamic` is `false` on the configs offered for new launches; `true` only on older configs.
+- `fees.curve.dynamic` is `false` on every config offered today (no dynamic fee on top of the schedule).
 - `poolCreationFeeLamports` is a one-time launch cost paid by the payer.
 - `migrationQuoteThreshold` (raw quote atoms) is how much quote the curve must raise before the coin migrates.
 
@@ -107,32 +107,32 @@ Returns the live launch catalog for THIS caller (geo verdict included, computed 
     "scaledUiAmountMultiplier": "<decimal string | null>"
   },
   "fees": {
-    "label": "99% → 1.25% (anti-sniper ~10 min), then 0.25% after graduation",
-    "details": ["Bonding curve: starts at 99% base fee, decays to 1.25%", "…"],
+    "label": "98.86% → 1.25% (anti-sniper ~10 min), then 1.25% after graduation",
+    "details": ["Bonding curve: starts at 98.86% base fee, decays to 1.25%", "…"],
     "curve": {
       "kind": "decay",
-      "openingBps": 9900,
+      "openingBps": 9886,
       "floorBps": 125,
       "decay": "time",
       "decayPeriods": 20,
       "decayPeriodLength": 75,
       "decayUnit": "slots",
       "decaySecondsEstimate": 600,
-      "dynamic": true
+      "dynamic": false
     },
     "postGraduation": {
       "kind": "flat",
-      "startBps": 25,
-      "floorBps": 25,
+      "startBps": 125,
+      "floorBps": 125,
       "decay": "none"
     },
-    "creatorSharePct": 16,
+    "creatorSharePct": 30,
     "allFeesToCause": false,
     "transferFeeBps": 0
   },
   "supportsCause": true,
   "supportsFirstBuy": true,
-  "poolCreationFeeLamports": "0",
+  "poolCreationFeeLamports": "10000000",
   "migrationQuoteThreshold": "<quote atoms, decimal string>",
   "isStock": false,
   "defaultFor": ["meme"],

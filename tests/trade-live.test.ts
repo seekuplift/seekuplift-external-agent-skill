@@ -6,7 +6,7 @@
  * no spend.
  *
  * Discovers a pool still on the curve under the live production SKR config
- * (61UBwyZf…), quotes + builds a buy and a sell on it, then simulates both.
+ * (DjLboXML…), quotes + builds a buy and a sell on it, then simulates both.
  * A swap only simulates cleanly when the unsigned `owner`'s input ATA holds
  * the input token. The owner is `TRADE_LIVE_OWNER` (a funded mainnet pubkey)
  * when set, otherwise the pool's known wallet candidates (`creator`,

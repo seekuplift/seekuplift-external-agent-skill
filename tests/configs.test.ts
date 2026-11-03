@@ -54,20 +54,21 @@ afterEach(() => resetConfigCatalogCachesForTests())
 describe('GET /api/configs catalog', () => {
   it('lists only the config keys the backend serves — nothing hardcoded', async () => {
     const { configs } = await getConfigCatalog('203.0.113.10', await defaultDeps())
-    assert.equal(configs.length, 1)
+    // The recorded mobile-config serves the four non-retired exact-fee keys.
+    assert.equal(configs.length, 4)
     assert.equal(configs[0].configKey, LIVE_CONFIG_KEY)
     assert.deepEqual(configs[0].categories, ['meme', 'idea', 'startup'])
-    assert.equal(configs[0].optionId, 'default')
+    assert.equal(configs[0].optionId, 'exact-125bps')
   })
 
-  it('keeps the live config’s 99% opening rate and full decoded schedule', async () => {
+  it('keeps the default config’s 98.86% opening rate and full decoded schedule', async () => {
     const { configs } = await getConfigCatalog('203.0.113.10', await defaultDeps())
     const entry = configs.find((c) => c.configKey === LIVE_CONFIG_KEY)
     assert.ok(entry)
     assert.equal(entry.decodeError, null)
-    // On-chain decode: cliff 990,000,000 → 9900 bps = 99% opening fee.
+    // On-chain decode: cliff 988,600,000 → 9886 bps = 98.86% opening fee.
     assert.equal(entry.fees.curve.kind, 'decay')
-    assert.equal(entry.fees.curve.openingBps, 9900)
+    assert.equal(entry.fees.curve.openingBps, 9886)
     // 20 periods × 48,875,000 reduction → 125 bps = 1.25% floor.
     assert.equal(entry.fees.curve.floorBps, 125)
     assert.equal(entry.fees.curve.decay, 'time')
@@ -75,18 +76,18 @@ describe('GET /api/configs catalog', () => {
     assert.equal(entry.fees.curve.decayPeriodLength, 75)
     assert.equal(entry.fees.curve.decayUnit, 'slots')
     assert.equal(entry.fees.curve.decaySecondsEstimate, 600)
-    assert.equal(entry.fees.curve.dynamic, true)
-    // migrationFeeOption 0 → the 25 bps DAMM v2 preset (NOT a 0% fee).
+    assert.equal(entry.fees.curve.dynamic, false)
+    // Exact-fee config: the post-graduation DAMM v2 fee equals the 1.25% floor.
     assert.deepEqual(entry.fees.postGraduation, {
       kind: 'flat',
-      startBps: 25,
-      floorBps: 25,
+      startBps: 125,
+      floorBps: 125,
       decay: 'none',
     })
-    assert.equal(entry.fees.creatorSharePct, 16)
+    assert.equal(entry.fees.creatorSharePct, 30)
     assert.equal(entry.fees.allFeesToCause, false)
     assert.equal(entry.fees.transferFeeBps, 0)
-    assert.match(entry.fees.label, /99%/)
+    assert.match(entry.fees.label, /98\.86%/)
     assert.match(entry.fees.label, /1\.25%/)
     // Quote + capability fields.
     assert.equal(entry.quote.mint, SKR_MINT)
@@ -97,8 +98,8 @@ describe('GET /api/configs catalog', () => {
     assert.equal(entry.supportsFirstBuy, true)
     assert.equal(entry.supportsCause, true)
     assert.equal(entry.isStock, false)
-    assert.equal(entry.poolCreationFeeLamports, '0')
-    assert.equal(entry.migrationQuoteThreshold, '613068600')
+    assert.equal(entry.poolCreationFeeLamports, '10000000')
+    assert.equal(entry.migrationQuoteThreshold, '738170519365')
     assert.deepEqual(entry.defaultFor, ['meme'])
     // Open geo for an unrestricted caller.
     assert.deepEqual(entry.geo.allowed, true)
@@ -167,10 +168,10 @@ describe('GET /api/configs catalog', () => {
       donationClaimAuthorities: [DONATION_CLAIM_AUTHORITY],
     }
     const first = await getConfigCatalog('203.0.113.10', deps)
-    assert.equal(first.configs.length, 1)
+    assert.equal(first.configs.length, 4)
     const second = await getConfigCatalog('203.0.113.10', deps)
     assert.equal(calls.length, 2) // mobile-config still fetched (geo is fresh)
-    assert.equal(second.configs.length, 1) // but the cached parse won
+    assert.equal(second.configs.length, 4) // but the cached parse won
     clock += 61_000
     const third = await getConfigCatalog('203.0.113.10', deps)
     assert.equal(third.configs.length, 0) // after ~60s the new payload parses
@@ -429,8 +430,11 @@ describe('GET /api/configs catalog', () => {
       // A served key is not repeated; a duplicate collapses.
       transferFeeConfigKeys: [TF_KEY, LIVE_CONFIG_KEY, TF_KEY],
     }))
-    assert.deepEqual(configs.map((c) => c.configKey), [LIVE_CONFIG_KEY, TF_KEY])
-    const tf = configs[1]
+    // Dird7tkG… (retired) is used only as a real transfer-fee decode fixture
+    // for the extra-option mechanism; it is not a served/production key.
+    assert.deepEqual(configs.map((c) => c.configKey), [...configs.slice(0, -1).map((c) => c.configKey), TF_KEY])
+    assert.equal(configs[0].configKey, LIVE_CONFIG_KEY)
+    const tf = configs[configs.length - 1]
     assert.deepEqual(tf.categories, ['meme'])
     assert.equal(tf.optionId, null)
     assert.equal(tf.fees.transferFeeBps, 100)

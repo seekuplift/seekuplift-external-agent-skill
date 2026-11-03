@@ -35,7 +35,10 @@ import {
   decodePoolConfigFixture,
   loadFixture,
   mobileConfigFixture,
+  poolsFixtureMobileConfig,
+  POOLS_FIXTURE_CONFIG_KEY,
   DONATION_CLAIM_AUTHORITY,
+  TEST_WALLET,
   LEGACY_CONFIG_ACCOUNT,
   LEGACY_CONFIG_KEY,
   LIVE_CONFIG_ACCOUNT,
@@ -44,7 +47,7 @@ import {
 
 const SKR_MINT = 'SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3'
 const SPL_TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
-const PAYER = DONATION_CLAIM_AUTHORITY // any valid base58 key
+const PAYER = TEST_WALLET // any valid on-curve base58 key
 
 /** A 1×1 transparent PNG. */
 const PNG_1PX =
@@ -395,7 +398,7 @@ function stubBackendFetch(handler: (url: string) => { status?: number; body: unk
   return requests
 }
 
-const poolsCatalogDeps = { fetchMobileConfig: async () => mobileConfigFixture() }
+const poolsCatalogDeps = { fetchMobileConfig: async () => poolsFixtureMobileConfig() }
 const streamItems = () =>
   loadFixture<{ items: unknown[]; nextCursor: string | null }>('stream-list.json')
 
@@ -414,7 +417,7 @@ describe('contract — pools over the recorded stream capture', () => {
     // Every captured pool is on the prod-indexed config.
     assert.ok(result.pools.length > 0)
     for (const pool of result.pools) {
-      assert.equal(pool.configKey, LIVE_CONFIG_KEY)
+      assert.equal(pool.configKey, POOLS_FIXTURE_CONFIG_KEY)
       assert.ok(pool.id && pool.name && 'price' in pool && 'marketCap' in pool)
     }
     assert.equal(result.nextCursor, null) // no cursor on search
@@ -436,7 +439,7 @@ describe('contract — pools over the recorded stream capture', () => {
     assert.equal(params.get('lifecycle'), 'new')
     assert.equal(params.get('sortBy'), 'marketCap')
     assert.equal(params.get('cursor'), 'abc')
-    assert.ok(params.get('partnerConfigs')!.split(',').includes(LIVE_CONFIG_KEY))
+    assert.ok(params.get('partnerConfigs')!.split(',').includes(POOLS_FIXTURE_CONFIG_KEY))
     assert.ok(Array.isArray(result.pools))
   })
 })

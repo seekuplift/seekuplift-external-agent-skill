@@ -3,7 +3,7 @@
  * `LAUNCH_LIVE=1` so it never runs in the offline suite.
  *
  * Builds the real `createPool` transaction against the live production
- * config (61UBwyZf…) via `buildLaunchTx` — real `getPoolConfig` decode,
+ * config (DjLboXML…) via `buildLaunchTx` — real `getPoolConfig` decode,
  * token-badge lookup, latest blockhash, and the
  * `simulateTransaction` (sigVerify off) compute estimation inside
  * `applyEstimatedComputeBudget` — then asserts the serialized wire form:

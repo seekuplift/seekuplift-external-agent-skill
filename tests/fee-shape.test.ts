@@ -21,12 +21,12 @@ import {
 } from './helpers.ts'
 
 describe('decodeLaunchFeeShape (real fixture)', () => {
-  it('decodes the live config: 99%→1.25% time decay, dynamic fee on, 25bps post, 16% creator', async () => {
+  it('decodes the default config: 98.86%→1.25% time decay, dynamic fee off, 125bps post, 30% creator', async () => {
     const config = await decodePoolConfigFixture(LIVE_CONFIG_ACCOUNT)
     const shape = decodeLaunchFeeShape(config)
     assert.deepEqual(shape.curve, {
       kind: 'decay',
-      startFeeBps: 9900,
+      startFeeBps: 9886,
       endFeeBps: 125,
       periods: 20,
       periodLength: 75,
@@ -34,11 +34,11 @@ describe('decodeLaunchFeeShape (real fixture)', () => {
       // anti-sniper window is ~10 min, not 25.
       periodUnit: 'slots',
     })
-    assert.equal(shape.curveDynamicFee, true)
-    assert.deepEqual(shape.postGraduation, { kind: 'flat', feeBps: 25 })
-    assert.equal(shape.creatorTradingFeePercentage, 16)
+    assert.equal(shape.curveDynamicFee, false)
+    assert.deepEqual(shape.postGraduation, { kind: 'flat', feeBps: 125 })
+    assert.equal(shape.creatorTradingFeePercentage, 30)
     const label = launchFeeLabel(shape)
-    assert.match(label, /99% → 1\.25%/)
+    assert.match(label, /98\.86% → 1\.25%/)
     assert.match(label, /anti-sniper ~10 min/)
   })
 })

@@ -55,6 +55,7 @@ import {
   loadFixture,
   mobileConfigFixture,
   DONATION_CLAIM_AUTHORITY,
+  TEST_WALLET,
   LEGACY_CONFIG_ACCOUNT,
   LEGACY_CONFIG_KEY,
   LIVE_CONFIG_ACCOUNT,
@@ -73,7 +74,7 @@ const STOCK_CONFIG_KEY = '5t0cKc0nf1gFakeStockConfig1111111111111111111'
 const PNG_1PX =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
 
-const PAYER = DONATION_CLAIM_AUTHORITY // any valid base58 key works
+const PAYER = TEST_WALLET // any valid on-curve base58 key
 /** A valid base58 key that is NOT the donation claim authority — used to
  *  render a config non-cause-capable in the extraPoolConfigs patcher. */
 const NON_AUTHORITY_CLAIMER = 'So11111111111111111111111111111111111111112'

@@ -150,9 +150,9 @@ describe('TB-S-4: no instruction steers the reading agent’s recommendations', 
 })
 
 describe('TB-S-4: the generation source verifies (catalog vs fixture vs record)', () => {
-  it('decodes the live config cleanly: share 16, cause-capable, not all-to-cause', () => {
+  it('decodes the live config cleanly: share 30, cause-capable, not all-to-cause', () => {
     assert.equal(liveEntry.decodeError, null)
-    assert.equal(liveEntry.fees.creatorSharePct, 16)
+    assert.equal(liveEntry.fees.creatorSharePct, 30)
     assert.equal(liveEntry.supportsCause, true)
     assert.equal(liveEntry.fees.allFeesToCause, false)
   })
@@ -172,11 +172,15 @@ describe('TB-S-4: the generation source verifies (catalog vs fixture vs record)'
         entry.feeClaimer,
         `${key}: decoded feeClaimer ${claimer} differs from the record`,
       )
-      assert.equal(
-        isDonationRoutingCapable(claimer, AUTHORITIES),
-        true,
-        `${key}: feeClaimer ${claimer} is not a recorded donation claim authority`,
-      )
+      // Only served (indexed) production keys must route through a recorded
+      // authority; the un-indexed legacy USDC config's claimer is not one.
+      if (entry.indexed) {
+        assert.equal(
+          isDonationRoutingCapable(claimer, AUTHORITIES),
+          true,
+          `${key}: feeClaimer ${claimer} is not a recorded donation claim authority`,
+        )
+      }
       const shape = decodeLaunchFeeShape(decoded)
       assert.ok(
         (shape.creatorTradingFeePercentage ?? 0) > 0,
@@ -192,8 +196,11 @@ describe('TB-S-4: the generation source verifies (catalog vs fixture vs record)'
     }
   })
 
-  it('the recorded authority set covers every production feeClaimer in the record', () => {
-    for (const key of record.keys.filter((k) => k.role === 'production')) {
+  it('the recorded authority set covers every served production feeClaimer in the record', () => {
+    // Retired keys' claimers need not be authorities; neither do un-indexed ones.
+    const served = record.keys.filter((k) => k.role === 'production' && k.indexed)
+    assert.equal(served.length, 8)
+    for (const key of served) {
       assert.ok(
         AUTHORITIES.includes(key.feeClaimer),
         `${key.key}: production feeClaimer ${key.feeClaimer} is not in .env.example's DONATION_CLAIM_AUTHORITIES`,

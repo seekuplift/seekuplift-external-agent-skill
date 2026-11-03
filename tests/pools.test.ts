@@ -13,8 +13,9 @@ import { listPools, PoolsError } from '../src/lib/pools.ts'
 import {
   loadFixture,
   mobileConfigFixture,
+  poolsFixtureMobileConfig,
   LEGACY_CONFIG_KEY,
-  LIVE_CONFIG_KEY,
+  POOLS_FIXTURE_CONFIG_KEY,
 } from './helpers.ts'
 
 const realFetch = globalThis.fetch
@@ -49,7 +50,7 @@ const graduatedFixture = () =>
   loadFixture<{ items: unknown[]; nextCursor: string | null }>('stream-list-graduated.json')
 
 const catalogDeps = {
-  fetchMobileConfig: async () => mobileConfigFixture(),
+  fetchMobileConfig: async () => poolsFixtureMobileConfig(),
 }
 
 describe('GET /api/pools', () => {
@@ -66,7 +67,7 @@ describe('GET /api/pools', () => {
     assert.equal(url.pathname, '/api/stream/list')
     // The live fixture serves the same key under all three categories —
     // deduplicated once into the CSV.
-    assert.equal(url.searchParams.get('partnerConfigs'), LIVE_CONFIG_KEY)
+    assert.equal(url.searchParams.get('partnerConfigs'), POOLS_FIXTURE_CONFIG_KEY)
     assert.equal(url.searchParams.get('limit'), '20')
     // The caller IP rides X-Forwarded-For into the backend's read bucket.
     assert.equal(requests[0].xff, '203.0.113.7')
@@ -74,7 +75,7 @@ describe('GET /api/pools', () => {
     // Every captured item is on the live config and keeps the consumer fields.
     assert.equal(result.pools.length, listFixture().items.length)
     for (const pool of result.pools) {
-      assert.equal(pool.configKey, LIVE_CONFIG_KEY)
+      assert.equal(pool.configKey, POOLS_FIXTURE_CONFIG_KEY)
       assert.ok(pool.id, 'pool address missing')
       assert.ok(pool.baseMint, 'baseMint missing')
       assert.equal(typeof pool.name, 'string')
@@ -99,17 +100,17 @@ describe('GET /api/pools', () => {
         mobileConfigFixture({
           launchConfigOptions: {
             meme: [
-              { configKey: LIVE_CONFIG_KEY, optionId: 'default' },
+              { configKey: POOLS_FIXTURE_CONFIG_KEY, optionId: 'default' },
               { configKey: LEGACY_CONFIG_KEY, optionId: 'legacy' },
             ],
             idea: [{ configKey: LEGACY_CONFIG_KEY, optionId: 'legacy' }],
-            startup: [{ configKey: LIVE_CONFIG_KEY, optionId: 'default' }],
+            startup: [{ configKey: POOLS_FIXTURE_CONFIG_KEY, optionId: 'default' }],
           },
           version: 'v-multi-pools',
         }),
     }
     await listPools({}, null, { catalogDeps: multiConfig })
-    assert.equal(partnerConfigs, `${LIVE_CONFIG_KEY},${LEGACY_CONFIG_KEY}`)
+    assert.equal(partnerConfigs, `${POOLS_FIXTURE_CONFIG_KEY},${LEGACY_CONFIG_KEY}`)
   })
 
   it('keeps the legacy ?search= param: /api/stream/search with q + all configs', async () => {
@@ -124,7 +125,7 @@ describe('GET /api/pools', () => {
     const url = new URL(requests[0].url)
     assert.equal(url.pathname, '/api/stream/search')
     assert.equal(url.searchParams.get('q'), 'SKRG')
-    assert.equal(url.searchParams.get('partnerConfigs'), LIVE_CONFIG_KEY)
+    assert.equal(url.searchParams.get('partnerConfigs'), POOLS_FIXTURE_CONFIG_KEY)
     assert.equal(url.searchParams.get('limit'), '5')
     assert.equal(requests[0].xff, '198.51.100.4')
     assert.equal(result.nextCursor, null)
@@ -209,7 +210,7 @@ describe('GET /api/pools', () => {
     stubFetch(() => ({ body: { items: [...fixture.items, foreign], nextCursor: null } }))
     const result = await listPools({}, null, { catalogDeps })
     assert.equal(result.pools.length, fixture.items.length)
-    assert.ok(result.pools.every((p) => p.configKey === LIVE_CONFIG_KEY))
+    assert.ok(result.pools.every((p) => p.configKey === POOLS_FIXTURE_CONFIG_KEY))
   })
 
   it('keeps retired configs listed in LISTED_CONFIG_KEYS', async () => {
@@ -224,7 +225,7 @@ describe('GET /api/pools', () => {
     try {
       const result = await listPools({}, null, { catalogDeps })
       assert.equal(result.pools.length, fixture.items.length + 1)
-      assert.equal(partnerConfigs, `${LIVE_CONFIG_KEY},${LEGACY_CONFIG_KEY}`)
+      assert.equal(partnerConfigs, `${POOLS_FIXTURE_CONFIG_KEY},${LEGACY_CONFIG_KEY}`)
     } finally {
       delete process.env.LISTED_CONFIG_KEYS
     }

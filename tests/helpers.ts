@@ -65,8 +65,8 @@ export async function decodePoolConfigFixture(
 }
 
 /** The live production config (61UBwyZf…, SKR quote). */
-export const LIVE_CONFIG_KEY = '61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv'
-export const LIVE_CONFIG_ACCOUNT = 'pool-config-61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv.getAccountInfo.json'
+export const LIVE_CONFIG_KEY = 'DjLboXMLkQW9w7ZpcUPrKH1262GbwLZ2S7KNauu4B3fH'
+export const LIVE_CONFIG_ACCOUNT = 'pool-config-DjLboXMLkQW9w7ZpcUPrKH1262GbwLZ2S7KNauu4B3fH.getAccountInfo.json'
 /** The legacy config (4w9Rs2ew…, USDC quote, no first-buy flag). */
 export const LEGACY_CONFIG_KEY = '4w9Rs2ewNJte2c4FGmQHM8fycv8vWzkjv3qzANuJ2rPT'
 export const LEGACY_CONFIG_ACCOUNT = 'pool-config-4w9Rs2ewNJte2c4FGmQHM8fycv8vWzkjv3qzANuJ2rPT.getAccountInfo.json'
@@ -75,8 +75,8 @@ export const LEGACY_CONFIG_ACCOUNT = 'pool-config-4w9Rs2ewNJte2c4FGmQHM8fycv8vWz
 export const TF_CONFIG_ACCOUNT = 'pool-config-Dird7tkGkKkmJW89PLME7PQ2jQaGJAftrUg4TPm9VoAx.getAccountInfo.json'
 export const TF_CONFIG_FEE_CLAIMER = '6do3n9N3LcxP25Xuf7GVQHhN4zq34Q7JBwQn8bEJEvLA'
 
-/** The production donation claim authority (app production manifest). */
-export const DONATION_CLAIM_AUTHORITY = 'FdrDZPcYEjdB3nQGUgL7muXj4SBTzbAMMvMosufdtun1'
+/** The default config's claim PDA (DjLboXML… feeClaimer, in .env.example's authorities). */
+export const DONATION_CLAIM_AUTHORITY = '9vTeHSRDG13tZ1XT6cZHQYU1vLty6Jb3jrDyQv5BKovb'
 
 /**
  * The vendored dbc-config production config record (TB-D-1), byte-for-byte.
@@ -104,3 +104,22 @@ export type ConfigRecord = {
 export function configRecord(): ConfigRecord {
   return loadFixture<ConfigRecord>('config-record.json')
 }
+
+/**
+ * The partner config the recorded stream-list captures (2026-10-14) were taken
+ * on. It is retired now, but those pool records are real captures; the pool
+ * tests serve this key through an overlaid mobile-config so the captured
+ * records stay unedited. Never an authority or launch config.
+ */
+export const POOLS_FIXTURE_CONFIG_KEY = '61UBwyZfNnULczb3teQx9FkxvfAH4WdESfZ23MRThQAv'
+export function poolsFixtureMobileConfig(): MobileConfigResponse {
+  const option = { configKey: POOLS_FIXTURE_CONFIG_KEY, optionId: 'default' }
+  return mobileConfigFixture({
+    launchConfigKeys: { meme: POOLS_FIXTURE_CONFIG_KEY },
+    launchConfigOptions: { meme: [option], idea: [option], startup: [option] },
+    version: 'v-pools-fixture',
+  })
+}
+
+/** An on-curve wallet address for tests that need a signer/payer (the claim PDA is off-curve). */
+export const TEST_WALLET = 'FdrDZPcYEjdB3nQGUgL7muXj4SBTzbAMMvMosufdtun1'

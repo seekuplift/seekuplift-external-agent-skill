@@ -5,11 +5,11 @@ Real captured responses — nothing synthetic. Do not hand-edit; re-capture.
 
 | File | Source | Captured |
 |---|---|---|
-| `mobile-config.web.json` | `GET https://app-api.seekuplift.com/api/mobile-config?cluster=mainnet-beta&platform=web` (production backend-rs-sql) | 2026-10-14 |
-| `pool-config-61UBwyZf….getAccountInfo.json` | mainnet JSON-RPC `getAccountInfo` (base64) for the live production launch config (SKR quote, 99%→1.25% anti-sniper, 16% creator) via `https://api.mainnet-beta.solana.com` | 2026-10-14 |
+| `mobile-config.web.json` | `GET https://app-api.seekuplift.com/api/mobile-config?cluster=mainnet-beta&platform=web` (production backend-rs-sql; serves the four non-retired exact-fee keys, DjLboXML… default) | 2026-11-03 |
+| `pool-config-DjLboXML….getAccountInfo.json` | mainnet JSON-RPC `getAccountInfo` (base64, finalized, slot 464817783) for the production default launch config (SKR quote, exact-fee 98.86%→1.25% anti-sniper, 1.25% post-graduation, dynamic fee off, 30% creator; claim PDA `9vTeHSRD…`) via `https://api.mainnet-beta.solana.com`. Replaces the retired 61UBwyZf… capture | 2026-11-03 |
 | `pool-config-Dird7tkG….getAccountInfo.json` | mainnet JSON-RPC `getAccountInfo` (base64, finalized) for the tf-bootstrap default (DBC 0.2.2 version-1 config: 1.25% flat fee, 1% base transfer fee, 30% creator; claim PDA `6do3n9N3…`) via `https://api.mainnet-beta.solana.com` | 2026-10-28 |
 | `pool-config-4w9Rs2ew….getAccountInfo.json` | mainnet JSON-RPC `getAccountInfo` (base64) for the legacy USDC-quoted config (same fee schedule, `enableFirstSwapWithMinFee=0`) | 2026-10-14 |
-| `stream-list.json` | `GET https://app-api.seekuplift.com/api/stream/list?partnerConfigs=61UBwyZf…&limit=5` — production `StreamListResponse` (items + nextCursor) | 2026-10-14 |
+| `stream-list.json` | `GET https://app-api.seekuplift.com/api/stream/list?partnerConfigs=61UBwyZf…&limit=5` — production `StreamListResponse` (items + nextCursor); captured while the since-retired 61UBwyZf… was served, no pools exist on the new keys yet, so tests serve that key via `poolsFixtureMobileConfig()` | 2026-10-14 |
 | `stream-list-graduated.json` | same endpoint with `tab=graduated` — real graduated pools (`graduated: true`, `bondingCurve: 1`) | 2026-10-14 |
 | `causes.json` | `GET /api/causes` from a local backend-rs-sql (`{ causes: [...] }` envelope; production served `{"causes":[]}` at capture time) | 2026-10-15 |
 
@@ -17,7 +17,7 @@ Tests feed the account bytes through the real
 `@meteora-ag/dynamic-bonding-curve-sdk` decoder via a stubbed `Connection`
 (`getAccountInfo`/`getAccountInfoAndContext`), so the exercised path is the
 production one.
-| `config-record.json` | Vendored byte-for-byte from `dbc-config/configs/mainnet/config-record.json` at dbc-config base commit `1bdcc223eb6314d2a1e09dbf29dec356895ad5fd` plus its then-uncommitted 2026-11-03 edit (the eight exact-fee keys, DjLboXML… default, all indexed; the old eight stay indexed), sha256 `d1c47749c0fe4bc8dbcb0cfaf05193829e0f66c7d873cf08c313ae545033ac33` (pinned by `tests/config-record.test.ts`). To refresh: copy the new file, update this row and the pinned sha in the test. Reused by TB-S-4. | 2026-11-03 |
+| `config-record.json` | Vendored byte-for-byte from `dbc-config/configs/mainnet/config-record.json` at dbc-config commit `226e506ad191f346602ad2501f84c1618473affd` (the eight exact-fee keys are the only production keys, DjLboXML… default; the old eight bootstrap keys and 61UBwyZf… are role "retired"), sha256 `a64fa9b608c68eed996228044c87fcf0442259392c8de75092f5f2e1fe784e08` (pinned by `tests/config-record.test.ts`). To refresh: copy the new file, update this row and the pinned sha in the test. Reused by TB-S-4. | 2026-11-03 |
 
 ## `damm-position-claim/`
 
