@@ -1285,7 +1285,13 @@ async function stepSell() {
   } else {
     // Dry-run holds no base — quote/build a small sell anyway (the endpoints
     // do not check the owner's balance; the tx would fail on-chain only).
-    amountIn = 10n ** BigInt(Math.max((poolInfo.baseDecimals ?? 6) - 3, 0))
+    // Size it like the real run (SELL_BPS of what the buy quote would
+    // return): a fixed tiny amount rounds to zero quote atoms on cheap coins
+    // and the builder rightly refuses it with 400 zero_output.
+    const quotedBase = BigInt(ctx.buyQuote?.amountOut ?? 0)
+    amountIn = quotedBase > 0n
+      ? (quotedBase * BigInt(SELL_BPS)) / 10_000n
+      : 10n ** BigInt(Math.max((poolInfo.baseDecimals ?? 6) - 3, 0))
   }
   const { quote, tx } = await quoteAndBuild('sell', amountIn, poolInfo)
   ctx.sellQuote = quote
